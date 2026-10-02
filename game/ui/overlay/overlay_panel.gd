@@ -202,7 +202,7 @@ func add_toggle(caption: String, value: bool, on_changed: Callable) -> Button:
 
 ## A scrollable table (round summary, standings). Returns the table; fill it with set_data().
 func add_stat_table() -> StatTable:
-	var scroll := ScrollContainer.new()
+	var scroll := TouchScroll.new()
 	scroll.name = "TableScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL

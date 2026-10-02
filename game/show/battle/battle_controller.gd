@@ -1767,6 +1767,8 @@ func _run_start_hooks() -> void:
 	if ShotArgs.open_settings:
 		open_pause()
 		_open_settings_from_pause()
+	if ShotArgs.open_diag:
+		open_diagnostics()
 
 
 ## --place / --aim: arranges the first turn for a screenshot (tank positions and aim).

@@ -7,10 +7,13 @@ extends RefCounted
 ##   --shot=<png>        save the viewport to <png> after --shot-time seconds, then quit
 ##   --shot-time=<s>     default 1.5 (real seconds since the scene started)
 ##   --dpi=<n>           emulate a screen density for UiScale (e.g. 500 for a phone)
+##   --no-layout-guard   only detect (and count) wrong HUD/overlay rects, never correct them
 ##   --open-diag         title: open settings and the hidden diagnostics screen (5 taps on the version)
 ##   --safe=<l>,<t>,<r>,<b>  fake safe-area insets in physical pixels (cutout / gesture bar)
 ##   --resize=<W>x<H>    after --resize-after seconds, resize the window to W x H (Android-like late size)
 ##   --resize-after=<s>  default 0.6 (real seconds since the scene started)
+##   --resize-seq=<W>x<H>@<s>,...  several resizes at the given times (portrait first, then landscape, ...)
+##   --open-diag         battle: also opens the diagnostics screen over the battle
 ##   --shot-before=<png> with --resize: also save the viewport just before the resize
 ##   --seed=<n>          battle: fixed match seed
 ##   --rounds=<n>        battle: rounds per match
@@ -68,6 +71,8 @@ static var freeze_shot: int = 1
 static var places: Array[String] = []
 static var resize_to: Vector2i = Vector2i.ZERO
 static var resize_after: float = 0.6
+## --resize-seq=WxH@seconds,WxH@seconds,...: several window resizes (Android reports the size in steps).
+static var resize_seq: Array[Dictionary] = []
 static var shot_before_path: String = ""
 
 static var _parsed: bool = false
@@ -84,6 +89,8 @@ static func parse() -> void:
 			shot_time = a.substr(12).to_float()
 		elif a.begins_with("--dpi="):
 			UiScale.dpi_override = a.substr(6).to_float()
+		elif a == "--no-layout-guard":
+			LayoutGuard.detect_only = true
 		elif a == "--open-diag":
 			open_diag = true
 		elif a.begins_with("--safe="):
@@ -94,6 +101,12 @@ static func parse() -> void:
 			var wh: PackedStringArray = a.substr(9).to_lower().split("x")
 			if wh.size() == 2:
 				resize_to = Vector2i(wh[0].to_int(), wh[1].to_int())
+		elif a.begins_with("--resize-seq="):
+			for step: String in a.substr(13).split(","):
+				var at: PackedStringArray = step.split("@")
+				var wh2: PackedStringArray = at[0].to_lower().split("x")
+				if at.size() == 2 and wh2.size() == 2:
+					resize_seq.append({"size": Vector2i(wh2[0].to_int(), wh2[1].to_int()), "at": at[1].to_float()})
 		elif a.begins_with("--resize-after="):
 			resize_after = a.substr(15).to_float()
 		elif a.begins_with("--shot-before="):

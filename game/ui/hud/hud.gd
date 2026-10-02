@@ -261,6 +261,14 @@ static func _fmt_rect(r: Rect2) -> String:
 	return "%d,%d %dx%d" % [roundi(r.position.x), roundi(r.position.y), roundi(r.size.x), roundi(r.size.y)]
 
 
+## Compact transform: "x(1.22,0) y(0,1.22) o(0,-197)" (axes and origin).
+static func _fmt_xf(t: Transform2D) -> String:
+	var n: Array[String] = []
+	for v: float in [t.x.x, t.x.y, t.y.x, t.y.y, t.origin.x, t.origin.y]:
+		n.append(str(snappedf(v, 0.001)))
+	return "x(%s,%s) y(%s,%s) o(%s,%s)" % n
+
+
 static func _fmt_node(c: Control) -> String:
 	return _fmt_rect(c.get_global_rect()) if c != null else "-"
 
@@ -299,9 +307,10 @@ func diagnostics_lines() -> PackedStringArray:
 	var parent: Node = get_parent()
 	if parent is CanvasLayer:
 		var cl: CanvasLayer = parent
-		out.append("parent: CanvasLayer layer %d  offset %s rot %.2f scale %s  follow_viewport %s (scale %.2f)" % [
-			cl.layer, str(cl.offset), cl.rotation, str(cl.scale), str(cl.follow_viewport_enabled), cl.follow_viewport_scale])
-		out.append("layer transform: %s" % str(cl.transform))
+		out.append("parent: CanvasLayer layer %d  offset %s  rot %.2f  scale %s" % [
+			cl.layer, str(cl.offset), cl.rotation, str(cl.scale)])
+		out.append("follow_viewport %s (scale %.2f)  layer transform: %s" % [
+			str(cl.follow_viewport_enabled), cl.follow_viewport_scale, _fmt_xf(cl.transform)])
 	else:
 		out.append("parent: %s" % (parent.get_class() if parent != null else "none"))
 	var cam: Camera2D = vp.get_camera_2d()
@@ -309,10 +318,12 @@ func diagnostics_lines() -> PackedStringArray:
 		out.append("camera: zoom %s  pos %s  centre %s" % [str(cam.zoom), str(cam.position), str(cam.get_screen_center_position())])
 	else:
 		out.append("camera: none")
-	out.append("root canvas_transform: %s" % str(vp.canvas_transform))
-	out.append("global_canvas_transform: %s" % str(vp.global_canvas_transform))
+	out.append("root canvas_transform: %s" % _fmt_xf(vp.canvas_transform))
+	out.append("global_canvas_transform: %s" % _fmt_xf(vp.global_canvas_transform))
 	out.append("layout corrections: HUD %d  all screens %d%s" % [_corrections, LayoutGuard.corrections,
-			("  last: " + LayoutGuard.last_fix) if LayoutGuard.last_fix != "" else ""])
+			"  (guard OFF: detect only)" if LayoutGuard.detect_only else ""])
+	if LayoutGuard.last_fix != "":
+		out.append("last: " + LayoutGuard.last_fix)
 	return out
 
 

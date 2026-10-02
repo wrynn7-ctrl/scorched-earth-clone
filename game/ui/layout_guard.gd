@@ -13,9 +13,14 @@ const TOLERANCE: float = 1.0
 static var corrections: int = 0
 ## What the last correction fixed ("BattleHud: (0,0,1586,645) -> (0,0,1950,900)"), for diagnostics.
 static var last_fix: String = ""
+## Changing a rect fires `resized`, whose handlers call fit() again: ignore those nested calls.
+## Debug (--no-layout-guard): only detect and count, never correct, to reproduce the original bug.
+static var detect_only: bool = false
+static var _fitting: bool = false
 
 
 static func reset() -> void:
+	detect_only = false
 	corrections = 0
 	last_fix = ""
 
@@ -43,8 +48,15 @@ static func _anchors_ok(c: Control) -> bool:
 ## Makes `c` cover the visible rect again if it does not. Returns true when it had to correct
 ## something. Children of containers are left alone (the container decides their rect).
 static func fit(c: Control) -> bool:
-	if c == null or not c.is_inside_tree():
+	if _fitting or c == null or not c.is_inside_tree():
 		return false
+	_fitting = true
+	var fixed: bool = _fit(c)
+	_fitting = false
+	return fixed
+
+
+static func _fit(c: Control) -> bool:
 	var parent: Node = c.get_parent()
 	if parent is Container:
 		return false
@@ -56,8 +68,14 @@ static func fit(c: Control) -> bool:
 	var rect_bad: bool = differs(have, want)
 	if not rect_bad and not (in_control and not _anchors_ok(c)):
 		return false
+	var msg: String = "%s: %s -> %s" % [c.name, _fmt(have), _fmt(want)]
+	if detect_only:
+		if msg != last_fix:  # once per distinct finding, not once per frame
+			corrections += 1
+			last_fix = msg
+		return false
 	corrections += 1
-	last_fix = "%s: %s -> %s" % [c.name, _fmt(have), _fmt(want)]
+	last_fix = msg
 	if in_control:
 		c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		if not differs(Rect2(c.position, c.size), want):

@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=12 format=3]
+[gd_resource type="Theme" load_steps=14 format=3]
 
 [ext_resource type="FontFile" path="res://assets/fonts/orbitron-latin-700-normal.woff2" id="1_font"]
 
@@ -186,6 +186,38 @@ shadow_color = Color(0.0, 0.929, 1.0, 0.18)
 shadow_size = 8
 anti_aliasing = true
 
+[sub_resource type="StyleBoxFlat" id="bar_track"]
+bg_color = Color(0.0, 0.929, 1.0, 0.1)
+border_color = Color(0.0, 0.929, 1.0, 0.35)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="bar_grab"]
+bg_color = Color(0.0, 0.929, 1.0, 0.85)
+border_color = Color(1, 1, 1, 0.5)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 24
+content_margin_top = 28
+content_margin_right = 24
+content_margin_bottom = 28
+shadow_color = Color(0.0, 0.929, 1.0, 0.45)
+shadow_size = 5
+anti_aliasing = true
+
 [resource]
 default_font = ExtResource("1_font")
 default_font_size = 24
@@ -223,3 +255,13 @@ FireButton/styles/disabled = SubResource("fire_d")
 FireButton/styles/focus = SubResource("btn_f")
 PanelContainer/styles/panel = SubResource("panel")
 Panel/styles/panel = SubResource("panel")
+VScrollBar/styles/scroll = SubResource("bar_track")
+VScrollBar/styles/scroll_focus = SubResource("bar_track")
+VScrollBar/styles/grabber = SubResource("bar_grab")
+VScrollBar/styles/grabber_highlight = SubResource("bar_grab")
+VScrollBar/styles/grabber_pressed = SubResource("bar_grab")
+HScrollBar/styles/scroll = SubResource("bar_track")
+HScrollBar/styles/scroll_focus = SubResource("bar_track")
+HScrollBar/styles/grabber = SubResource("bar_grab")
+HScrollBar/styles/grabber_highlight = SubResource("bar_grab")
+HScrollBar/styles/grabber_pressed = SubResource("bar_grab")

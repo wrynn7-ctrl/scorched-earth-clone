@@ -46,7 +46,7 @@ var _option_rows: Array[HBoxContainer] = []
 var _players_panel: PanelContainer = null
 var _players_box: VBoxContainer = null
 var _players_caption: Label = null
-var _scroll: ScrollContainer = null
+var _scroll: TouchScroll = null
 var _rows: VBoxContainer = null
 var _player_rows: Array[HBoxContainer] = []
 var _player_labels: Array[Label] = []
@@ -213,7 +213,7 @@ func _build_players() -> void:
 	_players_caption.text = tr("SETUP_PLAYER_LIST")
 	_players_caption.add_theme_color_override("font_color", NeonPalette.CYAN)
 	_players_box.add_child(_players_caption)
-	_scroll = ScrollContainer.new()
+	_scroll = TouchScroll.new()
 	_scroll.name = "Scroll"
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -345,7 +345,7 @@ func apply_scale() -> void:
 	for b: SwatchButton in _emblem_buttons:
 		b.custom_minimum_size = Vector2.ONE * touch
 	for b: Button in _kind_buttons:
-		b.custom_minimum_size = Vector2(UiScale.dp(96.0), touch)
+		b.custom_minimum_size = Vector2(UiScale.dp(84.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
 	_back.custom_minimum_size = Vector2(UiScale.dp(84.0), UiScale.dp(56.0))
 	_back.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
@@ -496,7 +496,7 @@ func get_kind_popup() -> PopupPanel:
 	return _kind_popup
 
 
-func get_scroll() -> ScrollContainer:
+func get_scroll() -> TouchScroll:
 	return _scroll
 
 

@@ -8,6 +8,7 @@ var _done: bool = false
 var _host: Node = null
 var _held: float = 0.0
 var _resized: bool = false
+var _seq_i: int = 0
 
 
 func _init() -> void:
@@ -29,6 +30,9 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _done:
 		return
+	while _seq_i < ShotArgs.resize_seq.size() and _elapsed >= float(ShotArgs.resize_seq[_seq_i]["at"]):
+		get_window().size = ShotArgs.resize_seq[_seq_i]["size"] as Vector2i
+		_seq_i += 1
 	if ShotArgs.resize_to != Vector2i.ZERO and not _resized and _elapsed >= ShotArgs.resize_after:
 		_resized = true
 		_resize_window()
@@ -61,6 +65,11 @@ func _resize_window() -> void:
 
 
 func _take() -> void:
+	if _host != null and _host.has_method("get_hud"):
+		var hud: BattleHud = _host.call("get_hud") as BattleHud
+		for l: String in hud.diagnostics_lines():
+			if l.begins_with("HUD root:") or l.begins_with("Safe:") or l.begins_with("layout") or l.begins_with("last"):
+				print("shot: hud ", l)
 	await RenderingServer.frame_post_draw
 	var img: Image = get_viewport().get_texture().get_image()
 	var err: int = img.save_png(ShotArgs.shot_path)

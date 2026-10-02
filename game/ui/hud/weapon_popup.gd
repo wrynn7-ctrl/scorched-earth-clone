@@ -14,7 +14,7 @@ var _panel: PanelContainer = null
 var _margin: MarginContainer = null
 var _box: VBoxContainer = null
 var _title: Label = null
-var _scroll: ScrollContainer = null
+var _scroll: TouchScroll = null
 var _grid: GridContainer = null
 var _chips: Array[HudChip] = []
 var _entries: Array[Dictionary] = []
@@ -53,7 +53,7 @@ func _init() -> void:
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_color_override("font_color", NeonPalette.CYAN)
 	_box.add_child(_title)
-	_scroll = ScrollContainer.new()
+	_scroll = TouchScroll.new()
 	_scroll.name = "Scroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_box.add_child(_scroll)

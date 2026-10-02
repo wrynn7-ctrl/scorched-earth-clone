@@ -33,7 +33,7 @@ var _money: MoneyLabel = null
 var _toolbar: HBoxContainer = null
 var _tab_buttons: Array[Button] = []
 var _ready_btn: Button = null
-var _scroll: ScrollContainer = null
+var _scroll: TouchScroll = null
 var _grid: GridContainer = null
 var _list: VBoxContainer = null
 var _body: HBoxContainer = null
@@ -119,7 +119,7 @@ func _build_body() -> void:
 	_body.name = "Body"
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(_body)
-	_scroll = ScrollContainer.new()
+	_scroll = TouchScroll.new()
 	_scroll.name = "Scroll"
 	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -202,6 +202,7 @@ func apply_scale() -> void:
 	_ready_btn.add_theme_font_size_override("font_size", UiScale.font(22.0))
 	_money.apply_scale()
 	_detail.apply_scale()
+	_scroll.apply_style()
 	var want_tablet: bool = is_tablet_layout()
 	if want_tablet != _tablet or _cards.is_empty():
 		_tablet = want_tablet
@@ -236,12 +237,9 @@ func _rebuild() -> void:
 		_detail.set_popup_mode(false)
 		_body.add_child(_detail_holder)
 		_detail_holder.add_child(_detail)
-		_list.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	else:
 		_detail.set_icon_dp(56.0)
 		_detail.set_popup_mode(true)
-		_grid.add_theme_constant_override("h_separation", roundi(UiScale.dp(8.0)))
-		_grid.add_theme_constant_override("v_separation", roundi(UiScale.dp(8.0)))
 	for id: String in ids_for_tab(_tab):
 		var card := ShopCard.new()
 		card.name = "Card_" + id
@@ -255,10 +253,16 @@ func _rebuild() -> void:
 	refresh()
 
 
+## Re-derives everything dp-based about the card holders; runs on build and on every resize
+## (stale gaps from an earlier density would push the grid wider than its scroll area).
 func _layout_cards() -> void:
+	_list.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
+	_grid.add_theme_constant_override("h_separation", roundi(UiScale.dp(8.0)))
+	_grid.add_theme_constant_override("v_separation", roundi(UiScale.dp(8.0)))
 	if _tablet:
 		return
-	var vis_w: float = get_viewport_rect().size.x - UiScale.dp(20.0)
+	# The scrollbar takes its share of the width when the list overflows; leave room for it up front.
+	var vis_w: float = get_viewport_rect().size.x - UiScale.dp(20.0) - TouchScroll.bar_thickness()
 	var gap: float = UiScale.dp(8.0)
 	_grid.columns = maxi(2, int(vis_w / (UiScale.dp(150.0) + gap)))
 
@@ -409,15 +413,18 @@ func open_popup(id: String) -> void:
 		_popup_center.add_child(_detail)
 	_detail.custom_minimum_size.x = minf(UiScale.dp(420.0), get_viewport_rect().size.x * 0.92)
 	_popup.visible = true
+	_scroll.drag_enabled = false
 
 
 func close_popup() -> void:
 	_popup.visible = false
+	_scroll.drag_enabled = true
 
 
 func _close_popup_silently() -> void:
 	if _popup != null:
 		_popup.visible = false
+		_scroll.drag_enabled = true
 	if _detail != null and _detail.get_parent() == _popup_center:
 		_popup_center.remove_child(_detail)
 
@@ -483,5 +490,5 @@ func get_popup() -> Control:
 	return _popup
 
 
-func get_scroll() -> ScrollContainer:
+func get_scroll() -> TouchScroll:
 	return _scroll
