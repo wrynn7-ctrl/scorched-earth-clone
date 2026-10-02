@@ -418,4 +418,4 @@ func test_apply_action_performance() -> void:
 	var ev: Array[Dictionary] = Simulation.apply_action(s, SimTestUtil.fire(0, 450, 800))
 	var ms: int = Time.get_ticks_msec() - t0
 	print("PERF apply_action (pulse missile, %d events): %d ms" % [ev.size(), ms])
-	assert_lt(ms, 200)
+	assert_lt(ms, SimTestUtil.perf_budget(200))

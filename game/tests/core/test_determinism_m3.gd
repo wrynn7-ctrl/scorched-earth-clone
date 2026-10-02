@@ -225,5 +225,5 @@ func test_performance_numbers() -> void:
 	Simulation.fingerprint(s)
 	var fp_us: int = Time.get_ticks_usec() - f0
 	print("PERF M3 apply_action(fire) worst of 5: %.1f ms, fingerprint: %.1f ms" % [worst / 1000.0, fp_us / 1000.0])
-	assert_lt(worst, 30000, "apply_action under 30 ms")
-	assert_lt(fp_us, 30000, "fingerprint under 30 ms")
+	assert_lt(worst, SimTestUtil.perf_budget(30000), "apply_action under 30 ms")
+	assert_lt(fp_us, SimTestUtil.perf_budget(30000), "fingerprint under 30 ms")

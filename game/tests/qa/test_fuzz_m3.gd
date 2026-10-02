@@ -453,4 +453,4 @@ func test_fuzz_200_matches_over_the_full_m3_action_space() -> void:
 			missing.append(key)
 	assert_eq(missing, [] as Array[String], "error keys never produced by the fuzz")
 	assert_gte(_weapons_fired.size(), 20 if MATCHES >= 150 else 10, "(nearly) every weapon was fired")
-	assert_lt(ms, 90000 * MATCHES / 200, "fuzz stays within its time budget")
+	assert_lt(ms, SimTestUtil.perf_budget(90000 * MATCHES / 200), "fuzz stays within its time budget")

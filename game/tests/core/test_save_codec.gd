@@ -234,5 +234,5 @@ func test_encode_performance_and_size() -> void:
 	var t2: int = Time.get_ticks_msec()
 	print("PERF SaveCodec encode %d ms, decode %d ms, %d bytes" % [t1 - t0, t2 - t1, bytes.size()])
 	assert_true(res["ok"])
-	assert_lt(t1 - t0, 100)
-	assert_lt(t2 - t1, 150)
+	assert_lt(t1 - t0, SimTestUtil.perf_budget(100))
+	assert_lt(t2 - t1, SimTestUtil.perf_budget(150))

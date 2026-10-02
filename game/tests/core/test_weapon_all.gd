@@ -134,7 +134,7 @@ func test_apply_action_stays_inside_the_frame_budget() -> void:
 					"weapon": id})
 			best = minf(best, float(Time.get_ticks_usec() - t0) / 1000.0)
 		report.append("%s %.1f" % [id, best])
-		var budget: float = INFERNO_BUDGET_MS if id == "inferno_gel" else FRAME_BUDGET_MS
+		var budget: float = SimTestUtil.perf_budget_f(INFERNO_BUDGET_MS if id == "inferno_gel" else FRAME_BUDGET_MS)
 		assert_lt(best, budget, "%s took %.1f ms" % [id, best])
 	gut.p("apply_action ms (best of 3): " + ", ".join(report))
 
@@ -156,5 +156,5 @@ func test_worst_cases_stay_inside_the_frame_budget() -> void:
 				WU.fire(s, id, aim.x, aim.y)
 				best = minf(best, float(Time.get_ticks_usec() - t0) / 1000.0)
 			worst = maxf(worst, best)
-		assert_lt(worst, pair[1] as float, "%s took %.1f ms" % [id, worst])
+		assert_lt(worst, SimTestUtil.perf_budget_f(pair[1] as float), "%s took %.1f ms" % [id, worst])
 		gut.p("%s worst case %.1f ms" % [id, worst])

@@ -105,7 +105,7 @@ func test_books_balance_after_every_action_of_bot_matches() -> void:
 	assert_gt(kills, 5, "kills were exercised")
 	assert_gt(self_hits, 3, "self damage was exercised")
 	assert_gt(shield_only, 0, "shield-absorbed hits were exercised")
-	assert_lt(ms, 70000, "stays within its time budget")
+	assert_lt(ms, SimTestUtil.perf_budget(70000), "stays within its time budget")
 
 
 # --- hand-built scenarios ------------------------------------------------------------------------

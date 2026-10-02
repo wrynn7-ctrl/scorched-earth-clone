@@ -245,4 +245,4 @@ func test_generate_performance_full_size() -> void:
 	var ms: int = Time.get_ticks_msec() - t0
 	print("PERF Terrain.generate 1600x900: %d ms" % ms)
 	assert_eq(t.cells.size(), 1600 * 900)
-	assert_lt(ms, 1500, "generate must be fast on phones")
+	assert_lt(ms, SimTestUtil.perf_budget(1500), "generate must be fast on phones")

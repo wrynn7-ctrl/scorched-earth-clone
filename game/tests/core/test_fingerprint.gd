@@ -104,7 +104,7 @@ func test_fingerprint_performance() -> void:
 	var ms: int = Time.get_ticks_msec() - t0
 	print("PERF fingerprint 1600x900: %d ms" % ms)
 	assert_eq(f.length(), 16)
-	assert_lt(ms, 100)
+	assert_lt(ms, SimTestUtil.perf_budget(100))
 
 
 func test_new_match_performance_and_duplicate() -> void:

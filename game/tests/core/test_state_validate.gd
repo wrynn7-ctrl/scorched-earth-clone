@@ -263,4 +263,4 @@ func test_validation_is_cheap_and_does_not_mutate() -> void:
 		StateSerial.validate(s)
 	var per_call_us: int = (Time.get_ticks_usec() - t0) / 20
 	assert_eq(Simulation.fingerprint(s), fp)
-	assert_lt(per_call_us, 5000, "no per-cell work: %d us" % per_call_us)
+	assert_lt(per_call_us, SimTestUtil.perf_budget(5000), "no per-cell work: %d us" % per_call_us)

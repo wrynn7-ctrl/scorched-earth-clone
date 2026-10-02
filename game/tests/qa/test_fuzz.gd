@@ -217,4 +217,4 @@ func test_fuzz_300_random_matches() -> void:
 	assert_eq(failures.size(), 0, "fuzz failures:\n%s" % "\n".join(failures))
 	assert_gt(timelines, 1500, "fuzz exercised plenty of timelines")
 	assert_gt(round_ends, 20, "fuzz reached round ends")
-	assert_lt(ms, 90000, "fuzz stays within its time budget")
+	assert_lt(ms, SimTestUtil.perf_budget(90000), "fuzz stays within its time budget")

@@ -5,6 +5,26 @@ extends RefCounted
 const GROUND_Y: int = 600
 
 
+## Multiplier for every wall-clock budget in the tests. Read from the PERF_BUDGET_SCALE
+## environment variable (e.g. 3 on shared CI runners); 1.0 when unset or unparsable, and never
+## below 1.0, so a budget can only be loosened, not tightened.
+static func perf_scale() -> float:
+	var raw: String = OS.get_environment("PERF_BUDGET_SCALE").strip_edges()
+	if raw == "" or not raw.is_valid_float():
+		return 1.0
+	return maxf(1.0, raw.to_float())
+
+
+## `base` (an integer budget in whatever unit the test measures) scaled by perf_scale(), rounded up.
+static func perf_budget(base: int) -> int:
+	return ceili(float(base) * perf_scale())
+
+
+## Same for fractional budgets (milliseconds as floats).
+static func perf_budget_f(base: float) -> float:
+	return base * perf_scale()
+
+
 ## Hand-built match on perfectly flat ground (solid below GROUND_Y). Tanks stand on it at
 ## x = 300 + i * 1000 / (n - 1) spacing; wind 0; 3 rounds so a round end is not match end.
 static func flat_state(num_tanks: int = 2) -> MatchState:

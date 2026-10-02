@@ -110,7 +110,7 @@ func test_decoded_state_continues_identically_60_matches() -> void:
 	assert_eq(failures.size(), 0, "save/load divergences:\n%s" % "\n".join(failures))
 	assert_gt(splits, 60, "plenty of save points")
 	assert_gt(compared, 500, "plenty of compared steps")
-	assert_lt(ms, 90000, "stays within its time budget")
+	assert_lt(ms, SimTestUtil.perf_budget(90000), "stays within its time budget")
 
 
 ## A mid-round save of a bot match: returns {state, log}.
@@ -242,7 +242,7 @@ func test_corruption_fuzz_flips_and_truncations_never_decode() -> void:
 			noise += 1
 	gut.p("CORRUPTION FUZZ: %d decodes in %d ms (%d engine error lines from corrupt JSON)" % [decodes, ms, noise])
 	assert_eq(failures.size(), 0, "corruption fuzz failures:\n%s" % "\n".join(failures.slice(0, 20)))
-	assert_lt(ms, 60000, "stays within its time budget")
+	assert_lt(ms, SimTestUtil.perf_budget(60000), "stays within its time budget")
 
 
 func test_decode_of_garbage_inputs() -> void:
