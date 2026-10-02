@@ -123,6 +123,39 @@ func test_angle_panel_fine_buttons_clamp_and_emit() -> void:
 	(p.get_node("Box/Row/Minus") as FineButton).end_hold()
 
 
+func test_angle_buttons_show_arrows_and_step_correctly() -> void:
+	var p: AnglePanel = add_child_autofree(AnglePanel.new())
+	await wait_frames(1)
+	var plus: FineButton = p.get_node("Box/Row/Plus")
+	var minus: FineButton = p.get_node("Box/Row/Minus")
+	assert_eq(plus.get_arrow(), FineButton.Arrow.UP, "+0.1 shows up arrow")
+	assert_eq(minus.get_arrow(), FineButton.Arrow.DOWN, "-0.1 shows down arrow")
+	assert_eq(plus.text, "", "no text on arrow buttons")
+	assert_eq(minus.text, "")
+	assert_ne(plus.tooltip_text, "")
+	assert_ne(minus.tooltip_text, "")
+	assert_ne(plus.tooltip_text, minus.tooltip_text)
+	assert_ne(plus.tooltip_text, "HUD_ANGLE_UP", "key is translated")
+	assert_eq(plus.accessibility_name, plus.tooltip_text)
+	assert_true(plus.size.y >= UiScale.touch() and minus.size.y >= UiScale.touch(), "touch target")
+	p.set_angle_tenths(450)
+	plus.begin_hold()
+	plus.end_hold()
+	assert_eq(p.get_angle_tenths(), 451)
+	minus.begin_hold()
+	minus.end_hold()
+	minus.begin_hold()
+	minus.end_hold()
+	assert_eq(p.get_angle_tenths(), 449)
+
+
+func test_power_buttons_keep_text_without_arrow() -> void:
+	var p: PowerPanel = add_child_autofree(PowerPanel.new())
+	await wait_frames(1)
+	assert_eq((p.get_node("Box/Plus") as FineButton).get_arrow(), FineButton.Arrow.NONE)
+	assert_ne((p.get_node("Box/Plus") as FineButton).text, "")
+
+
 func test_power_panel_fine_buttons() -> void:
 	var p: PowerPanel = add_child_autofree(PowerPanel.new())
 	await wait_frames(1)

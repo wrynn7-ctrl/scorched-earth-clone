@@ -36,11 +36,13 @@ func _init() -> void:
 	_minus = FineButton.new()
 	_minus.name = "Minus"
 	_minus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_minus.arrow = FineButton.Arrow.DOWN
 	_minus.stepped.connect(_on_step.bind(-1))
 	_row.add_child(_minus)
 	_plus = FineButton.new()
 	_plus.name = "Plus"
 	_plus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_plus.arrow = FineButton.Arrow.UP
 	_plus.stepped.connect(_on_step.bind(1))
 	_row.add_child(_plus)
 
@@ -53,8 +55,6 @@ func _ready() -> void:
 func apply_scale() -> void:
 	_caption.add_theme_font_size_override("font_size", UiScale.font(11.0))
 	_readout.add_theme_font_size_override("font_size", UiScale.font(26.0))
-	_minus.add_theme_font_size_override("font_size", UiScale.font(14.0))
-	_plus.add_theme_font_size_override("font_size", UiScale.font(14.0))
 	var bs := Vector2(UiScale.dp(64.0), UiScale.touch() * 1.05)
 	_minus.custom_minimum_size = bs
 	_plus.custom_minimum_size = bs
@@ -81,8 +81,10 @@ func _on_step(multiplier: int, direction: int) -> void:
 func _refresh() -> void:
 	_caption.text = tr("HUD_ANGLE")
 	_readout.text = HudFormat.angle(_angle)
-	_minus.text = tr("HUD_ANGLE_MINUS")
-	_plus.text = tr("HUD_ANGLE_PLUS")
+	_minus.tooltip_text = tr("HUD_ANGLE_DOWN")
+	_minus.accessibility_name = tr("HUD_ANGLE_DOWN")
+	_plus.tooltip_text = tr("HUD_ANGLE_UP")
+	_plus.accessibility_name = tr("HUD_ANGLE_UP")
 
 
 func _notification(what: int) -> void:
