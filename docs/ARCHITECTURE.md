@@ -349,3 +349,18 @@ Flight paths are produced by `Ballistics` (the same code as `trace`), so the pre
 ## 24. Fingerprint additions
 All new `TankState` fields, `MatchState.wells` and anything else added to state **must** be included in
 `fingerprint()` in a fixed order. Golden fixtures in `game/tests/qa/fixtures/` will be regenerated deliberately for M3.
+
+## 25. M3-C1 resolutions (binding)
+- Extra events: `ready {tank}`, `repulsor_on {tank, charge}`. `tank_move` carries `fuel`. `repulsor_down` follows
+  `projectile` with the tick the charge ran out.
+- Extra error key `unknown_item` (an id not in the catalog). Buy checks run in this order: `bad_field, unknown_item,
+  not_buyable, locked_item, inventory_full, no_money`. A buy that would exceed 99 is rejected whole. Selling more than
+  you own sells what you own.
+- Weapon param keys: `r`, `dmg` for blasts. Q16.16 params are stored raw; splitter `spread` is in tenths of a cell/tick.
+  See the header of `weapon_defs.gd`.
+- `START_FUEL = 0`: moving needs a Fuel Cell.
+- `damage.amount` is the nominal amount after shield absorption. Event order per hit: `shield_hit → damage → money`.
+- Walking falls have no attacker (no money effect). Team damage counts as self-damage.
+- The repulsor never pushes its owner's shell, and resets at `start_round`.
+- Save format: magic, version, snapshot from `StateSerial` (shared with the fingerprint), action JSON, fingerprint,
+  SHA-256 trailer. Decode errors: `too_short, bad_magic, bad_version, corrupt, fingerprint`; plus `no_file` from SaveStore.

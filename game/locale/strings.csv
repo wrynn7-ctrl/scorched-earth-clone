@@ -65,3 +65,59 @@ ERR_TANK_DEAD,This tank is destroyed
 ERR_BAD_ANGLE,Angle out of range
 ERR_BAD_POWER,Power too low - raise it first
 ERR_UNKNOWN_WEAPON,Unknown weapon
+ITEM_SPARK_DART,Spark Dart
+ITEM_SPARK_DART_DESC,Free small shell. Unlimited.
+ITEM_PULSE_MISSILE,Pulse Missile
+ITEM_PULSE_MISSILE_DESC,Reliable all-round explosive.
+ITEM_HYPERPULSE,Hyperpulse
+ITEM_HYPERPULSE_DESC,Bigger blast and more punch.
+ITEM_NOVA_CORE,Nova Core
+ITEM_NOVA_CORE_DESC,Huge blast that flattens a hillside.
+ITEM_SUPERNOVA,Supernova
+ITEM_SUPERNOVA_DESC,The biggest explosion there is.
+ITEM_PRISM_SPLITTER,Prism Splitter
+ITEM_PRISM_SPLITTER_DESC,Breaks into five shells at the top of its arc.
+ITEM_PRISM_CASCADE,Prism Cascade
+ITEM_PRISM_CASCADE_DESC,Breaks into nine smaller shells at the apex.
+ITEM_GLIDE_ORB,Glide Orb
+ITEM_GLIDE_ORB_DESC,Lands then rolls downhill before it blows.
+ITEM_HEAVY_ORB,Heavy Orb
+ITEM_HEAVY_ORB_DESC,A faster and bigger rolling bomb.
+ITEM_BORE_SHELL,Bore Shell
+ITEM_BORE_SHELL_DESC,Drills into the ground then detonates.
+ITEM_DEEP_BORE,Deep Bore
+ITEM_DEEP_BORE_DESC,Drills much deeper before it detonates.
+ITEM_MOUND_MORTAR,Mound Mortar
+ITEM_MOUND_MORTAR_DESC,Piles up a mound of dirt where it lands.
+ITEM_LANDSLIDE,Landslide
+ITEM_LANDSLIDE_DESC,Buries an area under a huge heap of dirt.
+ITEM_SLUDGE_SHELL,Sludge Shell
+ITEM_SLUDGE_SHELL_DESC,Pours glowing sludge that flows into valleys.
+ITEM_EMBER_RAIN,Ember Rain
+ITEM_EMBER_RAIN_DESC,Showers burning embers that trickle downhill.
+ITEM_INFERNO_GEL,Inferno Gel
+ITEM_INFERNO_GEL_DESC,A heavy burning gel that scorches whatever it touches.
+ITEM_SEEKER,Seeker
+ITEM_SEEKER_DESC,Steers toward the nearest enemy after its apex.
+ITEM_PHOTON_LANCE,Photon Lance
+ITEM_PHOTON_LANCE_DESC,Fires a straight beam that cuts through rock.
+ITEM_STATIC_BURST,Static Burst
+ITEM_STATIC_BURST_DESC,Small blast that knocks out shields and repulsors.
+ITEM_SINGULARITY_SEED,Singularity Seed
+ITEM_SINGULARITY_SEED_DESC,Plants a gravity well that bends shells for two rounds of turns.
+ITEM_RIPTIDE_ANCHOR,Riptide Anchor
+ITEM_RIPTIDE_ANCHOR_DESC,Drags nearby tanks sideways toward the impact.
+ITEM_GLOW_SHIELD,Glow Shield
+ITEM_GLOW_SHIELD_DESC,Absorbs 30 damage.
+ITEM_ION_SHIELD,Ion Shield
+ITEM_ION_SHIELD_DESC,Absorbs 60 damage.
+ITEM_FORTRESS_FIELD,Fortress Field
+ITEM_FORTRESS_FIELD_DESC,Absorbs 100 damage and resists Riptide pulls.
+ITEM_REPULSOR_FIELD,Repulsor Field
+ITEM_REPULSOR_FIELD_DESC,Pushes incoming shells away for a short time.
+ITEM_DRIFT_CHUTE,Drift Chute
+ITEM_DRIFT_CHUTE_DESC,Opens by itself on a long fall and cancels the damage.
+ITEM_FUEL_CELL,Fuel Cell
+ITEM_FUEL_CELL_DESC,Adds 100 fuel for driving.
+ITEM_NANOREPAIR_KIT,Nanorepair Kit
+ITEM_NANOREPAIR_KIT_DESC,Restores 40 health but ends your turn.

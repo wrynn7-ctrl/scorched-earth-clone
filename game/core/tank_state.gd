@@ -14,6 +14,20 @@ var power: int = SimConstants.DEFAULT_POWER
 var alive: bool = true
 var color_index: int = 0
 
+# --- economy & items (section 18) ---
+var money: int = 0
+var kills: int = 0
+var damage_dealt: int = 0
+var round_wins: int = 0
+var ready: bool = false
+var fuel: int = SimConstants.START_FUEL
+## Catalog index of the active shield, or -1.
+var shield_type: int = -1
+var shield_hp: int = 0
+var repulsor_charge: int = 0
+## Units owned per catalog index (spark_dart is unlimited and never stored).
+var inventory: PackedInt32Array = Catalog.new_inventory()
+
 
 ## Tanks rest on the highest surface point under their width.
 static func rest_y(terrain: Terrain, tx: int) -> int:
@@ -30,6 +44,27 @@ func contains_cell(cx: int, cy: int) -> bool:
 	return cx >= x - half and cx < x + half and cy >= y - SimConstants.TANK_H and cy < y
 
 
+## Units of a catalog entry owned (0 for an unknown id).
+func stock_of(item_id: String) -> int:
+	var idx: int = Catalog.index_of(item_id)
+	if idx < 0 or idx >= inventory.size():
+		return 0
+	return inventory[idx]
+
+
+## Sets the stock of a catalog entry (ignored for an unknown id). Setup/test helper; the
+## simulation changes stock through actions.
+func set_stock(item_id: String, units: int) -> void:
+	var idx: int = Catalog.index_of(item_id)
+	if idx >= 0 and idx < inventory.size():
+		inventory[idx] = units
+
+
+## True while the tank has an active shield bubble.
+func has_shield() -> bool:
+	return shield_type >= 0 and shield_hp > 0
+
+
 func duplicate_tank() -> TankState:
 	var t := TankState.new()
 	t.id = id
@@ -41,4 +76,14 @@ func duplicate_tank() -> TankState:
 	t.power = power
 	t.alive = alive
 	t.color_index = color_index
+	t.money = money
+	t.kills = kills
+	t.damage_dealt = damage_dealt
+	t.round_wins = round_wins
+	t.ready = ready
+	t.fuel = fuel
+	t.shield_type = shield_type
+	t.shield_hp = shield_hp
+	t.repulsor_charge = repulsor_charge
+	t.inventory = inventory.duplicate()
 	return t

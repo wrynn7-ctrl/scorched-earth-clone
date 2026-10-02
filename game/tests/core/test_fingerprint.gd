@@ -13,11 +13,13 @@ func _settings(seed_value: int) -> MatchSettings:
 
 ## Runs a fixed scripted game from scratch; returns the fingerprint after every action.
 func _run_script(seed_value: int) -> Array[String]:
-	var state: MatchState = Simulation.new_match(_settings(seed_value))
+	var state: MatchState = SimTestUtil.started_match(_settings(seed_value))
 	var prints: Array[String] = [Simulation.fingerprint(state)]
 	for i: int in range(SCRIPT_STEPS):
-		if state.phase == "round_over":
-			Simulation.start_round(state)
+		if state.phase == "shop":
+			SimTestUtil.begin_round(state)
+			for t: TankState in state.tanks:
+				t.set_stock("pulse_missile", 50)
 		assert_eq(state.phase, "aim")
 		var angle: int = 200 + (i * 137) % 1400
 		var power: int = 350 + (i * 211) % 650
@@ -44,14 +46,14 @@ func test_different_seed_different_fingerprints() -> void:
 
 
 func test_fingerprint_format() -> void:
-	var f: String = Simulation.fingerprint(Simulation.new_match(_settings(1)))
+	var f: String = Simulation.fingerprint(SimTestUtil.started_match(_settings(1)))
 	assert_eq(f.length(), 16)
 	assert_true(f.is_valid_hex_number(), "hex digits only")
 	assert_eq(f, f.to_lower())
 
 
 func test_duplicate_state_matches_and_is_deep() -> void:
-	var s: MatchState = Simulation.new_match(_settings(5))
+	var s: MatchState = SimTestUtil.started_match(_settings(5))
 	Simulation.apply_action(s, SimTestUtil.fire(s.current_tank, 600, 700))
 	var d: MatchState = s.duplicate_state()
 	assert_eq(Simulation.fingerprint(d), Simulation.fingerprint(s))
@@ -73,7 +75,7 @@ func test_duplicate_state_matches_and_is_deep() -> void:
 
 
 func test_fingerprint_sensitive_to_each_field() -> void:
-	var base: MatchState = Simulation.new_match(_settings(9))
+	var base: MatchState = SimTestUtil.started_match(_settings(9))
 	var f0: String = Simulation.fingerprint(base)
 	var m: MatchState = base.duplicate_state()
 	m.tanks[1].x += 1
@@ -88,7 +90,7 @@ func test_fingerprint_sensitive_to_each_field() -> void:
 	m.wind += 1
 	assert_ne(Simulation.fingerprint(m), f0, "wind")
 	m = base.duplicate_state()
-	m.phase = "round_over"
+	m.phase = "shop"
 	assert_ne(Simulation.fingerprint(m), f0, "phase")
 	m = base.duplicate_state()
 	m.terrain.cells[12345] = 3 if m.terrain.cells[12345] != 3 else 4
@@ -96,7 +98,7 @@ func test_fingerprint_sensitive_to_each_field() -> void:
 
 
 func test_fingerprint_performance() -> void:
-	var s: MatchState = Simulation.new_match(_settings(3))
+	var s: MatchState = SimTestUtil.started_match(_settings(3))
 	var t0: int = Time.get_ticks_msec()
 	var f: String = Simulation.fingerprint(s)
 	var ms: int = Time.get_ticks_msec() - t0
@@ -115,16 +117,59 @@ func test_new_match_performance_and_duplicate() -> void:
 	assert_eq(d.tanks.size(), 4)
 
 
-# Pinned values: any change to terrain generation, placement, ballistics, damage or the
-# serialization order changes these. Update them only for an intentional rules change
-# (and bump saves/replays accordingly).
+# Pinned values: any change to terrain generation, placement, ballistics, damage, economy or
+# the serialization order changes these. Update them only for an intentional rules change
+# (and bump saves/replays accordingly). Regenerated for M3 (new state fields, shop phase).
 func test_pinned_golden_fingerprints() -> void:
 	var st := MatchSettings.new()
 	st.seed = 42
 	st.num_tanks = 3
 	st.rounds = 2
 	var s: MatchState = Simulation.new_match(st)
-	assert_eq(Simulation.fingerprint(s), "d1bf76dbc0d3ea72")
+	assert_eq(Simulation.fingerprint(s), "1defa925775ace18")
+	for t: TankState in s.tanks:
+		Simulation.apply_action(s, {"kind": "buy", "tank": t.id, "item": "pulse_missile", "qty": 2})
+	Simulation.apply_action(s, {"kind": "buy", "tank": 1, "item": "glow_shield", "qty": 1})
+	SimTestUtil.begin_round(s)
+	assert_eq(Simulation.fingerprint(s), "b036c4d20e3de2d7")
 	Simulation.apply_action(s, SimTestUtil.fire(0, 450, 700))
 	Simulation.apply_action(s, SimTestUtil.fire(1, 1350, 650))
-	assert_eq(Simulation.fingerprint(s), "d858ede05872ef7b")
+	assert_eq(Simulation.fingerprint(s), "c5c8275e8f9da3ec")
+
+
+func test_fingerprint_covers_every_new_field() -> void:
+	var base: MatchState = SimTestUtil.started_match(_settings(11))
+	var f0: String = Simulation.fingerprint(base)
+	var edits: Dictionary = {
+		"money": func(m: MatchState) -> void: m.tanks[0].money += 1,
+		"kills": func(m: MatchState) -> void: m.tanks[0].kills += 1,
+		"damage_dealt": func(m: MatchState) -> void: m.tanks[0].damage_dealt += 1,
+		"round_wins": func(m: MatchState) -> void: m.tanks[0].round_wins += 1,
+		"ready": func(m: MatchState) -> void: m.tanks[0].ready = true,
+		"fuel": func(m: MatchState) -> void: m.tanks[0].fuel += 1,
+		"shield_type": func(m: MatchState) -> void: m.tanks[0].shield_type = 3,
+		"shield_hp": func(m: MatchState) -> void: m.tanks[0].shield_hp = 3,
+		"repulsor_charge": func(m: MatchState) -> void: m.tanks[0].repulsor_charge = 3,
+		"inventory": func(m: MatchState) -> void: m.tanks[0].inventory[27] += 1,
+		"wells": func(m: MatchState) -> void: m.wells.append({"owner": 0, "x": 5, "y": 6, "expires_turn": 7}),
+		"start_money": func(m: MatchState) -> void: m.settings.start_money += 1,
+		"full_unlocked": func(m: MatchState) -> void: m.settings.full_unlocked = false,
+		"round_index": func(m: MatchState) -> void: m.round_index += 1,
+		"alive": func(m: MatchState) -> void: m.tanks[1].alive = false,
+	}
+	var seen: Dictionary = {}
+	for key: String in edits:
+		var m: MatchState = base.duplicate_state()
+		(edits[key] as Callable).call(m)
+		var f: String = Simulation.fingerprint(m)
+		assert_ne(f, f0, "fingerprint covers %s" % key)
+		assert_false(seen.has(f), "edit %s gives a distinct fingerprint" % key)
+		seen[f] = true
+	# well fields individually
+	var w: MatchState = base.duplicate_state()
+	w.wells.append({"owner": 0, "x": 5, "y": 6, "expires_turn": 7})
+	var fw: String = Simulation.fingerprint(w)
+	for field: String in ["owner", "x", "y", "expires_turn"]:
+		var w2: MatchState = w.duplicate_state()
+		w2.wells[0][field] = (w2.wells[0][field] as int) + 1
+		assert_ne(Simulation.fingerprint(w2), fw, "well %s is hashed" % field)

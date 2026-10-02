@@ -14,6 +14,8 @@ var wind_rng_state: PackedInt64Array = PackedInt64Array([0, 0, 0, 0])
 var current_tank: int = 0
 var turn_number: int = 0
 var phase: String = SimConstants.PHASE_AIM
+## Active gravity wells {owner, x, y, expires_turn}, kept in owner order (section 21).
+var wells: Array[Dictionary] = []
 
 
 ## Deep copy (terrain bytes included).
@@ -30,4 +32,6 @@ func duplicate_state() -> MatchState:
 	s.current_tank = current_tank
 	s.turn_number = turn_number
 	s.phase = phase
+	for w: Dictionary in wells:
+		s.wells.append(w.duplicate())
 	return s

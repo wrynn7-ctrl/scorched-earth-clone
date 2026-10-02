@@ -39,6 +39,35 @@ const TAG_WIND: int = 2000
 const TAG_PLACEMENT: int = 3000
 const TAG_AI: int = 4000
 
+## Phases (section 16). PHASE_ROUND_OVER is no longer produced by the core (kept for compatibility).
+const PHASE_SHOP: String = "shop"
 const PHASE_AIM: String = "aim"
 const PHASE_ROUND_OVER: String = "round_over"
 const PHASE_MATCH_OVER: String = "match_over"
+
+## Settings limits (section 23).
+const MIN_ROUNDS: int = 1
+const MAX_ROUNDS: int = 20
+const MAX_START_MONEY: int = 1_000_000
+const DEFAULT_START_MONEY: int = 10000
+
+## Economy (section 18).
+const CREDIT_PER_HP: int = 15
+const KILL_BONUS: int = 1500
+const SURVIVE_PAY: int = 1000
+const WIN_PAY: int = 2500
+const INVENTORY_CAP: int = 99
+
+## Movement (section 20). START_FUEL is not in the contract: tanks start with no fuel.
+const START_FUEL: int = 0
+const MOVE_MAX_DX: int = 200
+const MAX_CLIMB: int = 3  # steps up by more than this are blocked
+const WALK_DROP: int = 3  # per-step drops up to this are walking, not falling
+
+## Shields and repulsors (section 20). The bubble is centred at (x, y - SHIELD_CENTER_DY).
+const SHIELD_RADIUS: int = 24
+const SHIELD_CENTER_DY: int = 6
+const REPULSOR_RADIUS: int = 60
+const REPULSOR_PUSH: int = 6554  # 0.10 cell/tick^2 at the centre, Q16.16
+const REPULSOR_CHARGE: int = 100
+const REPAIR_HEAL: int = 40

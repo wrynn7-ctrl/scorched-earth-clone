@@ -21,8 +21,8 @@ func _play(settings: MatchSettings, bot_seed: int, steps: int, check: Callable) 
 	for i: int in range(steps):
 		if state.phase == SimConstants.PHASE_MATCH_OVER:
 			break
-		if state.phase == SimConstants.PHASE_ROUND_OVER:
-			var sr: Array[Dictionary] = Simulation.start_round(state)
+		if state.phase == SimConstants.PHASE_SHOP:
+			var sr: Array[Dictionary] = QaUtil.enter_round(state)
 			check_start_round(sr, state)
 			continue
 		var before: MatchState = state.duplicate_state()
@@ -74,9 +74,9 @@ func _check_everything(before: MatchState, ev: Array[Dictionary], after: MatchSt
 	var pend: Dictionary = QaUtil.find(ev, "projectile_end")[0]
 	assert_eq(path.size() % 2, 0, "path is x,y pairs")
 	assert_eq(path.size() / 2, pend["tick"], "one path point per tick, projectile_end.tick == path length")
-	assert_true(["terrain", "tank", "lost", "timeout"].has(pend["reason"]))
+	assert_true(["terrain", "tank", "shield", "lost", "timeout"].has(pend["reason"]))
 	var explosions: Array[Dictionary] = QaUtil.find(ev, "explosion")
-	if pend["reason"] == "terrain" or pend["reason"] == "tank":
+	if pend["reason"] == "terrain" or pend["reason"] == "tank" or pend["reason"] == "shield":
 		assert_eq(explosions.size(), 1)
 		assert_eq(explosions[0]["x"], pend["x"])
 		assert_eq(explosions[0]["y"], pend["y"])
@@ -165,10 +165,10 @@ func test_wild_shots_contract() -> void:
 	var state: MatchState = Simulation.new_match(QaUtil.settings(31, 6, 3))
 	var n: int = 0
 	while n < 60 and state.phase != SimConstants.PHASE_MATCH_OVER:
-		if state.phase == SimConstants.PHASE_ROUND_OVER:
-			Simulation.start_round(state)
+		if state.phase == SimConstants.PHASE_SHOP:
+			QaUtil.enter_round(state)
 		var before: MatchState = state.duplicate_state()
-		var a: Dictionary = QaUtil.fire(state.current_tank, rng.range_int(0, 1800), rng.range_int(1, 1000))
+		var a: Dictionary = QaUtil.fire_for(state, state.current_tank, rng.range_int(0, 1800), rng.range_int(1, 1000))
 		var ev: Array[Dictionary] = Simulation.apply_action(state, a)
 		_check_everything(before, ev, state)
 		n += 1

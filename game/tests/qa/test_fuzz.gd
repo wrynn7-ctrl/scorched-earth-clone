@@ -49,7 +49,7 @@ func _invalid_action(state: MatchState, rng: Rng) -> Array:
 			a.erase(["tank", "angle", "power", "weapon"][rng.range_int(0, 3)])
 			return [a, "bad_field"]
 		11:
-			a["kind"] = ["move", "buy", "", "Fire", "pass"][rng.range_int(0, 4)]
+			a["kind"] = ["dance", "shoot", "", "Fire", "PASS"][rng.range_int(0, 4)]
 			return [a, "unknown_kind"]
 		12:
 			return [{}, "bad_action"]
@@ -113,8 +113,15 @@ func test_fuzz_300_random_matches() -> void:
 				settings.rounds, settings.wind_max]
 		var state: MatchState = Simulation.new_match(settings)
 		var errs: Array[String] = QaUtil.check_invariants(state)
-		if not errs.is_empty():
+		if not errs.is_empty() or state.phase != SimConstants.PHASE_SHOP:
 			failures.append("%s: new_match invariants: %s" % [tag, "; ".join(errs)])
+			continue
+		if Simulation.start_round(state).size() != 0:
+			failures.append("%s: start_round worked before anyone was ready" % tag)
+		QaUtil.enter_round(state)
+		errs = QaUtil.check_invariants(state)
+		if not errs.is_empty() or state.phase != SimConstants.PHASE_AIM:
+			failures.append("%s: first round invariants: %s" % [tag, "; ".join(errs)])
 			continue
 		var fragile: bool = m % 3 == 0  # 1-hit-point tanks: rounds end quickly, exercises round/match over
 		if fragile:
@@ -134,15 +141,15 @@ func test_fuzz_300_random_matches() -> void:
 						or Simulation.start_round(state).size() != 0 or QaUtil.quick_sig(state) != sig:
 					failures.append("%s: actions after match_over were not rejected cleanly" % step_tag)
 				break
-			if state.phase == SimConstants.PHASE_ROUND_OVER:
-				if roll == 0:  # a fire attempt between rounds must be refused
+			if state.phase == SimConstants.PHASE_SHOP:
+				if roll == 0:  # a fire attempt or an early start_round between rounds must be refused
 					invalid += 1
 					var fa: Dictionary = QaUtil.fire(state.current_tank, 450, 500)
 					if Simulation.validate_action(state, fa) != "bad_phase" or Simulation.apply_action(state, fa).size() != 0 \
-							or QaUtil.quick_sig(state) != sig:
-						failures.append("%s: fire in round_over not refused" % step_tag)
+							or Simulation.start_round(state).size() != 0 or QaUtil.quick_sig(state) != sig:
+						failures.append("%s: fire/start_round in the shop (not ready) not refused" % step_tag)
 					continue
-				var sr: Array[Dictionary] = Simulation.start_round(state)
+				var sr: Array[Dictionary] = QaUtil.enter_round(state)
 				var sr_errs: Array[String] = QaUtil.check_event_fields(sr)
 				if sr.size() != 3 or not sr_errs.is_empty() or state.phase != SimConstants.PHASE_AIM:
 					failures.append("%s: bad start_round result %s %s" % [step_tag, str(QaUtil.types(sr)), "; ".join(sr_errs)])
@@ -173,7 +180,7 @@ func test_fuzz_300_random_matches() -> void:
 				continue
 			var action: Dictionary
 			if roll < 6 and not fragile:
-				action = QaUtil.fire(state.current_tank, rng.range_int(0, 1800), rng.range_int(1, 1000))
+				action = QaUtil.fire_for(state, state.current_tank, rng.range_int(0, 1800), rng.range_int(1, 1000))
 			else:
 				action = QaUtil.bot_action(state, rng)
 			if roll == 9:
@@ -198,8 +205,7 @@ func test_fuzz_300_random_matches() -> void:
 				var cx: int = carve[0]["x"]
 				if probe.settle(cx - 40, cx + 40).size() != 0:
 					failures.append("%s: dirt left floating near the blast" % step_tag)
-			var last: String = ev[ev.size() - 1]["type"]
-			if last == "round_end":
+			if not QaUtil.find(ev, "round_end").is_empty():
 				round_ends += 1
 			if failures.size() > 15:
 				break

@@ -3,7 +3,7 @@ extends GutTest
 const RANK: Dictionary = {
 	"fire": 0, "projectile": 1, "projectile_end": 2, "explosion": 3, "terrain_carve": 4,
 	"damage": 5, "terrain_settle": 6, "tank_fall": 7, "tank_destroyed": 9, "round_end": 10,
-	"wind": 11, "turn": 12,
+	"wind": 11, "turn": 12, "money": 5, "shield_hit": 5, "shield_down": 5, "chute": 7,
 }
 
 
@@ -39,6 +39,8 @@ func _check_order(events: Array[Dictionary]) -> void:
 		var type: String = e["type"]
 		assert_true(RANK.has(type), "known event type %s" % type)
 		var rank: int = RANK[type]
+		if type == "money":
+			rank = maxi(last_rank, 0)  # money follows the event it pays for
 		if type == "damage":
 			if e["cause"] == "fall":
 				rank = 7  # fall damage is paired with its tank_fall (ARCHITECTURE §10)
@@ -52,6 +54,8 @@ func _check_order(events: Array[Dictionary]) -> void:
 		last_tick = tick
 	assert_eq(events[0]["type"], "fire")
 	var types: Array[String] = _types(events)
+	while types[types.size() - 1] == "money":
+		types.pop_back()  # round pay comes after round_end
 	var tail: Array[String] = [types[types.size() - 2], types[types.size() - 1]]
 	assert_true(tail == (["wind", "turn"] as Array[String]) or types[types.size() - 1] == "round_end",
 			"ends with wind+turn or round_end")
@@ -59,8 +63,22 @@ func _check_order(events: Array[Dictionary]) -> void:
 
 # --- new_match ---------------------------------------------------------------
 
-func test_new_match_initial_state() -> void:
+func test_new_match_starts_in_shop() -> void:
 	var s: MatchState = Simulation.new_match(_settings(12345, 4))
+	assert_eq(s.phase, "shop")
+	assert_eq(s.round_index, -1)
+	assert_null(s.terrain)
+	assert_eq(s.tanks.size(), 4)
+	for t: TankState in s.tanks:
+		assert_eq(t.money, SimConstants.DEFAULT_START_MONEY)
+		assert_eq(t.inventory.size(), Catalog.count())
+		assert_false(t.ready)
+		assert_true(t.alive)
+	assert_eq(Simulation.fingerprint(s).length(), 16, "fingerprint works without terrain")
+
+
+func test_new_match_initial_state() -> void:
+	var s: MatchState = SimTestUtil.started_match(_settings(12345, 4))
 	assert_eq(s.round_index, 0)
 	assert_eq(s.phase, "aim")
 	assert_eq(s.tanks.size(), 4)
@@ -89,9 +107,9 @@ func test_new_match_initial_state() -> void:
 
 
 func test_new_match_deterministic_and_seed_sensitive() -> void:
-	var a: MatchState = Simulation.new_match(_settings(99, 3))
-	var b: MatchState = Simulation.new_match(_settings(99, 3))
-	var c: MatchState = Simulation.new_match(_settings(100, 3))
+	var a: MatchState = SimTestUtil.started_match(_settings(99, 3))
+	var b: MatchState = SimTestUtil.started_match(_settings(99, 3))
+	var c: MatchState = SimTestUtil.started_match(_settings(100, 3))
 	assert_eq(Simulation.fingerprint(a), Simulation.fingerprint(b))
 	assert_ne(Simulation.fingerprint(a), Simulation.fingerprint(c))
 
@@ -147,19 +165,23 @@ func test_error_keys() -> void:
 	s.tanks[0].alive = false
 	assert_eq(Simulation.validate_action(s, SimTestUtil.fire(0, 450, 500)), "tank_dead")
 	s.tanks[0].alive = true
-	s.phase = "round_over"
+	s.phase = "shop"
+	assert_eq(Simulation.validate_action(s, SimTestUtil.fire(0, 450, 500)), "bad_phase")
+	s.phase = "match_over"
 	assert_eq(Simulation.validate_action(s, SimTestUtil.fire(0, 450, 500)), "bad_phase")
 
 
 # --- apply_action ------------------------------------------------------------
 
 func test_scripted_shots_have_sensible_event_order() -> void:
-	var s: MatchState = Simulation.new_match(_settings(2024, 3, 5))
+	var s: MatchState = SimTestUtil.started_match(_settings(2024, 3, 5))
 	var script: Array[Vector2i] = [Vector2i(450, 700), Vector2i(1350, 650), Vector2i(600, 500), Vector2i(1200, 900),
 			Vector2i(900, 300), Vector2i(300, 800)]
 	for a: Vector2i in script:
 		if s.phase != "aim":
-			Simulation.start_round(s)
+			SimTestUtil.begin_round(s)
+			for t: TankState in s.tanks:
+				t.set_stock("pulse_missile", 50)
 		var tank: int = s.current_tank
 		var ev: Array[Dictionary] = Simulation.apply_action(s, SimTestUtil.fire(tank, a.x, a.y))
 		assert_gt(ev.size(), 3)
@@ -292,9 +314,12 @@ func test_kill_last_enemy_ends_round_with_winner() -> void:
 	var end: Array[Dictionary] = _find(ev, "round_end")
 	assert_eq(end.size(), 1)
 	assert_eq(end[0]["winner"], 0)
-	assert_eq(ev[ev.size() - 1]["type"], "round_end")
+	var round_end_at: int = _types(ev).find("round_end")
+	for k: int in range(round_end_at + 1, ev.size()):
+		assert_eq(ev[k]["type"], "money", "only round pay follows round_end")
+	assert_eq(ev.size() - round_end_at - 1, 2, "survive + win pay for the winner")
 	assert_eq(_find(ev, "turn").size(), 0, "no turn after round end")
-	assert_eq(s.phase, "round_over")
+	assert_eq(s.phase, "shop", "round pay done, back to the shop")
 	# No further shots until the next round starts.
 	assert_eq(Simulation.validate_action(s, SimTestUtil.fire(0, 450, 500)), "bad_phase")
 
@@ -342,14 +367,17 @@ func test_wind_drift_clamped_to_wind_max() -> void:
 # --- rounds ------------------------------------------------------------------
 
 func test_start_round_and_match_over() -> void:
-	var s: MatchState = Simulation.new_match(_settings(31337, 2, 2))
+	var s: MatchState = SimTestUtil.started_match(_settings(31337, 2, 2))
 	assert_eq(Simulation.start_round(s).size(), 0, "cannot start while a round is running")
 	var fp0: String = Simulation.fingerprint(s)
-	# Force the end of round 0 directly.
+	# Force the end of round 0 directly: tank 1 dies, round_end follows the next resolved action.
 	s.tanks[1].alive = false
 	s.tanks[1].health = 0
-	s.phase = "round_over"
-	var ev: Array[Dictionary] = Simulation.start_round(s)
+	var ev0: Array[Dictionary] = Simulation.apply_action(s, {"kind": "pass", "tank": 0})
+	assert_eq(_find(ev0, "round_end")[0]["winner"], 0)
+	assert_eq(s.phase, "shop")
+	assert_eq(Simulation.start_round(s).size(), 0, "tanks are not ready yet")
+	var ev: Array[Dictionary] = SimTestUtil.begin_round(s)
 	assert_eq(_types(ev), ["round_start", "wind", "turn"] as Array[String])
 	assert_eq(ev[0]["round"], 1)
 	assert_eq(ev[0]["tick"], 0)
@@ -360,9 +388,11 @@ func test_start_round_and_match_over() -> void:
 	for t: TankState in s.tanks:
 		assert_true(t.alive)
 		assert_eq(t.health, SimConstants.MAX_HEALTH)
+		assert_false(t.ready, "ready flags cleared")
 	assert_ne(Simulation.fingerprint(s), fp0, "new terrain and placement")
 	# Round 1 is the last round: ending it ends the match. Tank 1 shoots straight up and kills itself.
 	s.tanks[1].health = 1
+	s.tanks[1].set_stock("pulse_missile", 5)
 	s.wind = 0  # a calm shot comes straight back down
 	var ev2: Array[Dictionary] = Simulation.apply_action(s, SimTestUtil.fire(1, 900, 300))
 	assert_eq(_find(ev2, "round_end")[0]["winner"], 0)
@@ -371,18 +401,19 @@ func test_start_round_and_match_over() -> void:
 
 
 func test_rounds_use_independent_streams() -> void:
-	var a: MatchState = Simulation.new_match(_settings(8, 2, 3))
-	var b: MatchState = Simulation.new_match(_settings(8, 2, 3))
-	a.phase = "round_over"
-	Simulation.start_round(a)
-	b.phase = "round_over"
-	Simulation.start_round(b)
+	var a: MatchState = SimTestUtil.started_match(_settings(8, 2, 3))
+	var b: MatchState = SimTestUtil.started_match(_settings(8, 2, 3))
+	assert_eq(Simulation.fingerprint(a), Simulation.fingerprint(b))
+	a.phase = "shop"
+	b.phase = "shop"
+	SimTestUtil.begin_round(a)
+	SimTestUtil.begin_round(b)
 	assert_eq(Simulation.fingerprint(a), Simulation.fingerprint(b))
 	assert_eq(a.round_index, 1)
 
 
 func test_apply_action_performance() -> void:
-	var s: MatchState = Simulation.new_match(_settings(42, 2, 3))
+	var s: MatchState = SimTestUtil.started_match(_settings(42, 2, 3))
 	var t0: int = Time.get_ticks_msec()
 	var ev: Array[Dictionary] = Simulation.apply_action(s, SimTestUtil.fire(0, 450, 800))
 	var ms: int = Time.get_ticks_msec() - t0

@@ -19,9 +19,9 @@ func _run_split(sc: Dictionary, split_after: int, tail_steps: int) -> void:
 			break
 		var ev_a: Array[Dictionary] = []
 		var ev_b: Array[Dictionary] = []
-		if state.phase == SimConstants.PHASE_ROUND_OVER:
-			ev_a = Simulation.start_round(state)
-			ev_b = Simulation.start_round(copy)
+		if state.phase == SimConstants.PHASE_SHOP:
+			ev_a = QaUtil.enter_round(state)
+			ev_b = QaUtil.enter_round(copy)
 		else:
 			var action: Dictionary = QaUtil.bot_action(state, rng)
 			ev_a = Simulation.apply_action(state, action)
@@ -48,10 +48,12 @@ func test_copy_continues_identically_across_round_boundaries() -> void:
 	var state: MatchState = Simulation.new_match(QaUtil.make_settings(sc))
 	var rng := Rng.new(sc["bot_seed"])
 	var n: int = 0
+	QaUtil.play_bot_step(state, rng)  # shop -> round 0
+	n += 1
 	while state.phase == SimConstants.PHASE_AIM and n < 200:
 		n += 1
 		QaUtil.play_bot_step(state, rng)
-	assert_eq(state.phase, SimConstants.PHASE_ROUND_OVER, "first round ended")
+	assert_eq(state.phase, SimConstants.PHASE_SHOP, "first round ended")
 	_run_split(sc, n - 1, 30)
 	_run_split(sc, n, 30)
 

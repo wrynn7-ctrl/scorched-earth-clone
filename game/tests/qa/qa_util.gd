@@ -9,8 +9,9 @@ extends RefCounted
 const FIXTURE_DIR: String = "res://tests/qa/fixtures/"
 const REGEN_ENV: String = "QA_REGEN_GOLDEN"
 const WEAPON: String = "pulse_missile"
+const FALLBACK_WEAPON: String = "spark_dart"
 
-const VALID_PHASES: Array[String] = ["aim", "round_over", "match_over"]
+const VALID_PHASES: Array[String] = ["shop", "aim", "round_over", "match_over"]
 
 ## Exact field table per event type, section 10 (every event also has "type" and "tick").
 const EVENT_FIELDS: Dictionary = {
@@ -26,6 +27,18 @@ const EVENT_FIELDS: Dictionary = {
 	"wind": {"wind": TYPE_INT},
 	"turn": {"tank": TYPE_INT},
 	"round_end": {"winner": TYPE_INT},
+	# M3 (sections 18-20)
+	"money": {"tank": TYPE_INT, "delta": TYPE_INT, "money": TYPE_INT, "reason": TYPE_STRING},
+	"shield_hit": {"tank": TYPE_INT, "absorbed": TYPE_INT, "hp": TYPE_INT},
+	"shield_down": {"tank": TYPE_INT},
+	"shield_on": {"tank": TYPE_INT, "item": TYPE_STRING, "hp": TYPE_INT},
+	"repulsor_on": {"tank": TYPE_INT, "charge": TYPE_INT},
+	"repulsor_down": {"tank": TYPE_INT},
+	"chute": {"tank": TYPE_INT},
+	"repair": {"tank": TYPE_INT, "amount": TYPE_INT, "health": TYPE_INT},
+	"tank_move": {"tank": TYPE_INT, "from_x": TYPE_INT, "to_x": TYPE_INT, "fuel": TYPE_INT},
+	"ready": {"tank": TYPE_INT},
+	"well_off": {"owner": TYPE_INT},
 	# Not in the section 10 table: only emitted by Simulation.start_round().
 	"round_start": {"round": TYPE_INT},
 }
@@ -42,6 +55,44 @@ static func settings(seed_value: int, tanks: int, rounds: int = 1, wind_max: int
 
 static func fire(tank: int, angle: int, power: int) -> Dictionary:
 	return {"kind": "fire", "tank": tank, "angle": angle, "power": power, "weapon": WEAPON}
+
+
+## Like fire(), but with the Spark Dart when the tank has no Pulse Missile left (every fire
+## action needs stock except the Spark Dart, section 19).
+static func fire_for(state: MatchState, tank: int, angle: int, power: int) -> Dictionary:
+	var a: Dictionary = fire(tank, angle, power)
+	if state.tanks[tank].stock_of(WEAPON) <= 0:
+		a["weapon"] = FALLBACK_WEAPON
+	return a
+
+
+## Shop phase for the bots: every tank buys as many Pulse Missile bundles as it can afford
+## (capped by the inventory limit) through real `buy` actions, then submits `ready`.
+## Returns all events.
+static func shop_and_ready(state: MatchState) -> Array[Dictionary]:
+	var events: Array[Dictionary] = []
+	var def: Dictionary = WeaponDefs.get_def(WEAPON)
+	var price: int = def["price"]
+	var bundle: int = def["bundle"]
+	for t: TankState in state.tanks:
+		var qty: int = mini(t.money / price, (SimConstants.INVENTORY_CAP - t.stock_of(WEAPON)) / bundle)
+		if qty >= 1:
+			events.append_array(Simulation.apply_action(state, {"kind": "buy", "tank": t.id, "item": WEAPON, "qty": qty}))
+		events.append_array(Simulation.apply_action(state, {"kind": "ready", "tank": t.id}))
+	return events
+
+
+## Shop (buy Pulse Missiles, ready) then start_round. Returns the start_round events.
+static func enter_round(state: MatchState) -> Array[Dictionary]:
+	shop_and_ready(state)
+	return Simulation.start_round(state)
+
+
+## new_match plus the first round started (what the M2 new_match used to return).
+static func started_match(s: MatchSettings) -> MatchState:
+	var state: MatchState = Simulation.new_match(s)
+	enter_round(state)
+	return state
 
 
 ## Flat terrain, solid from `ground_y` down (same materials as Terrain.flatten, built with
@@ -74,25 +125,29 @@ static func flat_state(xs: Array[int], ground_y: int = 600, rounds: int = 3) -> 
 		t.color_index = i
 		t.x = xs[i]
 		t.y = ground_y
+		t.set_stock(WEAPON, 50)
 		s.tanks.append(t)
 	s.wind = 0
 	s.wind_rng_state = Rng.derive(1, SimConstants.TAG_WIND).get_state()
 	s.current_tank = 0
+	s.phase = SimConstants.PHASE_AIM
 	return s
 
 
 # --- seeded bot ---------------------------------------------------------------
 
-## Valid action for the current tank. Mostly aimed at a random living enemy (coarse power
+## Valid action for the current tank (fires Pulse Missiles while in stock, else Spark Darts).
+## Mostly aimed at a random living enemy (coarse power
 ## search through the pure Ballistics.trace), sometimes a wild shot. Uses only `rng`.
 static func bot_action(state: MatchState, rng: Rng) -> Dictionary:
 	var me: TankState = state.tanks[state.current_tank]
+	var weapon: String = WEAPON if me.stock_of(WEAPON) > 0 else FALLBACK_WEAPON
 	var targets: Array[TankState] = []
 	for t: TankState in state.tanks:
 		if t.alive and t.id != me.id:
 			targets.append(t)
 	if targets.is_empty() or rng.range_int(0, 7) == 0:
-		return fire(me.id, rng.range_int(0, SimConstants.MAX_ANGLE), rng.range_int(1, SimConstants.MAX_POWER))
+		return fire_for(state, me.id, rng.range_int(0, SimConstants.MAX_ANGLE), rng.range_int(1, SimConstants.MAX_POWER))
 	var tgt: TankState = targets[rng.range_int(0, targets.size() - 1)]
 	var angle: int = rng.range_int(300, 700) if tgt.x >= me.x else rng.range_int(1100, 1500)
 	# Flat-ground range formula as a first guess (p^2 ~ 519 * range / sin(2a)), then 2 refinement traces.
@@ -100,12 +155,12 @@ static func bot_action(state: MatchState, rng: Rng) -> Dictionary:
 	var sin2: int = absi(FixedMath.sin10(2 * angle))
 	var power: int = clampi(FixedMath.isqrt(519 * dist * FixedMath.ONE / maxi(1, sin2)), 10, SimConstants.MAX_POWER)
 	for _i: int in range(2):
-		var tr: Dictionary = Ballistics.trace(state, me.id, angle, power, WEAPON, SimConstants.WIND_USE_STATE,
+		var tr: Dictionary = Ballistics.trace(state, me.id, angle, power, weapon, SimConstants.WIND_USE_STATE,
 				SimConstants.MAX_FLIGHT_TICKS)
 		var hit: int = maxi(1, absi((tr["end_x"] as int) - me.x))
 		power = clampi(FixedMath.isqrt(power * power * dist / hit), 10, SimConstants.MAX_POWER)
 	power = clampi(power + rng.range_int(-15, 15), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
-	return fire(me.id, angle, power)
+	return fire_for(state, me.id, angle, power)
 
 
 # --- event helpers ------------------------------------------------------------
@@ -181,13 +236,14 @@ static func make_settings(sc: Dictionary) -> MatchSettings:
 	return settings(sc["seed"], sc["tanks"], sc["rounds"], sc["wind_max"])
 
 
-## Plays one bot-chosen step (start_round when a round just ended) and returns the step
-## record {op, tank, angle, power, fp, ev, evh}. Returns {} if the match is over.
+## Plays one bot-chosen step and returns the step record {op, tank, angle, power, fp, ev,
+## evh}. In the shop the bot buys Pulse Missiles, readies every tank and starts the round
+## (op "start_round", events = the start_round timeline). Returns {} if the match is over.
 static func play_bot_step(state: MatchState, rng: Rng) -> Dictionary:
 	if state.phase == SimConstants.PHASE_MATCH_OVER:
 		return {}
-	if state.phase == SimConstants.PHASE_ROUND_OVER:
-		var ev: Array[Dictionary] = Simulation.start_round(state)
+	if state.phase == SimConstants.PHASE_SHOP:
+		var ev: Array[Dictionary] = enter_round(state)
 		return _record("start_round", {}, ev, state)
 	var action: Dictionary = bot_action(state, rng)
 	var events: Array[Dictionary] = Simulation.apply_action(state, action)
@@ -200,6 +256,7 @@ static func _record(op: String, action: Dictionary, events: Array[Dictionary], s
 		rec["tank"] = action["tank"]
 		rec["angle"] = action["angle"]
 		rec["power"] = action["power"]
+		rec["weapon"] = action["weapon"]
 	rec["fp"] = Simulation.fingerprint(state)
 	rec["ev"] = ",".join(types(events))
 	rec["evh"] = events_digest(events)
@@ -274,9 +331,10 @@ static func replay_record(record: Dictionary) -> Array[String]:
 		var step: Dictionary = steps[i]
 		var events: Array[Dictionary] = []
 		if step["op"] == "start_round":
-			events = Simulation.start_round(state)
+			events = enter_round(state)
 		else:
 			var action: Dictionary = fire(int(step["tank"]), int(step["angle"]), int(step["power"]))
+			action["weapon"] = str(step["weapon"])
 			var verr: String = Simulation.validate_action(state, action)
 			if verr != "":
 				problems.append("step %d: recorded action rejected with '%s'" % [i, verr])
@@ -339,18 +397,24 @@ static func check_order(events: Array[Dictionary], literal: bool) -> Array[Strin
 		match type:
 			"fire": rank = 0
 			"projectile": rank = 1
+			"repulsor_down": rank = 1  # emitted at the tick the charge ran out, before projectile_end
 			"projectile_end": rank = 2
 			"explosion": rank = 3
 			"terrain_carve": rank = 4
 			"damage": rank = 5 if e["cause"] == "explosion" else 8
 			"terrain_settle": rank = 6
 			"tank_fall": rank = 7
+			"chute": rank = 7
+			"shield_hit": rank = 5
+			"shield_down": rank = 5
 			"tank_destroyed": rank = 9
 			"round_end": rank = 10
 			"wind": rank = 11
 			"turn": rank = 12
 		if type == "tank_fall" or (type == "damage" and e["cause"] == "fall"):
 			rank = 7  # one combined phase: (tank_fall, damage(fall)?) pairs per tank (ARCHITECTURE §10)
+		if type == "money":
+			rank = maxi(last_rank, 0)  # money is emitted right after the event it pays for (section 18)
 		if rank < last_rank:
 			errs.append("%s (rank %d) after rank %d" % [type, rank, last_rank])
 		last_rank = maxi(last_rank, rank)
@@ -362,6 +426,8 @@ static func check_order(events: Array[Dictionary], literal: bool) -> Array[Strin
 	if ts.is_empty() or ts[0] != "fire":
 		errs.append("timeline does not start with fire")
 		return errs
+	while ts[ts.size() - 1] == "money":
+		ts.pop_back()  # round pay follows round_end
 	var n: int = ts.size()
 	var ends_round: bool = ts[n - 1] == "round_end"
 	var ends_turn: bool = n >= 2 and ts[n - 2] == "wind" and ts[n - 1] == "turn"
@@ -378,16 +444,32 @@ static func check_invariants(state: MatchState, check_rest: bool = true, check_b
 	if not VALID_PHASES.has(state.phase):
 		errs.append("invalid phase '%s'" % state.phase)
 	var half: int = SimConstants.TANK_W / 2
+	var placed: bool = state.terrain != null  # no terrain before the first round (shop)
+	check_rest = check_rest and placed
+	check_box = check_box and placed
 	for t: TankState in state.tanks:
+		if t.money < 0:
+			errs.append("tank %d money %d below 0" % [t.id, t.money])
+		if t.fuel < 0:
+			errs.append("tank %d fuel %d below 0" % [t.id, t.fuel])
+		if t.inventory.size() != Catalog.count():
+			errs.append("tank %d inventory size %d" % [t.id, t.inventory.size()])
+		for n: int in t.inventory:
+			if n < 0 or n > SimConstants.INVENTORY_CAP:
+				errs.append("tank %d inventory entry %d outside 0..%d" % [t.id, n, SimConstants.INVENTORY_CAP])
+		if t.shield_hp < 0 or (t.shield_hp > 0) != (t.shield_type >= 0):
+			errs.append("tank %d shield type %d with hp %d" % [t.id, t.shield_type, t.shield_hp])
+		if t.repulsor_charge < 0:
+			errs.append("tank %d repulsor charge %d" % [t.id, t.repulsor_charge])
 		if t.health < 0 or t.health > SimConstants.MAX_HEALTH:
 			errs.append("tank %d health %d out of [0,100]" % [t.id, t.health])
 		if t.alive != (t.health > 0):
 			errs.append("tank %d alive=%s but health=%d" % [t.id, str(t.alive), t.health])
-		if t.x < 0 or t.x >= SimConstants.WORLD_W:
+		if placed and (t.x < 0 or t.x >= SimConstants.WORLD_W):
 			errs.append("tank %d x=%d outside map" % [t.id, t.x])
 		if check_box and (t.x - half < 0 or t.x + half > SimConstants.WORLD_W):
 			errs.append("tank %d hit box [%d,%d) leaves the map" % [t.id, t.x - half, t.x + half])
-		if t.y < 0 or t.y > SimConstants.WORLD_H:
+		if placed and (t.y < 0 or t.y > SimConstants.WORLD_H):
 			errs.append("tank %d y=%d outside map" % [t.id, t.y])
 		if t.angle < 0 or t.angle > SimConstants.MAX_ANGLE:
 			errs.append("tank %d angle %d" % [t.id, t.angle])
@@ -418,9 +500,13 @@ static func alive_count(state: MatchState) -> int:
 static func quick_sig(state: MatchState) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("%d|%d|%d|%d|%s|%s|%d" % [state.round_index, state.wind, state.current_tank, state.turn_number,
-			state.phase, str(state.wind_rng_state), hash(state.terrain.cells)])
+			state.phase, str(state.wind_rng_state), 0 if state.terrain == null else hash(state.terrain.cells)])
 	for t: TankState in state.tanks:
-		parts.append("%d,%d,%d,%d,%d,%d,%s" % [t.id, t.x, t.y, t.health, t.angle, t.power, str(t.alive)])
+		parts.append("%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%d,%d,%d,%d,%s" % [t.id, t.x, t.y, t.health, t.angle, t.power,
+				str(t.alive), t.money, t.kills, t.damage_dealt, t.round_wins, t.fuel, t.shield_hp, t.repulsor_charge,
+				str(t.ready)])
+		parts.append(str(t.inventory))
+	parts.append(str(state.wells))
 	return ";".join(parts)
 
 

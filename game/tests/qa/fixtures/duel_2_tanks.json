@@ -8,14 +8,21 @@
 		"bot_seed": 11,
 		"max_actions": 80
 	},
-	"initial_fp": "78bd656329e07f02",
+	"initial_fp": "ed8ea822a2ad3a81",
 	"steps": [
+		{
+			"op": "start_round",
+			"fp": "0e80bacb40e01411",
+			"ev": "round_start,wind,turn",
+			"evh": "40d98adcaf70d250"
+		},
 		{
 			"op": "fire",
 			"tank": 0,
 			"angle": 645,
 			"power": 655,
-			"fp": "0352f658fb166735",
+			"weapon": "pulse_missile",
+			"fp": "21d3017d711ed5f0",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "4c539a3872866c49"
 		},
@@ -24,16 +31,18 @@
 			"tank": 1,
 			"angle": 1350,
 			"power": 509,
-			"fp": "6ad649dbe5a12635",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "fe6588d9e1d50c5f"
+			"weapon": "pulse_missile",
+			"fp": "4a5b8e890960bafd",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,wind,turn",
+			"evh": "9f97401f1c404581"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
 			"angle": 508,
 			"power": 571,
-			"fp": "844cc987b58b24f4",
+			"weapon": "pulse_missile",
+			"fp": "16113fdb65bddc45",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "2c4ece4e4ec1cefa"
 		},
@@ -42,7 +51,8 @@
 			"tank": 1,
 			"angle": 1319,
 			"power": 725,
-			"fp": "3e3356ca39721f68",
+			"weapon": "pulse_missile",
+			"fp": "2744fcf1a57f7fe9",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "9dd08e8eb75aa658"
 		},
@@ -51,7 +61,8 @@
 			"tank": 0,
 			"angle": 394,
 			"power": 575,
-			"fp": "f6b0ef6591463f90",
+			"weapon": "pulse_missile",
+			"fp": "d73e9f698d1e845d",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "c5d660a92a8721da"
 		},
@@ -60,34 +71,38 @@
 			"tank": 1,
 			"angle": 1483,
 			"power": 562,
-			"fp": "28a32b5f0bb1d36e",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "f6f36c2092441a63"
+			"weapon": "pulse_missile",
+			"fp": "845b6a49437303aa",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,wind,turn",
+			"evh": "ec8c0ade28d7fe4a"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
 			"angle": 557,
 			"power": 596,
-			"fp": "e30dee6236f63838",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "17c00236be1d8bbe"
+			"weapon": "pulse_missile",
+			"fp": "cb4f74adb9ac5658",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,wind,turn",
+			"evh": "7dedb7bc3f6b3ddc"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
 			"angle": 1405,
 			"power": 518,
-			"fp": "5fd99fcda697e484",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
-			"evh": "e3b01a784537d634"
+			"weapon": "pulse_missile",
+			"fp": "df936a7d5139784d",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,damage,money,wind,turn",
+			"evh": "7ecb124c581b6f2e"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
 			"angle": 263,
 			"power": 524,
-			"fp": "35c2b768e20a1c4e",
+			"weapon": "pulse_missile",
+			"fp": "d3256d38c8e54a55",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "be7c64339d3274f7"
 		},
@@ -96,12 +111,13 @@
 			"tank": 1,
 			"angle": 1368,
 			"power": 520,
-			"fp": "2835ca97c02c261c",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
-			"evh": "e55cadcdc1695742"
+			"weapon": "pulse_missile",
+			"fp": "de4c0244b7f153a6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,round_end,money,money",
+			"evh": "9725d530958fc47c"
 		}
 	],
 	"final_phase": "match_over",
 	"final_round": 0,
-	"final_fp": "2835ca97c02c261c"
+	"final_fp": "de4c0244b7f153a6"
 }

@@ -139,7 +139,7 @@ func test_wind_extremes_power_1() -> void:
 
 func test_wind_drift_never_exceeds_wind_max_in_a_match() -> void:
 	for wm: int in [0, 1, 7, 100]:
-		var s: MatchState = Simulation.new_match(QaUtil.settings(31 + wm, 4, 1, wm))
+		var s: MatchState = QaUtil.started_match(QaUtil.settings(31 + wm, 4, 1, wm))
 		var rng := Rng.new(5)
 		for i: int in range(12):
 			if QaUtil.play_bot_step(s, rng).is_empty():
@@ -153,7 +153,7 @@ func test_placement_never_overlaps_and_stays_on_map() -> void:
 	var failures: Array[String] = []
 	for n: int in range(2, 9):
 		for sd: int in range(0, 15):
-			var s: MatchState = Simulation.new_match(QaUtil.settings(sd * 7919 + n, n))
+			var s: MatchState = QaUtil.started_match(QaUtil.settings(sd * 7919 + n, n))
 			assert_eq(s.tanks.size(), n)
 			var prev_right: int = 0
 			for t: TankState in s.tanks:
@@ -169,7 +169,7 @@ func test_placement_never_overlaps_and_stays_on_map() -> void:
 
 func test_placement_8_tanks_many_seeds_with_extreme_seed_values() -> void:
 	for sd: int in [0, -1, 1, (1 << 62), -(1 << 62), 9223372036854775807, -9223372036854775807 - 1, 0xFFFFFFFF, 0x100000000]:
-		var s: MatchState = Simulation.new_match(QaUtil.settings(sd, 8))
+		var s: MatchState = QaUtil.started_match(QaUtil.settings(sd, 8))
 		assert_eq(s.tanks.size(), 8, "seed %d" % sd)
 		assert_eq(QaUtil.check_invariants(s), [] as Array[String], "seed %d" % sd)
 		for i: int in range(1, 8):
@@ -178,7 +178,7 @@ func test_placement_8_tanks_many_seeds_with_extreme_seed_values() -> void:
 
 func test_num_tanks_out_of_range_is_clamped() -> void:
 	for n: int in [-3, 0, 1, 9, 100]:
-		var s: MatchState = Simulation.new_match(QaUtil.settings(3, n))
+		var s: MatchState = QaUtil.started_match(QaUtil.settings(3, n))
 		var expect: int = clampi(n, 2, 8)
 		assert_eq(s.tanks.size(), expect, "num_tanks=%d" % n)
 		assert_eq(s.current_tank, 0)
@@ -349,11 +349,11 @@ func test_one_explosion_kills_the_last_two_tanks_draw() -> void:
 	assert_eq(QaUtil.find(ev, "turn").size(), 0)
 	assert_eq(QaUtil.find(ev, "wind").size(), 0)
 	assert_eq(QaUtil.find(ev, "tank_destroyed").size(), 2)
-	assert_eq(s.phase, SimConstants.PHASE_ROUND_OVER)
+	assert_eq(s.phase, SimConstants.PHASE_SHOP)
 	# health reported by damage events is clamped at 0, never negative
 	for d: Dictionary in QaUtil.find(ev, "damage"):
 		assert_true((d["health"] as int) >= 0)
-	assert_eq(Simulation.apply_action(s, QaUtil.fire(0, 450, 500)).size(), 0, "no fire in round_over")
+	assert_eq(Simulation.apply_action(s, QaUtil.fire(0, 450, 500)).size(), 0, "no fire in the shop")
 	assert_eq(Simulation.validate_action(s, QaUtil.fire(0, 450, 500)), "bad_phase")
 
 
@@ -388,7 +388,7 @@ func test_tank_killed_by_its_own_shot() -> void:
 	assert_eq(QaUtil.find(ev, "tank_destroyed")[0]["tank"], 0)
 	var end: Dictionary = QaUtil.find(ev, "round_end")[0]
 	assert_eq(end["winner"], 1, "the survivor wins")
-	assert_eq(s.phase, SimConstants.PHASE_ROUND_OVER)
+	assert_eq(s.phase, SimConstants.PHASE_SHOP)
 
 
 func test_dead_tanks_are_ignored_by_shells_and_by_turn_order() -> void:
@@ -483,7 +483,7 @@ func test_trace_max_ticks_zero_one_and_negative() -> void:
 
 
 func test_trace_is_pure_and_repeatable_across_angles_and_powers() -> void:
-	var s: MatchState = Simulation.new_match(QaUtil.settings(8, 8))
+	var s: MatchState = QaUtil.started_match(QaUtil.settings(8, 8))
 	var before: String = Simulation.fingerprint(s)
 	for angle: int in [0, 1, 899, 900, 901, 1799, 1800]:
 		for power: int in [1, 2, 500, 999, 1000]:
@@ -498,15 +498,15 @@ func test_trace_is_pure_and_repeatable_across_angles_and_powers() -> void:
 # --- whole matches ------------------------------------------------------------------
 
 func test_twenty_round_match_runs_to_match_over() -> void:
-	var s: MatchState = Simulation.new_match(QaUtil.settings(2026, 3, 20))
+	var s: MatchState = QaUtil.started_match(QaUtil.settings(2026, 3, 20))
 	var rng := Rng.new(12)
 	var starts: int = 0
 	var steps: int = 0
 	var round_winners: Array[int] = []
 	while s.phase != SimConstants.PHASE_MATCH_OVER and steps < 4000:
 		steps += 1
-		if s.phase == SimConstants.PHASE_ROUND_OVER:
-			var ev: Array[Dictionary] = Simulation.start_round(s)
+		if s.phase == SimConstants.PHASE_SHOP:
+			var ev: Array[Dictionary] = QaUtil.enter_round(s)
 			starts += 1
 			assert_eq(QaUtil.types(ev), ["round_start", "wind", "turn"] as Array[String])
 			assert_eq(s.round_index, starts)
@@ -541,10 +541,10 @@ func test_twenty_round_match_runs_to_match_over() -> void:
 
 func test_rounds_zero_or_negative_means_single_round() -> void:
 	for r: int in [0, -4]:
-		var s: MatchState = Simulation.new_match(QaUtil.settings(77, 2, r))
+		var s: MatchState = QaUtil.started_match(QaUtil.settings(77, 2, r))
 		var rng := Rng.new(3)
 		var n: int = 0
-		while s.phase == SimConstants.PHASE_AIM and n < 300:
+		while s.phase != SimConstants.PHASE_MATCH_OVER and n < 300:
 			n += 1
 			QaUtil.play_bot_step(s, rng)
 		assert_eq(s.phase, SimConstants.PHASE_MATCH_OVER, "rounds=%d ends after the first round" % r)
@@ -552,7 +552,7 @@ func test_rounds_zero_or_negative_means_single_round() -> void:
 
 
 func test_wind_max_zero_keeps_wind_at_zero() -> void:
-	var s: MatchState = Simulation.new_match(QaUtil.settings(5, 3, 1, 0))
+	var s: MatchState = QaUtil.started_match(QaUtil.settings(5, 3, 1, 0))
 	assert_eq(s.wind, 0)
 	var rng := Rng.new(3)
 	for i: int in range(10):
@@ -578,7 +578,7 @@ func test_invalid_action_shapes() -> void:
 	_unchanged_and_rejected(s, {"kind": &"fire", "tank": 0, "angle": 1, "power": 1, "weapon": QaUtil.WEAPON}, "bad_action")
 	_unchanged_and_rejected(s, {"kind": "FIRE", "tank": 0, "angle": 1, "power": 1, "weapon": QaUtil.WEAPON}, "unknown_kind")
 	_unchanged_and_rejected(s, {"kind": "", "tank": 0}, "unknown_kind")
-	_unchanged_and_rejected(s, {"kind": "move", "tank": 0, "dx": 3}, "unknown_kind")
+	_unchanged_and_rejected(s, {"kind": "dance", "tank": 0, "dx": 3}, "unknown_kind")
 	_unchanged_and_rejected(s, {"kind": "fire"}, "bad_field")
 	_unchanged_and_rejected(s, {"kind": "fire", "tank": 0, "angle": 1, "power": 1}, "bad_field")
 
@@ -647,6 +647,7 @@ func test_json_roundtripped_actions_are_rejected_documented_behaviour() -> void:
 	var d: Dictionary = parsed
 	assert_eq(typeof(d["angle"]), TYPE_FLOAT, "JSON gives floats")
 	assert_eq(Simulation.validate_action(s, d), "bad_field")
+	assert_eq(Simulation.validate_action(s, Simulation.normalize_action(d)), "", "normalize_action (M3) fixes it")
 	var fixed: Dictionary = {"kind": d["kind"], "tank": int(d["tank"]), "angle": int(d["angle"]),
 			"power": int(d["power"]), "weapon": d["weapon"]}
 	assert_eq(Simulation.validate_action(s, fixed), "")
