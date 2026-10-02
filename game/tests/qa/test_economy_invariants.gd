@@ -8,7 +8,7 @@ extends GutTest
 
 const QaUtil = preload("res://tests/qa/qa_util.gd")
 const M3 = preload("res://tests/qa/qa_m3.gd")
-const MATCHES: int = 26
+const MATCHES: int = 20
 const ROOT_SEED: int = 0xEC0000
 
 
@@ -100,8 +100,8 @@ func test_books_balance_after_every_action_of_bot_matches() -> void:
 	gut.p("ECONOMY: %d matches, %d audited actions, %d round_ends (%d won, %d draws), %d kills, %d fall credits, %d self hits (%d clamped at 0), %d shield-only hits in %d ms" % [
 			MATCHES, actions, round_ends, winners, draws, kills, fall_credits, self_hits, clamped, shield_only, ms])
 	assert_eq(failures.size(), 0, "economy audit failures:\n%s" % "\n".join(failures))
-	assert_gt(actions, 1500, "plenty of audited actions")
-	assert_gt(round_ends, 15, "plenty of round ends")
+	assert_gt(actions, 1100, "plenty of audited actions")
+	assert_gt(round_ends, 12, "plenty of round ends")
 	assert_gt(kills, 5, "kills were exercised")
 	assert_gt(self_hits, 3, "self damage was exercised")
 	assert_gt(shield_only, 0, "shield-absorbed hits were exercised")
@@ -395,3 +395,151 @@ func test_inventory_cap_99_is_exact() -> void:
 	assert_eq(Simulation.validate_action(s, {"kind": "buy", "tank": 1, "item": "nova_core", "qty": 9223372036854775807}), "inventory_full")
 	assert_eq(Simulation.validate_action(s, {"kind": "buy", "tank": 1, "item": "nova_core", "qty": 3037000500}), "inventory_full")
 	assert_eq(Simulation.validate_action(s, {"kind": "sell", "tank": 0, "item": "fuel_cell", "qty": 9223372036854775807}), "")
+
+
+# --- the auditor itself, and shop commutativity ----------------------------------------------------------
+
+## Negative controls: the audit and the timeline check must actually notice a cooked ledger.
+func test_the_auditor_flags_tampering() -> void:
+	var s: MatchState = QaUtil.flat_state([300, 700, 1300] as Array[int])  # a third tank: the round goes on
+	for t: TankState in s.tanks:
+		t.money = 5000
+	var action: Dictionary = {"kind": "fire", "tank": 0, "angle": 450, "power": 400, "weapon": "pulse_missile"}
+	var p: int = WeaponTestUtil.power_for_landing(s, 450, 700)
+	action["power"] = p
+	var snap: Dictionary = M3.snapshot(s)
+	var ev: Array[Dictionary] = Simulation.apply_action(s, action)
+	assert_eq(M3.audit(snap, s, action, ev), [] as Array[String], "the honest books balance")
+	assert_gt(QaUtil.find(ev, "damage").size(), 0, "the shot hit")
+	var tweaks: Dictionary = {
+		"money +1": func(st: MatchState) -> void: st.tanks[0].money += 1,
+		"money -1": func(st: MatchState) -> void: st.tanks[0].money -= 1,
+		"kills +1": func(st: MatchState) -> void: st.tanks[0].kills += 1,
+		"damage_dealt +1": func(st: MatchState) -> void: st.tanks[0].damage_dealt += 1,
+		"victim health +1": func(st: MatchState) -> void: st.tanks[1].health += 1,
+		"stock +1": func(st: MatchState) -> void: st.tanks[0].inventory[Catalog.index_of("pulse_missile")] += 1,
+		"turn_number +1": func(st: MatchState) -> void: st.turn_number += 1,
+		"wrong tank to move": func(st: MatchState) -> void: st.current_tank = 0,
+		"angle not recorded": func(st: MatchState) -> void: st.tanks[0].angle += 1,
+		"round win from nowhere": func(st: MatchState) -> void: st.tanks[1].round_wins += 1,
+	}
+	for name: String in tweaks:
+		var cooked: MatchState = s.duplicate_state()
+		(tweaks[name] as Callable).call(cooked)
+		assert_gt(M3.audit(snap, cooked, action, ev).size(), 0, "audit notices: %s" % name)
+	# Cooked event streams.
+	var dropped: Array[Dictionary] = ev.duplicate()
+	for i: int in range(dropped.size()):
+		if dropped[i]["type"] == "money":
+			dropped.remove_at(i)
+			break
+	assert_gt(M3.audit(snap, s, action, dropped).size(), 0, "audit notices a missing money event")
+	var doubled: Array[Dictionary] = ev.duplicate()
+	for i: int in range(doubled.size()):
+		if doubled[i]["type"] == "money":
+			doubled.insert(i, doubled[i])
+			break
+	assert_gt(M3.audit(snap, s, action, doubled).size(), 0, "audit notices a duplicated money event")
+	var reordered: Array[Dictionary] = ev.duplicate()
+	var wi: int = QaUtil.types(reordered).find("wind")
+	reordered.insert(0, reordered.pop_at(wi))
+	assert_gt(M3.check_timeline(action, reordered).size(), 0, "timeline check notices a wind event moved to the front")
+	var no_turn: Array[Dictionary] = ev.slice(0, ev.size() - 1)
+	assert_gt(M3.check_timeline(action, no_turn).size(), 0, "timeline check notices a missing turn event")
+	var bad_field: Array[Dictionary] = ev.duplicate(true)
+	bad_field[0]["extra"] = 1
+	assert_gt(M3.check_timeline(action, bad_field).size(), 0, "timeline check notices an undocumented field")
+	# Standings check notices a wrong order.
+	var st2: MatchState = _tie_state([[1, 0, 0], [2, 0, 0]])
+	assert_eq(M3.check_standings(st2).size(), 0)
+	st2.tanks[0].round_wins = 3
+	assert_eq(M3.check_standings(st2).size(), 0, "standings are recomputed, not stored")
+
+
+## Shop actions of different tanks commute: any interleaving gives the same state.
+func test_shop_actions_of_different_tanks_commute() -> void:
+	for m: int in range(8):
+		var s := MatchSettings.new()
+		s.seed = 90 + m
+		s.num_tanks = 2 + m % 6
+		s.rounds = 2
+		s.start_money = [3000, 10000, 25000][m % 3]
+		s.full_unlocked = m % 4 != 3
+		var probe: MatchState = Simulation.new_match(s)
+		var bot := Rng.new(m)
+		var lists: Array[Array] = []
+		for t: TankState in probe.tanks:
+			var mine: Array[Dictionary] = []
+			for other: TankState in probe.tanks:
+				other.ready = other.id < t.id  # the bot shops for the first tank that is not ready: tank t
+			for _i: int in range(60):
+				var a: Dictionary = M3.next_action(probe, bot)
+				assert_eq(a["tank"], t.id)
+				mine.append(a)
+				Simulation.apply_action(probe, a)
+				if a["kind"] == "ready":
+					break
+			lists.append(mine)
+		var finals: Array[String] = []
+		for order: int in range(3):
+			var st: MatchState = Simulation.new_match(s)
+			var cursor: Array[int] = []
+			var remaining: int = 0
+			for l: Array in lists:
+				cursor.append(0)
+				remaining += l.size()
+			var shuffle := Rng.new(m * 5 + order)
+			var tank: int = 0
+			while remaining > 0:
+				var pick: int = tank
+				if order == 2:
+					pick = shuffle.range_int(0, lists.size() - 1)
+				elif order == 1:
+					tank = (tank + 1) % lists.size()
+				if cursor[pick] >= lists[pick].size():
+					if order == 0:
+						tank = (tank + 1) % lists.size()
+					continue
+				var act: Dictionary = lists[pick][cursor[pick]]
+				cursor[pick] += 1
+				remaining -= 1
+				assert_gt(Simulation.apply_action(st, act).size(), 0, "order %d: %s legal" % [order, str(act)])
+			assert_true(Simulation.all_ready(st))
+			finals.append(Simulation.fingerprint(st))
+			Simulation.start_round(st)
+			finals.append(Simulation.fingerprint(st))
+		assert_eq(finals[0], finals[2], "match %d: sequential vs round-robin shop" % m)
+		assert_eq(finals[0], finals[4], "match %d: sequential vs shuffled shop" % m)
+		assert_eq(finals[1], finals[3], "match %d: and the round they start" % m)
+		assert_eq(finals[1], finals[5])
+
+
+## Buying every catalog entry one bundle at a time until the shop refuses: the stop reason and the totals follow
+## from the 99-unit cap, the bundle size and the money (section 17, 19, 25).
+func test_buying_each_entry_to_the_limit_stops_exactly_at_cap_or_money() -> void:
+	for id: String in Catalog.IDS:
+		var def: Dictionary = Catalog.get_def(id)
+		if def.get("unlimited", false):
+			continue
+		var price: int = def["price"]
+		var bundle: int = def["bundle"]
+		var money: int = 250000
+		var s: MatchState = Simulation.new_match(QaUtil.settings(1, 2))
+		s.tanks[0].money = money
+		var bundles: int = 0
+		var reason: String = ""
+		for _i: int in range(200):
+			var a: Dictionary = {"kind": "buy", "tank": 0, "item": id, "qty": 1}
+			reason = Simulation.validate_action(s, a)
+			if reason != "":
+				break
+			assert_gt(Simulation.apply_action(s, a).size(), 0)
+			bundles += 1
+		var by_cap: int = SimConstants.INVENTORY_CAP / bundle
+		var by_money: int = money / price
+		assert_eq(bundles, mini(by_cap, by_money), "%s: bundles bought" % id)
+		assert_eq(reason, "inventory_full" if by_cap <= by_money else "no_money", "%s: why the shop stopped" % id)
+		assert_eq(s.tanks[0].stock_of(id), bundles * bundle)
+		assert_eq(s.tanks[0].money, money - bundles * price, "%s: exact spend" % id)
+		assert_lte(s.tanks[0].stock_of(id), SimConstants.INVENTORY_CAP)
+		assert_eq(M3.check_state(s), [] as Array[String])

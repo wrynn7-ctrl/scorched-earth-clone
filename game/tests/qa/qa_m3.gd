@@ -256,9 +256,10 @@ static func inventories(state: MatchState) -> Array[PackedInt32Array]:
 
 
 ## Replays a fixture's recorded actions through JSON-normalised dictionaries (the bot is NOT
-## consulted). `hook` is called as hook(state, action, events, inventories_before) after every step.
+## consulted). `hook` is called as hook(state, action, events, inventories_before, terrain_before) after
+## every step (terrain_before is a copy of the pre-action terrain when `with_terrain`, else null).
 ## Returns mismatch descriptions; empty = perfect replay.
-static func replay_record(record: Dictionary, hook: Callable = Callable()) -> Array[String]:
+static func replay_record(record: Dictionary, hook: Callable = Callable(), with_terrain: bool = false) -> Array[String]:
 	var problems: Array[String] = []
 	var sc: Dictionary = record["scenario"]
 	var settings := MatchSettings.new()
@@ -282,12 +283,13 @@ static func replay_record(record: Dictionary, hook: Callable = Callable()) -> Ar
 				problems.append("step %d: recorded action %s rejected with '%s'" % [i, str(action), verr])
 				return problems
 		var inv_before: Array[PackedInt32Array] = inventories(state)
+		var terrain_before: Terrain = state.terrain.duplicate_terrain() if (with_terrain and state.terrain != null) else null
 		var events: Array[Dictionary] = apply(state, action)
 		if events.is_empty():
 			problems.append("step %d (%s): no events" % [i, step["op"]])
 			return problems
 		if hook.is_valid():
-			hook.call(state, action, events, inv_before)
+			hook.call(state, action, events, inv_before, terrain_before)
 		var fp: String = Simulation.fingerprint(state)
 		if fp != step["fp"]:
 			problems.append("step %d (%s): fingerprint %s != golden %s" % [i, step["op"], fp, step["fp"]])
@@ -388,7 +390,8 @@ static func snapshot(state: MatchState) -> Dictionary:
 				"dealt": t.damage_dealt, "wins": t.round_wins, "team": t.team, "fuel": t.fuel,
 				"shield_type": t.shield_type, "shield_hp": t.shield_hp, "charge": t.repulsor_charge,
 				"inv": t.inventory.duplicate()})
-	return {"tanks": tanks, "phase": state.phase, "round": state.round_index}
+	return {"tanks": tanks, "phase": state.phase, "round": state.round_index, "turn": state.turn_number,
+			"current": state.current_tank, "wind": state.wind, "wells": state.wells.size()}
 
 
 ## Independent re-derivation of every credit in a timeline (section 18) against the state
@@ -540,6 +543,8 @@ static func audit(before: Dictionary, state: MatchState, action: Dictionary, eve
 			errs.append("tank %d damage_dealt +%d, events say +%d" % [t.id, t.damage_dealt - (b["dealt"] as int), dealt[t.id]])
 		if t.money < 0:
 			errs.append("tank %d money %d" % [t.id, t.money])
+		if round_end_at < 0 and t.round_wins != (b["wins"] as int):
+			errs.append("tank %d round_wins changed without a round_end" % t.id)
 		# Chutes spent (only the aim phase spends them; the shop buys them).
 		var chute_i: int = Catalog.index_of("drift_chute")
 		var inv_b: PackedInt32Array = b["inv"]
@@ -547,6 +552,51 @@ static func audit(before: Dictionary, state: MatchState, action: Dictionary, eve
 		if AIM_KINDS.has(kind) and spent != chutes[t.id]:
 			errs.append("tank %d spent %d chutes but %d chute events" % [t.id, spent, chutes[t.id]])
 	errs.append_array(_audit_action_effects(before, state, action, events))
+	errs.append_array(_audit_flow(before, state, action, events))
+	return errs
+
+
+## Turn bookkeeping, destroyed-tank announcements and the aim written back by `fire`.
+static func _audit_flow(before: Dictionary, state: MatchState, action: Dictionary, events: Array[Dictionary]) -> Array[String]:
+	var errs: Array[String] = []
+	var kind: String = action["kind"]
+	if kind == START_ROUND:
+		return errs
+	var tb: Array = before["tanks"]
+	var destroyed: Dictionary = {}
+	for e: Dictionary in events:
+		if e["type"] == "tank_destroyed":
+			destroyed[e["tank"]] = (destroyed.get(e["tank"], 0) as int) + 1
+	for t: TankState in state.tanks:
+		var was: bool = tb[t.id]["alive"]
+		var want: int = 1 if (was and not t.alive) else 0
+		if (destroyed.get(t.id, 0) as int) != want:
+			errs.append("tank %d: %d tank_destroyed events, expected %d" % [t.id, destroyed.get(t.id, 0), want])
+		if t.alive and not was:
+			errs.append("tank %d came back to life" % t.id)
+	if kind == "fire":
+		var t2: TankState = state.tanks[action["tank"]]
+		if t2.angle != (action["angle"] as int) or t2.power != (action["power"] as int):
+			errs.append("fire did not record the aim: %d/%d vs %d/%d" % [t2.angle, t2.power, action["angle"], action["power"]])
+	var turns: Array[Dictionary] = QaUtil.find(events, "turn")
+	var ends: Array[Dictionary] = QaUtil.find(events, "round_end")
+	var winds: Array[Dictionary] = QaUtil.find(events, "wind")
+	if not turns.is_empty():
+		if state.turn_number != (before["turn"] as int) + 1:
+			errs.append("turn_number %d -> %d on a turn change" % [before["turn"], state.turn_number])
+		if turns[0]["tank"] != state.current_tank:
+			errs.append("turn event names tank %s but current_tank is %d" % [str(turns[0]["tank"]), state.current_tank])
+		if winds.size() != 1 or winds[0]["wind"] != state.wind:
+			errs.append("wind event does not match state.wind %d" % state.wind)
+		if not state.tanks[state.current_tank].alive:
+			errs.append("the turn goes to a dead tank")
+	elif ends.is_empty() and AIM_KINDS.has(kind):
+		if state.turn_number != (before["turn"] as int) or state.current_tank != (before["current"] as int):
+			errs.append("%s changed the turn without a turn event" % kind)
+	if not ends.is_empty():
+		var last: bool = state.round_index + 1 >= state.settings.rounds
+		if state.phase != (SimConstants.PHASE_MATCH_OVER if last else SimConstants.PHASE_SHOP):
+			errs.append("after round_end the phase is %s (last round: %s)" % [state.phase, str(last)])
 	return errs
 
 
@@ -630,6 +680,8 @@ static func check_timeline(action: Dictionary, events: Array[Dictionary]) -> Arr
 	var kind: String = action["kind"]
 	var first: String = {"fire": "fire", "move": "tank_move", "buy": "money", "sell": "money", "ready": "ready",
 			"pass": "wind", START_ROUND: "round_start", "use_item": ""}.get(kind, "")
+	if kind == "pass" and ts[0] == "well_off":
+		first = "well_off"  # a well that expires at this turn change is announced first
 	if first != "" and ts[0] != first and not (kind in ["buy", "sell"] and ts[0] == "money"):
 		errs.append("%s timeline starts with %s" % [kind, ts[0]])
 	var body: Array[String] = ts.duplicate()

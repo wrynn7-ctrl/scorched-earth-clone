@@ -10,6 +10,36 @@ extends GutTest
 const QaUtil = preload("res://tests/qa/qa_util.gd")
 const M3 = preload("res://tests/qa/qa_m3.gd")
 
+## One replay of every fixture feeds all the tests below (replays are the slow part).
+var _records: Dictionary = {}  # scenario name -> parsed fixture ({} if missing)
+var _problems: Dictionary = {}  # scenario name -> Array[String] from replay_record
+var _ledger: Dictionary = {}  # catalog id -> times used in play
+var _show_bad: Array[String] = []
+var _show_checked: Array[int] = [0]
+
+
+func before_all() -> void:
+	if QaUtil.regen_enabled():
+		return
+	var ledger: Dictionary = _ledger
+	var bad: Array[String] = _show_bad
+	var checked: Array[int] = _show_checked
+	var hook: Callable = func(state: MatchState, action: Dictionary, events: Array[Dictionary],
+			inv_before: Array[PackedInt32Array], terrain_before: Terrain) -> void:
+		M3.note_usage(ledger, state, action, inv_before)
+		if terrain_before != null and action["kind"] != M3.START_ROUND:
+			checked[0] += 1
+			if not WeaponTestUtil.replay_matches(terrain_before, events, state.terrain):
+				bad.append("terrain replay differs after %s" % str(action))
+			var errs: Array[String] = M3.check_timeline(action, events)
+			if not errs.is_empty():
+				bad.append("%s: %s" % [str(action), "; ".join(errs)])
+	for sc: Dictionary in M3.scenarios():
+		var rec: Dictionary = M3.load_fixture(sc["name"])
+		_records[sc["name"]] = rec
+		if not rec.is_empty():
+			_problems[sc["name"]] = M3.replay_record(rec, hook, true)
+
 
 func _check_scenario(index: int) -> void:
 	var sc: Dictionary = M3.scenarios()[index]
@@ -26,7 +56,7 @@ func _check_scenario(index: int) -> void:
 		return
 	assert_gt((rec["steps"] as Array).size(), 20, "%s fixture has steps" % name)
 	assert_eq(rec["final_phase"], "match_over", "%s fixture plays the match to the end" % name)
-	var problems: Array[String] = M3.replay_record(rec)
+	var problems: Array[String] = _problems[name]
 	assert_eq(problems.size(), 0, "GOLDEN MISMATCH in %s (if intentional run tools/qa/regen_golden.sh):\n%s"
 			% [name, "\n".join(problems)])
 
@@ -70,23 +100,18 @@ func test_fixtures_exercise_every_weapon_and_item() -> void:
 	if QaUtil.regen_enabled():
 		pass_test("regenerating")
 		return
-	var ledger: Dictionary = {}
-	var hook: Callable = func(state: MatchState, action: Dictionary, _events: Array[Dictionary],
-			inv_before: Array[PackedInt32Array]) -> void:
-		M3.note_usage(ledger, state, action, inv_before)
 	for sc: Dictionary in M3.scenarios():
-		var rec: Dictionary = M3.load_fixture(sc["name"])
-		if rec.is_empty():
+		if (_records[sc["name"]] as Dictionary).is_empty():
 			fail_test("GOLDEN FIXTURE MISSING: %s. Run tools/qa/regen_golden.sh" % sc["name"])
 			return
-		assert_eq(M3.replay_record(rec, hook).size(), 0, "%s replays cleanly" % sc["name"])
+		assert_eq((_problems[sc["name"]] as Array).size(), 0, "%s replays cleanly" % sc["name"])
 	var missing: Array[String] = []
 	for id: String in Catalog.IDS:
-		if not ledger.has(id):
+		if not _ledger.has(id):
 			missing.append(id)
 	assert_eq(Catalog.count(), 28, "21 weapons + 7 items")
 	assert_eq(missing, [] as Array[String], "catalog entries never exercised by the golden fixtures")
-	gut.p("coverage: %s" % str(ledger))
+	gut.p("coverage: %s" % str(_ledger))
 
 
 ## The fixtures must also exercise the interesting M3 paths, or they guard nothing.
@@ -125,3 +150,14 @@ func test_recording_twice_is_identical() -> void:
 	var b: Dictionary = M3.generate_record(sc)
 	assert_eq(JSON.stringify(a), JSON.stringify(b), "two bot runs from the same seeds are identical")
 	assert_eq(M3.replay_record(a).size(), 0, "replay of a fresh record is clean")
+
+
+## The show layer keeps its own terrain and re-applies the terrain events of every timeline with the same
+## Terrain functions; across the whole fixtures that copy must equal the authoritative terrain after every
+## action (so the visuals can never drift), and the events must pass the field/order/audit checks.
+func test_fixtures_replay_cleanly_for_the_show_layer() -> void:
+	if QaUtil.regen_enabled():
+		pass_test("regenerating")
+		return
+	assert_eq(_show_bad, [] as Array[String])
+	assert_gt(_show_checked[0], 250, "many actions were compared")
