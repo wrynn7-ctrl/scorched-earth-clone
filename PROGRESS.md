@@ -4,7 +4,7 @@
 |---|---|
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
-| M3 — Full single-player loop | 🟡 In progress |
+| M3 — Full single-player loop | ✅ Done 2026-10-02 (owner phone test pending) |
 | M4 — AI opponents | ⬜ Not started |
 | M5 — Polish, sound, effects | ⬜ Not started |
 | M6 — Local pass-and-play | ⬜ Not started |
@@ -42,8 +42,8 @@
 | M3-U1 Match setup, shop screen, weapon/item picker, move/item controls, round summary, autosave/continue, settings | show-ui-dev | ✅ reviewed (save 1.44 MB → 9.9 KB zstd) |
 | M3-U2 HUD panels fade when tanks/action are behind them, off-screen shell marker, 21-weapon playback verification, small UI fixes | show-ui-dev | ✅ reviewed |
 | M3-Q Weapon edge cases, economy invariants, save/load + JSON fuzz, golden replays v2 | qa-tester | ✅ reviewed (740 tests; 0 high/medium bugs) |
-| M3-F Hardening: move dx overflow, save range validation, chute only when it saves HP | core-sim-dev | 🟡 running |
-| M3-CI Split CI tests into parallel jobs, runner suite selection, timeout, pin Ubuntu 24.04 | release-eng | 🟡 running |
+| M3-F Hardening: move dx overflow, save range validation, chute only when it saves HP | core-sim-dev | ✅ reviewed |
+| M3-CI Split CI tests into parallel jobs, runner suite selection, timeout, pin Ubuntu 24.04 | release-eng | ✅ reviewed (CI 4 min, 759 tests) |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
@@ -56,11 +56,12 @@
 - ✅ Settings persisted (M3-U1).
 - Real multi-touch (aim + slider at once) untested; Android emulates touch as mouse.
 
-## Carry-overs for M3 (from QA)
-- Saves/Firebase: actions parsed from JSON have float fields → add `Simulation.normalize_action()` that int-casts before validation.
-- Money for damage must use actual health removed (timeline `damage.amount` is nominal, not clamped).
-- Validate/clamp `MatchSettings` (num_tanks 2..8, wind_max ≥ 0) inside `new_match` so the fingerprint stores clamped values.
-- `tools/run_tests.sh` ignores `-gdir=` overrides (use `-gselect=`); fix when convenient.
+## Carry-overs for M3 (from QA) — all ✅ done in M3
+
+## Notes for later milestones
+- Aim adjustments made before an autosave aren't restored (aim isn't in sim state); tank returns to its stored angle/power.
+- Shop buys 1 bundle / sells 1 unit per tap; consider quantity steppers in M5 polish.
+- Seeds for golden fixtures v2 were searched for full weapon/item coverage; re-search if the QA bot changes.
 
 ## Open items for the owner
 - Pick a final title (PLAN.md §2); "Craterline" is the working title.
