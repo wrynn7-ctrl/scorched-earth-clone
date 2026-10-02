@@ -38,10 +38,10 @@
 | M2-UI-1 Owner feedback: angle ±0.1 buttons → neon up/down arrows | show-ui-dev | ✅ reviewed (202 tests) |
 | M3 contract (ARCHITECTURE §16–§24) | lead | ✅ written |
 | M3-C1 Phases, catalog, economy, shop/move/item actions, shields/chute/repair, saves | core-sim-dev | ✅ reviewed (329 core+qa tests; shot ≤14 ms) |
-| M3-C2 Weapon behaviours (splitter, roller, tunneler, dirt, sludge, fire, seeker, beam, static, well, anchor) | core-sim-dev | 🟡 running |
+| M3-C2 Weapon behaviours (splitter, roller, tunneler, dirt, sludge, fire, seeker, beam, static, well, anchor) | core-sim-dev | ✅ reviewed (617 tests; all weapons < 40 ms) |
 | M3-U1 Match setup, shop screen, weapon/item picker, move/item controls, round summary, autosave/continue, settings | show-ui-dev | ✅ reviewed (save 1.44 MB → 9.9 KB zstd) |
-| M3-U2 Keep tanks clear of side HUD (placement margin) + fade HUD panels when action passes behind; shop popup border | core-sim-dev + show-ui-dev | ⬜ after C2 |
-| M3-Q Weapon edge cases, economy and save/load fuzz | qa-tester | ⬜ after C2 |
+| M3-U2 HUD panels fade when tanks/action are behind them, off-screen shell marker, 21-weapon playback verification, small UI fixes | show-ui-dev | 🟡 running |
+| M3-Q Weapon edge cases, economy invariants, save/load + JSON fuzz, golden replays v2 | qa-tester | 🟡 running |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
