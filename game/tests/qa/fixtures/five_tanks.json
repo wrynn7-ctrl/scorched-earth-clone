@@ -1,0 +1,161 @@
+{
+	"scenario": {
+		"name": "five_tanks",
+		"seed": 777,
+		"tanks": 5,
+		"rounds": 1,
+		"wind_max": 100,
+		"bot_seed": 33,
+		"max_actions": 120
+	},
+	"initial_fp": "f2ca4f9927630292",
+	"steps": [
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 460,
+			"power": 862,
+			"fp": "8113776333eaf493",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "8d58fdacbd7d933a"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 451,
+			"power": 454,
+			"fp": "387947bfb0268890",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "0ef9b4d07b228037"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 682,
+			"power": 565,
+			"fp": "7f1741dd379cfa84",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "f2d4c2925ebfd0e0"
+		},
+		{
+			"op": "fire",
+			"tank": 3,
+			"angle": 1312,
+			"power": 265,
+			"fp": "c4a34cbcc1b2ff0c",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "dbaa1d013de7c3aa"
+		},
+		{
+			"op": "fire",
+			"tank": 4,
+			"angle": 1152,
+			"power": 663,
+			"fp": "2767c3de2d8b9560",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "507897af7cbcf4cc"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 662,
+			"power": 696,
+			"fp": "929c158c47bac7bb",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "58339e67ed561651"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 363,
+			"power": 744,
+			"fp": "3cc905f20c187104",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "ba22d7976a8ea591"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1410,
+			"power": 611,
+			"fp": "669e3bdf3dabb2b5",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "86b390149d702e77"
+		},
+		{
+			"op": "fire",
+			"tank": 3,
+			"angle": 860,
+			"power": 376,
+			"fp": "e914ce82128e8cd8",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "69afc08826886bdb"
+		},
+		{
+			"op": "fire",
+			"tank": 4,
+			"angle": 1262,
+			"power": 705,
+			"fp": "f47f64a5d709c0e3",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "8975194fcb586205"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 385,
+			"power": 352,
+			"fp": "2a817c410f522a69",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "6c0bfe489ba6a1eb"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1118,
+			"power": 496,
+			"fp": "05f92dea7a100cab",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "a0603b1652a291a5"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 890,
+			"power": 857,
+			"fp": "4805fa5f261ab963",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "f7e4380f8be40ca5"
+		},
+		{
+			"op": "fire",
+			"tank": 4,
+			"angle": 1445,
+			"power": 579,
+			"fp": "3aef6cfe3d019ded",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "c86bb3e038c02152"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 630,
+			"power": 681,
+			"fp": "aa651411d1d61736",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "c233753dcd2a3e51"
+		},
+		{
+			"op": "fire",
+			"tank": 4,
+			"angle": 1288,
+			"power": 462,
+			"fp": "367c6489c25890c6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
+			"evh": "89127c904c45bc7a"
+		}
+	],
+	"final_phase": "match_over",
+	"final_round": 0,
+	"final_fp": "367c6489c25890c6"
+}

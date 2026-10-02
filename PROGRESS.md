@@ -27,9 +27,9 @@
 |---|---|---|
 | M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | ✅ reviewed (GUT 9.7.1) |
 | M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | ✅ reviewed (91 tests; generate 6 ms, shot 10 ms, fingerprint 13 ms) |
-| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ✅ reviewed (local APK build verified; first CI run pending) |
-| M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | 🟡 running |
-| M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ⬜ after M2-C + M2-S1 |
+| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ✅ reviewed (CI green end-to-end: tests → APK → dev-latest release) |
+| M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | ✅ reviewed (screenshots in docs/screenshots) |
+| M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | 🟡 running |
 | M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | 🟡 running |
 
 ## Decisions / notes

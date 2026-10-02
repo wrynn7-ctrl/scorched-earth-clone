@@ -1,0 +1,80 @@
+{
+	"scenario": {
+		"name": "duel_2_tanks",
+		"seed": 1,
+		"tanks": 2,
+		"rounds": 1,
+		"wind_max": 100,
+		"bot_seed": 11,
+		"max_actions": 80
+	},
+	"initial_fp": "78bd656329e07f02",
+	"steps": [
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 645,
+			"power": 647,
+			"fp": "482b3fbf44f62562",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "fbff06c535002267"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1350,
+			"power": 123,
+			"fp": "1d2bec6b028d0963",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "ab76a88ce6139a9b"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 508,
+			"power": 612,
+			"fp": "f150305cf7cf816b",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "9df6f8d918c2c398"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1319,
+			"power": 725,
+			"fp": "2fe305563167e7be",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "02b1e1db2826061d"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 394,
+			"power": 577,
+			"fp": "56985f65af76e32e",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "25ea229d223610b1"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1483,
+			"power": 253,
+			"fp": "537ce643af145c76",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "1b6708db2c7269b4"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 557,
+			"power": 594,
+			"fp": "f121f3a6d10802b1",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
+			"evh": "8fc208a7d0115df2"
+		}
+	],
+	"final_phase": "match_over",
+	"final_round": 0,
+	"final_fp": "f121f3a6d10802b1"
+}

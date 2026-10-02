@@ -1,0 +1,260 @@
+{
+	"scenario": {
+		"name": "trio_3_tanks",
+		"seed": 20241,
+		"tanks": 3,
+		"rounds": 1,
+		"wind_max": 100,
+		"bot_seed": 22,
+		"max_actions": 80
+	},
+	"initial_fp": "758575f23facbb9e",
+	"steps": [
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 369,
+			"power": 541,
+			"fp": "8ae0672eecfb7689",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "2c3791a47398b032"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 503,
+			"power": 465,
+			"fp": "72757940c3850514",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "63a8aa6b61caa848"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1300,
+			"power": 812,
+			"fp": "2837c34efa239b21",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "bf64f1bf5e34182b"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 662,
+			"power": 619,
+			"fp": "1b3ab882be4cef64",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "443b267ce7a626fd"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 649,
+			"power": 579,
+			"fp": "6c36eabd0acdb5fe",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "c1354a5608f6a8d5"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1389,
+			"power": 1000,
+			"fp": "3940dc66bba6e5f7",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "9143064105fa8bb2"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 358,
+			"power": 532,
+			"fp": "241f8a776b385672",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "143ca3db03442d84"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1141,
+			"power": 616,
+			"fp": "0135f41a243d2f2c",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "badab38a10bc3e37"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1139,
+			"power": 606,
+			"fp": "462503954cf8c54e",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "98f4eada751d3442"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 698,
+			"power": 1000,
+			"fp": "18124853caf468ab",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "66131fbd6e5abaef"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1171,
+			"power": 582,
+			"fp": "3aeb6d4feb883adf",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "a3b688d57536319b"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1468,
+			"power": 998,
+			"fp": "34ba4cf8fd99ce7b",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "93caa5f23aecdb95"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 544,
+			"power": 580,
+			"fp": "3b628ea31e3ddb93",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "5a510566a9cdc93a"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 501,
+			"power": 471,
+			"fp": "55c669b5bfcf85ab",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "cf51f17b57444c32"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1437,
+			"power": 139,
+			"fp": "7cc4eb07d66c059c",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "e69209e4f98b0ba7"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 530,
+			"power": 581,
+			"fp": "26ea8774e37ca7d6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "2b055459ebe7dc81"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1248,
+			"power": 531,
+			"fp": "c5c3d042d535a9f7",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "8b9c479537960903"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1325,
+			"power": 671,
+			"fp": "0926e60e0ba44084",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "eab63928474f07fb"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 781,
+			"power": 138,
+			"fp": "6e586c459e5606d6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "6645ebee67f2ccba"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 758,
+			"power": 181,
+			"fp": "e41f5662d473e3f5",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "d980c4a5a04f8bc9"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1464,
+			"power": 1000,
+			"fp": "4bea22b6675f887d",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "24af5364d32429ef"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 531,
+			"power": 535,
+			"fp": "4234595862175b11",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "b55cdd87be2cf624"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 606,
+			"power": 518,
+			"fp": "12fa794705fab805",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "a919ee0794310125"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 279,
+			"power": 174,
+			"fp": "86ad42961c4bef5c",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "424de19b3fe002cb"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 400,
+			"power": 681,
+			"fp": "68e97e3bf9f268ac",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "746bdb94fd997a58"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1251,
+			"power": 172,
+			"fp": "c93bac8147b40d74",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "0b8aca3c4510d480"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 1647,
+			"power": 488,
+			"fp": "05616dc84ac5e71d",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
+			"evh": "08d4b813993ebb16"
+		}
+	],
+	"final_phase": "match_over",
+	"final_round": 0,
+	"final_fp": "05616dc84ac5e71d"
+}
