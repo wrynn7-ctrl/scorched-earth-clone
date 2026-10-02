@@ -1,0 +1,57 @@
+# Copies the official Godot editor (Linux) and the Android export templates
+# into a Release on THIS repository, so the cloud dev environment (which can
+# only download from this repo) can fetch them.
+name: Mirror Godot tools
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mirror-godot.yml"
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download official Godot release files
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o editor.zip    "${base}/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "${base}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSL -o SHA512-SUMS.txt "${base}/SHA512-SUMS.txt"
+          grep -E "linux.x86_64.zip|export_templates.tpz" SHA512-SUMS.txt \
+            | sed -e "s#Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip#editor.zip#" \
+                  -e "s#Godot_v${GODOT_VERSION}-stable_export_templates.tpz#templates.tpz#" \
+            | sha512sum -c -
+
+      - name: Repackage (Linux editor + Android-only templates)
+        run: |
+          set -euo pipefail
+          mkdir out
+          cp editor.zip "out/godot-${GODOT_VERSION}-linux.x86_64.zip"
+          unzip -q templates.tpz -d tpl
+          (cd tpl/templates && zip -q "../../out/godot-${GODOT_VERSION}-android-templates.zip" \
+            version.txt android_debug.apk android_release.apk android_source.zip)
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      - name: Publish as a release in this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="tools-godot-${GODOT_VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" out/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" out/* --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "Tools: Godot ${GODOT_VERSION} (mirror)" \
+              --notes "Unmodified official Godot ${GODOT_VERSION}-stable files (Linux editor + Android export templates), mirrored for the dev environment. Not a game release."
+          fi

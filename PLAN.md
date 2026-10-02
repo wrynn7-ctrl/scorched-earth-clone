@@ -1,6 +1,6 @@
 # PLAN — Neon Artillery Game for Android
 
-Status: **DRAFT v2 — waiting for your approval.** Updated with your skins, blocking and Play account answers. No code gets written until you approve.
+Status: **APPROVED (2026-10-02).** Working title "Craterline"; free/full split and $3.99 as in §4. Image import ships in M5. Reports: private review list + auto-hide a name after 3 reports from different players.
 
 ---
 
@@ -279,7 +279,7 @@ The **show** layer and **AI** only *read* state and *submit* actions. Only the s
 
 ### 7.5 Safety tools: blocking, reporting, names
 - **Block a player:** they can't invite you, join your matches or see when you're online, and you won't see their name or invites. Blocks are enforced by the server, not just hidden in the app.
-- **Report a player** (e.g. for an offensive name): reports go to a private list in Firebase that you review. I'll include a simple guide for that.
+- **Report a player** (e.g. for an offensive name): reports go to a private list in Firebase that you review (I'll include a simple guide). A name is **automatically hidden after 3 reports from different players** until you review it.
 - **Display names** pass through a bad-word filter, and players can be renamed if they're reported.
 - Display names are the only player-made content other players can see. These tools cover what Google expects for that, even in a friends-only game.
 
