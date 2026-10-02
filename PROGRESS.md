@@ -26,11 +26,11 @@
 | Task | Agent | Status |
 |---|---|---|
 | M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | ✅ reviewed (GUT 9.7.1) |
-| M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | 🟡 running |
+| M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | ✅ reviewed (91 tests; generate 6 ms, shot 10 ms, fingerprint 13 ms) |
 | M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | 🟡 running |
 | M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | 🟡 running |
 | M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ⬜ after M2-C + M2-S1 |
-| M2-Q Determinism golden tests | qa-tester | ⬜ after M2-C |
+| M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | 🟡 running |
 
 ## Open items for the owner
 - Pick a final title (PLAN.md §2); "Craterline" is the working title.
