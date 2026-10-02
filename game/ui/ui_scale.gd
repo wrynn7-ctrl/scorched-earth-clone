@@ -72,6 +72,34 @@ static func font(size_dp: float) -> int:
 	return maxi(8, roundi(dp(size_dp) * text_scale))
 
 
+## Most the in-battle HUD follows the text-size setting: its controls share a phone-width
+## screen, so they grow at most this much (menus and overlays use the full setting).
+const HUD_TEXT_CAP: float = 1.1
+
+
+## Like font(), for dense screens (battle HUD, match setup): text scale capped at HUD_TEXT_CAP.
+static func hud_font(size_dp: float) -> int:
+	return maxi(8, roundi(dp(size_dp) * minf(text_scale, HUD_TEXT_CAP)))
+
+
+## Like line_h(), for the HUD.
+static func hud_line_h(size_dp: float) -> float:
+	return float(hud_font(size_dp)) * 1.4
+
+
+## Height in canvas units of one line of text of `size_dp` (with the text-scale setting),
+## including the font's line spacing. Used to size controls that hold text.
+static func line_h(size_dp: float) -> float:
+	return float(font(size_dp)) * 1.4
+
+
+## Pointer to tell tests/tools the text scale changed: re-runs every apply_scale() hooked to
+## the root viewport's size_changed. No-op without a tree.
+static func notify_changed(tree: SceneTree) -> void:
+	if tree != null and tree.root != null:
+		tree.root.size_changed.emit()
+
+
 ## Physical size in dp of a canvas-unit length (for tests/diagnostics).
 static func canvas_to_dp(units: float) -> float:
 	return units * canvas_scale(window_px()) / (dpi() / 160.0)

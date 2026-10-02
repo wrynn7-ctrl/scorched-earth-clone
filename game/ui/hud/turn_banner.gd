@@ -33,7 +33,9 @@ func _ready() -> void:
 
 
 func apply_scale() -> void:
-	_label.add_theme_font_size_override("font_size", UiScale.font(15.0))
+	# Not scaled by the text-size setting: the banner shares the top row with the speed and pause
+	# buttons on a 700 dp phone and would push them off screen at 150%.
+	_label.add_theme_font_size_override("font_size", maxi(8, roundi(UiScale.dp(15.0))))
 	_emblem.custom_minimum_size = Vector2.ONE * UiScale.dp(28.0)
 
 
@@ -65,7 +67,7 @@ func get_text() -> String:
 func _refresh() -> void:
 	var shown: String = _player_name if _player_name != "" else tr("HUD_PLAYER_N") % (_index + 1)
 	_label.text = tr("HUD_TURN_OF") % shown
-	var c: Color = NeonPalette.tank_color(_index)
+	var c: Color = PlayerLooks.color(_index)
 	_label.add_theme_color_override("font_color", c)
 	_emblem.set_index(_index)
 

@@ -14,7 +14,18 @@ extends RefCounted
 ##   --auto-fire         battle: fire once, shortly after start, with the current aim
 ##   --auto-play         battle: every turn, aim with a ballistic search and fire
 ##   --open-pause        battle: open the pause menu shortly after start
-##   --auto-next         battle: with --auto-play, also press NEXT ROUND automatically
+##   --auto-next         battle: with --auto-play, also press NEXT automatically on the round summary
+##   --players=<n>       battle: number of tanks (2..8) for a quick match
+##   --money=<n>         battle: starting credits
+##   --give=<id>:<n>     battle: put n units of a catalog entry in every tank's inventory (repeatable)
+##   --skip-shop         battle: every player presses READY at once (no shop screens)
+##   --shop-player=<n>   battle: open the shop of player n (1-based) directly, skipping the hand-over
+##   --use-item=<id>     battle: the first tank uses this item right after the round starts
+##   --open-picker       battle: open the weapon picker shortly after the round starts
+##   --select=<id>       battle: the first tank starts with this weapon selected
+##   --shop-tab=<n>      battle: shop tab to show (0 weapons, 1 items)
+##   --shop-select=<id>  battle: shop entry to select (opens the detail popup on phones)
+##   --open-settings     title/battle: open the settings screen shortly after start
 
 static var shot_path: String = ""
 static var shot_time: float = 1.5
@@ -27,6 +38,17 @@ static var auto_fire: bool = false
 static var auto_play: bool = false
 static var auto_next: bool = false
 static var open_pause: bool = false
+static var players: int = 0
+static var money: int = -1
+static var gives: Array[String] = []
+static var skip_shop: bool = false
+static var shop_player: int = 0
+static var use_item: String = ""
+static var open_picker: bool = false
+static var select_weapon: String = ""
+static var shop_tab: int = 0
+static var shop_select: String = ""
+static var open_settings: bool = false
 
 static var _parsed: bool = false
 
@@ -61,3 +83,25 @@ static func parse() -> void:
 			open_pause = true
 		elif a == "--auto-next":
 			auto_next = true
+		elif a.begins_with("--players="):
+			players = a.substr(10).to_int()
+		elif a.begins_with("--money="):
+			money = a.substr(8).to_int()
+		elif a.begins_with("--give="):
+			gives.append(a.substr(7))
+		elif a == "--skip-shop":
+			skip_shop = true
+		elif a.begins_with("--shop-player="):
+			shop_player = a.substr(14).to_int()
+		elif a.begins_with("--use-item="):
+			use_item = a.substr(11)
+		elif a == "--open-picker":
+			open_picker = true
+		elif a.begins_with("--select="):
+			select_weapon = a.substr(9)
+		elif a.begins_with("--shop-tab="):
+			shop_tab = a.substr(11).to_int()
+		elif a.begins_with("--shop-select="):
+			shop_select = a.substr(14)
+		elif a == "--open-settings":
+			open_settings = true

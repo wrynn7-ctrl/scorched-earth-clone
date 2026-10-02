@@ -49,10 +49,10 @@ func _ready() -> void:
 
 
 func apply_scale() -> void:
-	_caption.add_theme_font_size_override("font_size", UiScale.font(11.0))
-	_readout.add_theme_font_size_override("font_size", UiScale.font(22.0))
-	_plus.add_theme_font_size_override("font_size", UiScale.font(16.0))
-	_minus.add_theme_font_size_override("font_size", UiScale.font(16.0))
+	_caption.add_theme_font_size_override("font_size", UiScale.hud_font(11.0))
+	_readout.add_theme_font_size_override("font_size", UiScale.hud_font(22.0))
+	_plus.add_theme_font_size_override("font_size", UiScale.hud_font(16.0))
+	_minus.add_theme_font_size_override("font_size", UiScale.hud_font(16.0))
 	var bs := Vector2(UiScale.dp(64.0), UiScale.touch())
 	_plus.custom_minimum_size = bs
 	_minus.custom_minimum_size = bs

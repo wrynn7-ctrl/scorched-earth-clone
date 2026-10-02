@@ -16,6 +16,7 @@ const CASES: Array = [
 
 func after_each() -> void:
 	UiScale.reset_overrides()
+	ShowSettings.reset()
 
 
 func _controls(root: Node, out: Array[Control]) -> void:
@@ -40,14 +41,32 @@ func _build(win: Vector2, dpi: float) -> Dictionary:
 	hud.set_angle_tenths(1800)
 	hud.set_power(1000)
 	hud.set_wind(-100)
+	# The crowded case: money, the longest weapon name, every usable item, fuel, items row open.
+	hud.set_money(1000000)
+	hud.set_weapon("singularity_seed", 99)
+	hud.set_items([
+		{"id": "glow_shield", "count": 99}, {"id": "ion_shield", "count": 99}, {"id": "fortress_field", "count": 99},
+		{"id": "repulsor_field", "count": 99}, {"id": "nanorepair_kit", "count": 99},
+	] as Array[Dictionary])
+	hud.toggle_items()
+	hud.set_fuel(9900)
 	await wait_frames(3)
 	return {"hud": hud, "vis": vis}
 
 
 func test_no_control_outside_visible_rect() -> void:
+	await _check_all_cases("")
+
+
+func test_no_overlap_at_the_largest_text_size() -> void:
+	ShowSettings.set_text_size(150)
+	await _check_all_cases(" @150%")
+
+
+func _check_all_cases(suffix: String) -> void:
 	for case: Array in CASES:
 		var win: Vector2 = case[0]
-		var label: String = case[2]
+		var label: String = str(case[2]) + suffix
 		var built: Dictionary = await _build(win, float(case[1]))
 		var hud: BattleHud = built["hud"]
 		var vis: Vector2 = built["vis"]
@@ -77,7 +96,54 @@ func test_no_control_outside_visible_rect() -> void:
 		assert_false(banner.intersects(power), "%s: banner/power overlap" % label)
 		assert_false(angle.intersects(fire), "%s: angle/fire overlap" % label)
 		assert_false(fire.intersects(power), "%s: fire/power overlap" % label)
+		_check_tray(hud, label)
 		hud.get_parent().queue_free()
+
+
+## The M3 controls (money, move, weapon button, items row) must not collide with anything.
+func _check_tray(hud: BattleHud, label: String) -> void:
+	var tray: Rect2 = hud.get_tray().get_global_rect()
+	var weapon: Rect2 = hud.get_weapon_button().get_global_rect()
+	var toggle: Rect2 = hud.get_items_toggle().get_global_rect()
+	var items: Rect2 = hud.get_item_tray().get_global_rect()
+	var moves: Rect2 = hud.get_move_controls().get_global_rect()
+	var money: Rect2 = hud.get_money_label().get_global_rect()
+	var others: Dictionary = {
+		"banner": hud.get_turn_banner().get_global_rect(), "angle": hud.get_angle_panel().get_global_rect(),
+		"wind": hud.get_wind_indicator().get_global_rect(), "power": hud.get_power_panel().get_global_rect(),
+		"fire": hud.get_fire_button().get_global_rect(),
+	}
+	assert_true(hud.get_item_tray().visible, "%s: items row is open" % label)
+	assert_false(weapon.intersects(toggle), "%s: weapon/items toggle overlap" % label)
+	for k: String in others.keys():
+		var r: Rect2 = others[k]
+		assert_false(tray.intersects(r), "%s: tray/%s overlap (%s vs %s)" % [label, k, tray, r])
+		assert_false(moves.intersects(r), "%s: moves/%s overlap" % [label, k])
+		assert_false(money.intersects(r), "%s: money/%s overlap" % [label, k])
+	assert_false(moves.intersects(money), "%s: moves/money overlap" % label)
+	assert_false(items.intersects(weapon), "%s: items row/weapon overlap" % label)
+	assert_gte(UiScale.canvas_to_dp(hud.get_weapon_button().size.y), 47.5, "%s: weapon button >= 48 dp" % label)
+
+
+func test_weapon_picker_fits_every_screen_at_large_text() -> void:
+	ShowSettings.set_text_size(150)
+	for case: Array in CASES:
+		var win: Vector2 = case[0]
+		var label: String = case[2]
+		var built: Dictionary = await _build(win, float(case[1]))
+		var hud: BattleHud = built["hud"]
+		var entries: Array[Dictionary] = []
+		for id: String in Catalog.IDS:
+			if WeaponDefs.has(id):
+				entries.append({"id": id, "count": 99})
+		hud.open_weapon_picker(entries, "pulse_missile")
+		await wait_frames(3)
+		var vis := Rect2(Vector2.ZERO, built["vis"] as Vector2).grow(1.5)
+		assert_true(vis.encloses(hud.get_weapon_popup().get_panel().get_global_rect()), "%s: picker panel on screen" % label)
+		for chip: HudChip in hud.get_weapon_popup().get_chips():
+			assert_gte(UiScale.canvas_to_dp(chip.custom_minimum_size.y), 47.5, "%s: %s row >= 48 dp" % [label, chip.name])
+		hud.get_parent().queue_free()
+	ShowSettings.reset()
 
 
 func test_touch_targets_at_least_48dp() -> void:

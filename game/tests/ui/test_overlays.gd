@@ -1,6 +1,6 @@
 extends GutTest
-## Pause / round-end / match-end overlays must fit the screen (a phone in landscape is only
-## ~330 dp tall) and keep every button at least 48 dp.
+## Pause / settings / round summary / standings overlays must fit the screen (a phone in
+## landscape is only ~330 dp tall) and keep every button at least 48 dp.
 
 # [window px, dpi, label]
 const CASES: Array = [
@@ -50,39 +50,75 @@ func _check(overlay: OverlayPanel, vp: SubViewport, label: String) -> void:
 		assert_true(vis.encloses(b.get_global_rect()), "%s %s: button %s off screen" % [label, overlay.name, b.name])
 
 
+func _rows(n: int) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for i: int in range(n):
+		rows.append({"id": i, "earned": 3500 + i * 1000, "kills": i, "wins": 2, "damage": 120 * i, "money": 20000})
+	return rows
+
+
+func _order(n: int) -> Array[int]:
+	var o: Array[int] = []
+	for i: int in range(n):
+		o.append(i)
+	return o
+
+
 func test_overlays_fit_all_screens() -> void:
-	for case: Array in CASES:
-		var label: String = case[2]
-		var vp: SubViewport = _viewport(case[0], float(case[1]))
-		var pause := PauseOverlay.new()
-		var rnd := RoundEndOverlay.new()
-		var fin := MatchEndOverlay.new()
-		vp.add_child(pause)
-		vp.add_child(rnd)
-		vp.add_child(fin)
-		pause.open_for(2, 5)
-		rnd.show_result(1, PackedInt32Array([2, 3]), 5, 5)
-		fin.show_result(PackedInt32Array([3, 2]))
-		await wait_process_frames(3)
-		_check(pause, vp, label)
-		_check(rnd, vp, label)
-		_check(fin, vp, label)
-		vp.queue_free()
-		await wait_process_frames(1)
+	SettingsStore.path = "user://test_settings_overlay.cfg"
+	for size_pct: int in [100, 150]:
+		ShowSettings.set_text_size(size_pct)
+		for case: Array in CASES:
+			var label: String = "%s @%d%%" % [case[2], size_pct]
+			var vp: SubViewport = _viewport(case[0], float(case[1]))
+			var pause := PauseOverlay.new()
+			var rnd := RoundEndOverlay.new()
+			var fin := MatchEndOverlay.new()
+			var settings := SettingsOverlay.new()
+			var confirm := ConfirmOverlay.new()
+			for o: OverlayPanel in [pause, rnd, fin, settings, confirm]:
+				vp.add_child(o)
+			pause.open_for(2, 5)
+			rnd.show_summary(1, _rows(8), 5, 5)  # eight players: the table must scroll, not overflow
+			fin.show_standings(_order(8), _rows(8))
+			settings.open()
+			confirm.ask("Starting a new match deletes your saved game.")
+			await wait_process_frames(3)
+			for o: OverlayPanel in [pause, rnd, fin, settings, confirm]:
+				_check(o, vp, label)
+			vp.queue_free()
+			await wait_process_frames(1)
+	SettingsStore.delete()
+	SettingsStore.path = SettingsStore.DEFAULT_PATH
 
 
-func test_round_overlay_text_and_tally() -> void:
+func test_round_summary_shows_money_kills_and_wins() -> void:
 	var vp: SubViewport = _viewport(Vector2(2340, 1080), 500.0)
 	var rnd := RoundEndOverlay.new()
 	vp.add_child(rnd)
-	rnd.show_result(1, PackedInt32Array([2, 1]), 3, 3)
-	assert_eq(rnd.get_title_text(), "PLAYER 2 WINS THE ROUND")
-	assert_eq(rnd.get_tally_text(), "PLAYER 1 2, PLAYER 2 1")
-	rnd.show_result(-1, PackedInt32Array([1, 1]), 2, 3)
+	var rows: Array[Dictionary] = [
+		{"id": 0, "earned": 4200, "kills": 1, "wins": 2},
+		{"id": 1, "earned": -300, "kills": 0, "wins": 1},
+	]
+	rnd.show_summary(0, rows, 3, 3)
+	assert_eq(rnd.get_title_text(), "PLAYER 1 WINS THE ROUND")
+	assert_eq(rnd.get_table().get_text(), "PLAYER 1 +$4,200 1 2; PLAYER 2 -$300 0 1")
+	rnd.show_summary(-1, rows, 2, 3)
 	assert_eq(rnd.get_title_text(), "DRAW")
-	var fin := MatchEndOverlay.new()
-	vp.add_child(fin)
-	fin.show_result(PackedInt32Array([1, 2]))
-	assert_eq(fin.get_title_text(), "PLAYER 2 WINS THE MATCH")
-	fin.show_result(PackedInt32Array([2, 2]))
-	assert_eq(fin.get_title_text(), "DRAW")
+	assert_eq(rnd.get_next_button().text, "NEXT")
+
+
+func test_pause_overlay_buttons() -> void:
+	var vp: SubViewport = _viewport(Vector2(2340, 1080), 500.0)
+	var pause := PauseOverlay.new()
+	vp.add_child(pause)
+	pause.open_for(1, 3)
+	for n: String in ["Resume", "Settings", "Restart", "Quit"]:
+		assert_not_null(pause.find_child(n, true, false), n)
+	watch_signals(pause)
+	(pause.find_child("Settings", true, false) as Button).pressed.emit()
+	assert_signal_emitted(pause, "settings_pressed")
+	(pause.find_child("Restart", true, false) as Button).pressed.emit()
+	assert_signal_not_emitted(pause, "restart_pressed")
+	(pause.find_child("Restart", true, false) as Button).pressed.emit()
+	assert_signal_emitted(pause, "restart_pressed")

@@ -1,10 +1,10 @@
 class_name TitleScreen
 extends Control
-## Title screen: glowing logo over the neon sky, ROUNDS selector (1/3/5) and START.
-## START hands the chosen round count to BattleConfig and loads the battle scene
-## (2 players, pass-and-play on one device).
+## Title screen: glowing logo over the neon sky, START (match setup), CONTINUE (when an
+## autosave exists) and SETTINGS. START asks for confirmation first if it would replace a save.
 
 const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
+const SETUP_SCENE: String = "res://ui/setup/setup_screen.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 const LOGO_SHADER: Shader = preload("res://ui/title/logo_gradient.gdshader")
 
@@ -15,16 +15,18 @@ var _glow_a: Label = null
 var _glow_b: Label = null
 var _logo: Label = null
 var _subtitle: Label = null
-var _rounds_caption: Label = null
-var _rounds_row: HBoxContainer = null
-var _round_buttons: Array[Button] = []
 var _start: Button = null
-var _selected_rounds: int = 3
+var _continue: Button = null
+var _settings: Button = null
+var _row: HBoxContainer = null
+var _settings_overlay: SettingsOverlay = null
+var _confirm: ConfirmOverlay = null
 var _pulse: Tween = null
 
 
 func _init() -> void:
 	ShotArgs.parse()
+	SettingsStore.ensure_loaded()
 	theme = THEME
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build()
@@ -34,9 +36,11 @@ func _ready() -> void:
 	get_tree().set_quit_on_go_back(true)
 	apply_scale()
 	get_viewport().size_changed.connect(apply_scale)
-	select_rounds(BattleConfig.rounds)
+	refresh_continue()
 	_start_pulse()
 	ShotHook.attach(self)
+	if ShotArgs.open_settings:
+		open_settings()
 
 
 func _build() -> void:
@@ -67,32 +71,10 @@ func _build() -> void:
 
 	_subtitle = Label.new()
 	_subtitle.name = "Subtitle"
-	_subtitle.text = tr("TITLE_SUBTITLE")
+	_subtitle.text = tr("TITLE_SUBTITLE_M3")
 	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_subtitle.add_theme_color_override("font_color", NeonPalette.TEXT_DIM)
 	_box.add_child(_subtitle)
-
-	_rounds_caption = Label.new()
-	_rounds_caption.name = "RoundsCaption"
-	_rounds_caption.text = tr("TITLE_ROUNDS")
-	_rounds_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_rounds_caption.add_theme_color_override("font_color", NeonPalette.CYAN)
-	_box.add_child(_rounds_caption)
-	_rounds_row = HBoxContainer.new()
-	_rounds_row.name = "RoundsRow"
-	_rounds_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_box.add_child(_rounds_row)
-	var group := ButtonGroup.new()
-	for n: int in BattleConfig.ROUND_CHOICES:
-		var b := Button.new()
-		b.name = "Rounds%d" % n
-		b.text = str(n)
-		b.toggle_mode = true
-		b.button_group = group
-		b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(select_rounds.bind(n))
-		_rounds_row.add_child(b)
-		_round_buttons.append(b)
 
 	_start = Button.new()
 	_start.name = "Start"
@@ -102,6 +84,29 @@ func _build() -> void:
 	_start.pressed.connect(start_game)
 	_start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_box.add_child(_start)
+
+	_row = HBoxContainer.new()
+	_row.name = "SecondaryRow"
+	_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_box.add_child(_row)
+	_continue = Button.new()
+	_continue.name = "Continue"
+	_continue.text = tr("TITLE_CONTINUE")
+	_continue.focus_mode = Control.FOCUS_NONE
+	_continue.pressed.connect(continue_game)
+	_row.add_child(_continue)
+	_settings = Button.new()
+	_settings.name = "Settings"
+	_settings.text = tr("TITLE_SETTINGS")
+	_settings.focus_mode = Control.FOCUS_NONE
+	_settings.pressed.connect(open_settings)
+	_row.add_child(_settings)
+
+	_settings_overlay = SettingsOverlay.new()
+	add_child(_settings_overlay)
+	_confirm = ConfirmOverlay.new()
+	_confirm.confirmed.connect(_go_to_setup)
+	add_child(_confirm)
 
 
 func _logo_label(label_name: String, outline: Color) -> Label:
@@ -131,14 +136,13 @@ func apply_scale() -> void:
 	_glow_b.add_theme_constant_override("outline_size", roundi(UiScale.dp(6.0)))
 	(_logo.material as ShaderMaterial).set_shader_parameter("height", text_size.y)
 	_subtitle.add_theme_font_size_override("font_size", UiScale.font(15.0))
-	_rounds_caption.add_theme_font_size_override("font_size", UiScale.font(14.0))
 	_box.add_theme_constant_override("separation", roundi(UiScale.dp(14.0)))
-	_rounds_row.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
-	for b: Button in _round_buttons:
-		b.custom_minimum_size = Vector2.ONE * UiScale.touch() * 1.15
-		b.add_theme_font_size_override("font_size", UiScale.font(20.0))
+	_row.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
 	_start.custom_minimum_size = Vector2(UiScale.dp(220.0), UiScale.dp(68.0))
 	_start.add_theme_font_size_override("font_size", UiScale.font(26.0))
+	for b: Button in [_continue, _settings]:
+		b.custom_minimum_size = Vector2(UiScale.dp(150.0), UiScale.touch())
+		b.add_theme_font_size_override("font_size", UiScale.font(15.0))
 
 
 func _start_pulse() -> void:
@@ -149,29 +153,57 @@ func _start_pulse() -> void:
 	_pulse.tween_property(_glow_a, "modulate:a", 1.0, 1.6).set_trans(Tween.TRANS_SINE)
 
 
-func select_rounds(n: int) -> void:
-	_selected_rounds = n
-	for b: Button in _round_buttons:
-		b.set_pressed_no_signal(int(b.text) == n)
+## Shows CONTINUE only when a valid autosave exists.
+func refresh_continue() -> void:
+	_continue.visible = SaveStore.has_valid_save(BattleConfig.autosave_path)
 
 
-func get_selected_rounds() -> int:
-	return _selected_rounds
+func has_save() -> bool:
+	return _continue.visible
 
 
 func get_start_button() -> Button:
 	return _start
 
 
-func get_rounds_buttons() -> Array[Button]:
-	return _round_buttons
+func get_continue_button() -> Button:
+	return _continue
+
+
+func get_settings_button() -> Button:
+	return _settings
+
+
+func get_settings_overlay() -> SettingsOverlay:
+	return _settings_overlay
+
+
+func get_confirm_overlay() -> ConfirmOverlay:
+	return _confirm
 
 
 func get_logo_text() -> String:
 	return _logo.text
 
 
+func open_settings() -> void:
+	_settings_overlay.open()
+
+
+## START: straight to the setup screen, or ask first if that would discard a saved match.
 func start_game() -> void:
-	BattleConfig.rounds = _selected_rounds
-	BattleConfig.seed_value = ShotArgs.seed_value
+	if has_save():
+		_confirm.ask(tr("TITLE_DISCARD_SAVE"))
+	else:
+		_go_to_setup()
+
+
+func _go_to_setup() -> void:
+	get_tree().change_scene_to_file(SETUP_SCENE)
+
+
+## CONTINUE: the battle restores the autosave (mid-turn or mid-shop).
+func continue_game() -> void:
+	BattleConfig.resume = true
+	BattleConfig.settings = null
 	get_tree().change_scene_to_file(BATTLE_SCENE)

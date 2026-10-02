@@ -1,6 +1,7 @@
 class_name EmblemIcon
 extends Control
-## Draws one tank emblem in the tank's colour (used by the turn banner and lists).
+## Draws one player's emblem in their colour (used by the turn banner and lists). The index is
+## the player index; PlayerLooks maps it to the colour/emblem the player picked.
 
 var _index: int = 0
 
@@ -20,4 +21,4 @@ func get_index_value() -> int:
 
 func _draw() -> void:
 	var r: float = minf(size.x, size.y) * 0.42
-	NeonPalette.draw_emblem(self, NeonPalette.tank_emblem(_index), size * 0.5, r, NeonPalette.tank_color(_index))
+	NeonPalette.draw_emblem(self, PlayerLooks.emblem(_index), size * 0.5, r, PlayerLooks.color(_index))

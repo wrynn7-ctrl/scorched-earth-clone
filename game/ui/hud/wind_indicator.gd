@@ -40,8 +40,8 @@ func _ready() -> void:
 
 func apply_scale() -> void:
 	_arrow.custom_minimum_size = Vector2(UiScale.dp(76.0), UiScale.dp(40.0))
-	_caption.add_theme_font_size_override("font_size", UiScale.font(11.0))
-	_value.add_theme_font_size_override("font_size", UiScale.font(24.0))
+	_caption.add_theme_font_size_override("font_size", UiScale.hud_font(11.0))
+	_value.add_theme_font_size_override("font_size", UiScale.hud_font(24.0))
 
 
 func set_wind(w: int) -> void:

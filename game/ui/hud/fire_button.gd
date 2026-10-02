@@ -24,7 +24,7 @@ func _ready() -> void:
 
 func apply_scale() -> void:
 	custom_minimum_size = Vector2(UiScale.dp(120.0), UiScale.dp(68.0))
-	add_theme_font_size_override("font_size", UiScale.font(26.0))
+	add_theme_font_size_override("font_size", UiScale.hud_font(26.0))
 
 
 func set_enabled(enabled: bool) -> void:

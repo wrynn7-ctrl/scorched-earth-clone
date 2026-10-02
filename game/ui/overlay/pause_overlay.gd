@@ -1,14 +1,18 @@
 class_name PauseOverlay
 extends OverlayPanel
-## Pause menu: RESUME / RESTART MATCH / QUIT TO TITLE plus the quick settings toggles.
-## The settings write straight into ShowSettings (presentation-only switches).
+## Pause menu: RESUME / SETTINGS / RESTART MATCH / QUIT TO TITLE. Restart asks for a second
+## tap (it discards the autosave); the settings live on their own screen.
 
 signal resume_pressed
 signal restart_pressed
 signal quit_pressed
+signal settings_pressed
+
+const CONFIRM_SECONDS: float = 3.0
 
 var _round_label: Label = null
-var _preview_btn: Button = null
+var _restart: Button = null
+var _confirm_timer: SceneTreeTimer = null
 
 
 func _init() -> void:
@@ -16,22 +20,18 @@ func _init() -> void:
 	name = "PauseOverlay"
 	add_title(tr("PAUSE_TITLE"), NeonPalette.CYAN, 24.0)
 	_round_label = add_label("", 13.0)
-	# Compact on purpose: a phone in landscape is only ~330 dp tall.
-	begin_grid()
-	add_toggle(tr("SET_HAPTICS"), ShowSettings.haptics, func(on: bool) -> void: ShowSettings.haptics = on).name = "Haptics"
-	add_toggle(tr("SET_SHAKE"), ShowSettings.screen_shake, func(on: bool) -> void: ShowSettings.screen_shake = on).name = "Shake"
-	add_toggle(tr("SET_REDUCE_FLASH"), ShowSettings.reduce_flashing, func(on: bool) -> void: ShowSettings.reduce_flashing = on).name = "ReduceFlashing"
-	_preview_btn = add_toggle(tr("SET_PREVIEW"), ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF, _on_preview)
-	_preview_btn.name = "Preview"
-	_refresh_preview_text()
-	end_container()
 	begin_row()
-	var resume: Button = add_button(tr("PAUSE_RESUME"), 120.0)
+	var resume: Button = add_button(tr("PAUSE_RESUME"), 150.0)
 	resume.name = "Resume"
 	resume.pressed.connect(func() -> void: resume_pressed.emit())
-	var restart: Button = add_button(tr("PAUSE_RESTART"), 150.0)
-	restart.name = "Restart"
-	restart.pressed.connect(func() -> void: restart_pressed.emit())
+	var settings: Button = add_button(tr("PAUSE_SETTINGS"), 150.0)
+	settings.name = "Settings"
+	settings.pressed.connect(func() -> void: settings_pressed.emit())
+	end_container()
+	begin_row()
+	_restart = add_button(tr("PAUSE_RESTART"), 150.0)
+	_restart.name = "Restart"
+	_restart.pressed.connect(_on_restart)
 	var quit: Button = add_button(tr("PAUSE_QUIT"), 150.0)
 	quit.name = "Quit"
 	quit.pressed.connect(func() -> void: quit_pressed.emit())
@@ -40,30 +40,30 @@ func _init() -> void:
 
 func open_for(round_number: int, rounds: int) -> void:
 	_round_label.text = tr("OVERLAY_ROUND_OF") % [round_number, rounds]
-	_sync_toggles()
+	_reset_restart()
 	open()
 
 
-func _sync_toggles() -> void:
-	(_find("Haptics") as Button).set_pressed_no_signal(ShowSettings.haptics)
-	(_find("Shake") as Button).set_pressed_no_signal(ShowSettings.screen_shake)
-	(_find("ReduceFlashing") as Button).set_pressed_no_signal(ShowSettings.reduce_flashing)
-	_preview_btn.set_pressed_no_signal(ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF)
-	for n: String in ["Haptics", "Shake", "ReduceFlashing"]:
-		var b: Button = _find(n) as Button
-		b.text = tr("SET_ON") if b.button_pressed else tr("SET_OFF")
-	_refresh_preview_text()
+func close() -> void:
+	_reset_restart()
+	super.close()
 
 
-func _find(n: String) -> Node:
-	return _box.find_child(n, true, false)
+func is_restart_armed() -> bool:
+	return _restart.text == tr("PAUSE_RESTART_CONFIRM")
 
 
-func _on_preview(on: bool) -> void:
-	ShowSettings.trajectory_preview = ShowSettings.PREVIEW_SHORT if on else ShowSettings.PREVIEW_OFF
-	_refresh_preview_text()
+## First tap arms the button ("TAP AGAIN TO RESTART"), the second one restarts.
+func _on_restart() -> void:
+	if is_restart_armed():
+		_reset_restart()
+		restart_pressed.emit()
+		return
+	_restart.text = tr("PAUSE_RESTART_CONFIRM")
+	_confirm_timer = get_tree().create_timer(CONFIRM_SECONDS, true, false, true)
+	_confirm_timer.timeout.connect(_reset_restart)
 
 
-## The preview setting reads "SHORT"/"OFF" rather than ON/OFF.
-func _refresh_preview_text() -> void:
-	_preview_btn.text = tr("SET_PREVIEW_SHORT") if ShowSettings.trajectory_preview == ShowSettings.PREVIEW_SHORT else tr("SET_OFF")
+func _reset_restart() -> void:
+	if _restart != null:
+		_restart.text = tr("PAUSE_RESTART")
