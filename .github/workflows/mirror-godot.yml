@@ -26,7 +26,7 @@ jobs:
           curl -fsSL -o editor.zip    "${base}/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           curl -fsSL -o templates.tpz "${base}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           curl -fsSL -o SHA512-SUMS.txt "${base}/SHA512-SUMS.txt"
-          grep -E "linux.x86_64.zip|export_templates.tpz" SHA512-SUMS.txt \
+          grep -E " Godot_v${GODOT_VERSION}-stable_(linux\.x86_64\.zip|export_templates\.tpz)$" SHA512-SUMS.txt \
             | sed -e "s#Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip#editor.zip#" \
                   -e "s#Godot_v${GODOT_VERSION}-stable_export_templates.tpz#templates.tpz#" \
             | sha512sum -c -
