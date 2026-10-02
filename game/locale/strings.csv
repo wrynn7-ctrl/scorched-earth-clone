@@ -190,3 +190,8 @@ SET_TITLE,SETTINGS
 SET_SPEED,Playback speed
 SET_TEXT_SIZE,Text size
 SET_BACK,BACK
+ERR_BAD_PHASE_M3,You can't do that right now
+HUD_YOU,you
+HUD_SHELL_UP_FMT,%d up
+DMG_BURN_FMT,-%d burn
+DMG_BEAM_FMT,-%d beam

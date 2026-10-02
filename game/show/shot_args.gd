@@ -26,6 +26,13 @@ extends RefCounted
 ##   --shop-tab=<n>      battle: shop tab to show (0 weapons, 1 items)
 ##   --shop-select=<id>  battle: shop entry to select (opens the detail popup on phones)
 ##   --open-settings     title/battle: open the settings screen shortly after start
+##   --freeze-tick=<n>   battle: stop the first shot's playback at tick n and take the --shot then
+##                       (instead of after --shot-time); shows one moment of a weapon
+##   --freeze-shot=<n>   with --freeze-tick: which shot (1 = the first fire action), default 1
+##   --freeze-hold=<s>   with --freeze-tick: real seconds to wait after the freeze (effects
+##                       keep animating in real time), default 0.25
+##   --place=<i>:<x>     battle: move tank i to column x (0-based tank, simulation x) right after
+##                       the round starts; the tank rests on the ground there (screenshots)
 
 static var shot_path: String = ""
 static var shot_time: float = 1.5
@@ -49,6 +56,10 @@ static var select_weapon: String = ""
 static var shop_tab: int = 0
 static var shop_select: String = ""
 static var open_settings: bool = false
+static var freeze_tick: int = -1
+static var freeze_hold: float = 0.25
+static var freeze_shot: int = 1
+static var places: Array[String] = []
 
 static var _parsed: bool = false
 
@@ -105,3 +116,11 @@ static func parse() -> void:
 			shop_select = a.substr(14)
 		elif a == "--open-settings":
 			open_settings = true
+		elif a.begins_with("--freeze-tick="):
+			freeze_tick = a.substr(14).to_int()
+		elif a.begins_with("--freeze-shot="):
+			freeze_shot = a.substr(14).to_int()
+		elif a.begins_with("--freeze-hold="):
+			freeze_hold = a.substr(14).to_float()
+		elif a.begins_with("--place="):
+			places.append(a.substr(8))

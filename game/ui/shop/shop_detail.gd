@@ -8,6 +8,8 @@ signal buy_pressed(item_id: String)
 signal sell_pressed(item_id: String)
 signal close_pressed
 
+const NEON_THEME: Theme = preload("res://ui/theme/neon_theme.tres")
+
 var item_id: String = ""
 
 var _margin: MarginContainer = null
@@ -125,8 +127,12 @@ func set_popup_mode(on: bool) -> void:
 	_close.visible = on
 	if on:
 		# The popup floats over the card grid: make it opaque so the cards do not bleed through.
-		var sb: StyleBoxFlat = (get_theme_stylebox("panel", "PanelContainer") as StyleBoxFlat).duplicate()
+		# Read the neon theme directly: the detail is not in the tree yet when this runs, so
+		# get_theme_stylebox() would fall back to the engine's border-less default panel.
+		var sb: StyleBoxFlat = (NEON_THEME.get_stylebox("panel", "PanelContainer") as StyleBoxFlat).duplicate()
 		sb.bg_color = Color(NeonPalette.BG_MID, 1.0)
+		sb.border_color = Color(NeonPalette.CYAN, 0.9)
+		sb.shadow_color = Color(NeonPalette.CYAN, 0.3)
 		add_theme_stylebox_override("panel", sb)
 	else:
 		remove_theme_stylebox_override("panel")

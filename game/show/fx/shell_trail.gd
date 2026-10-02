@@ -17,11 +17,14 @@ var _path: PackedVector2Array = PackedVector2Array()
 var _pos: float = 0.0
 var _playing: bool = false
 var _line: Line2D = null
+var _wake: Line2D = null
+var _wake_grad: Gradient = null
 var _head: Sprite2D = null
 var _fade: Tween = null
 
 
 func _ready() -> void:
+	_build_wake()
 	_line = Line2D.new()
 	_line.name = "Tail"
 	_line.width = 6.0
@@ -49,6 +52,38 @@ func _ready() -> void:
 	set_process(false)
 
 
+## A faint line along the part of the path already flown, so bent flights (Seeker, wells,
+## splitter fans) read as a curve and not just a short tail. The whole path is one Line2D set
+## once; a 4-stop gradient reveals it up to the head, so there is no per-frame allocation.
+func _build_wake() -> void:
+	_wake = Line2D.new()
+	_wake.name = "Wake"
+	_wake.width = 2.5
+	_wake.material = FxTextures.additive()
+	_wake.joint_mode = Line2D.LINE_JOINT_ROUND
+	_wake_grad = Gradient.new()
+	var c := Color(NeonPalette.MAGENTA, 0.0)
+	_wake_grad.colors = PackedColorArray([c, Color(NeonPalette.MAGENTA.lerp(Color.WHITE, 0.3), 0.4), c, c])
+	_wake_grad.offsets = PackedFloat32Array([0.0, 0.01, 0.02, 1.0])
+	_wake.gradient = _wake_grad
+	add_child(_wake)
+
+
+func _update_wake() -> void:
+	if _path.size() < 2:
+		return
+	var p: float = _pos / float(_path.size() - 1)
+	var a: float = clampf(p, 0.001, 0.998)
+	var b: float = clampf(p + 0.001, 0.002, 0.999)
+	# Gradient re-sorts its stops when an offset passes a neighbour: move them in a safe order.
+	if a > _wake_grad.get_offset(2):
+		_wake_grad.set_offset(2, b)
+		_wake_grad.set_offset(1, a)
+	else:
+		_wake_grad.set_offset(1, a)
+		_wake_grad.set_offset(2, b)
+
+
 ## Starts playing `path` (at least 2 points). Re-callable.
 func play(path: PackedVector2Array, sps: float = 120.0) -> void:
 	if path.size() < 2:
@@ -57,6 +92,7 @@ func play(path: PackedVector2Array, sps: float = 120.0) -> void:
 	if _fade != null:
 		_fade.kill()
 	_path = path
+	_wake.points = path
 	samples_per_second = sps
 	_pos = 0.0
 	_playing = true
@@ -110,6 +146,7 @@ func _process(delta: float) -> void:
 
 
 func _update_visual() -> void:
+	_update_wake()
 	var step: float = TAIL_SPAN / float(TAIL_POINTS - 1)
 	for i: int in range(TAIL_POINTS):
 		_line.set_point_position(i, _sample(maxf(0.0, _pos - float(i) * step)))

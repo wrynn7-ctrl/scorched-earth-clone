@@ -378,7 +378,7 @@ func _refresh_detail() -> void:
 	var refund: int = Economy.sell_refund(def, 1, t.stock_of(_selected))
 	var reason: String = ""
 	if b_err != "":
-		reason = tr("ERR_" + b_err.to_upper())
+		reason = ErrorText.message(b_err)
 	_detail.show_entry(_selected, price_text(_selected), t.stock_of(_selected), is_locked(_selected),
 			tr("SHOP_BUY_FMT") % HudFormat.money(def["price"] as int),
 			tr("SHOP_SELL_FMT") % HudFormat.money(refund),
@@ -435,7 +435,7 @@ func _on_buy(id: String) -> void:
 	if err == "":
 		err = _submit.call(_buy_action(id))
 	if err != "":
-		message.emit(tr("ERR_" + err.to_upper()))
+		message.emit(ErrorText.message(err))
 		return
 	refresh()
 
@@ -445,7 +445,7 @@ func _on_sell(id: String) -> void:
 	if err == "":
 		err = _submit.call(_sell_action(id))
 	if err != "":
-		message.emit(tr("ERR_" + err.to_upper()))
+		message.emit(ErrorText.message(err))
 		return
 	refresh()
 

@@ -11,11 +11,15 @@ signal finished
 
 const PARTICLES: int = 40
 const DURATION: float = 0.9
+## STYLE_STATIC (Static Burst): a cold cyan-white flash instead of the orange fireball.
+enum {STYLE_BLAST, STYLE_STATIC}
 
 var _flash: Sprite2D = null
 var _ring: Sprite2D = null
 var _sparks: CPUParticles2D = null
 var _tween: Tween = null
+var _active: bool = false
+var _radius: float = 0.0
 
 
 func _ready() -> void:
@@ -56,9 +60,30 @@ func _ready() -> void:
 	_ring.visible = false
 
 
+func is_playing() -> bool:
+	return _active
+
+
+## Where the blast is visible, in parent coordinates (empty when idle). The HUD uses it to
+## fade the panels that cover the action.
+func get_world_rect() -> Rect2:
+	if not _active:
+		return Rect2()
+	var r: float = _radius * 1.6
+	return Rect2(position - Vector2.ONE * r, Vector2.ONE * r * 2.0)
+
+
 ## Plays at `at` (parent coordinates) with the blast radius in world units.
-func play(at: Vector2, radius: float) -> void:
+func play(at: Vector2, radius: float, style: int = STYLE_BLAST) -> void:
 	position = at
+	_active = true
+	_radius = radius
+	var cold: bool = style == STYLE_STATIC
+	_flash.modulate = Color(0.7, 0.95, 1.0) if cold else NeonPalette.HOT
+	_ring.modulate = Color.WHITE if cold else NeonPalette.CYAN
+	var ramp := _sparks.color_ramp
+	ramp.colors = PackedColorArray([Color.WHITE, NeonPalette.CYAN, Color(NeonPalette.CYAN, 0.0)]) if cold \
+			else PackedColorArray([NeonPalette.HOT, NeonPalette.SUNSET, Color(NeonPalette.MAGENTA, 0.0)])
 	if _tween != null:
 		_tween.kill()
 	var r: float = maxf(4.0, radius)
@@ -88,6 +113,7 @@ func play(at: Vector2, radius: float) -> void:
 
 
 func _on_done() -> void:
+	_active = false
 	_flash.visible = false
 	_ring.visible = false
 	finished.emit()

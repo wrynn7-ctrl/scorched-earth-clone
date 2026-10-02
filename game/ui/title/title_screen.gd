@@ -73,7 +73,18 @@ func _build() -> void:
 	_subtitle.name = "Subtitle"
 	_subtitle.text = tr("TITLE_SUBTITLE_M3")
 	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_subtitle.add_theme_color_override("font_color", NeonPalette.TEXT_DIM)
+	_subtitle.add_theme_color_override("font_color", NeonPalette.TEXT)
+	_subtitle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# The sun sits right behind the subtitle: a dark translucent plate keeps it readable.
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color(NeonPalette.BG_DEEP, 0.72)
+	plate.set_corner_radius_all(10)
+	plate.content_margin_left = 14.0
+	plate.content_margin_right = 14.0
+	plate.content_margin_top = 4.0
+	plate.content_margin_bottom = 4.0
+	plate.anti_aliasing = true
+	_subtitle.add_theme_stylebox_override("normal", plate)
 	_box.add_child(_subtitle)
 
 	_start = Button.new()

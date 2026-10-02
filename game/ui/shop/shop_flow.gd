@@ -112,7 +112,7 @@ func _on_continue() -> void:
 func _on_ready() -> void:
 	var err: String = _submit.call({"kind": "ready", "tank": _player})
 	if err != "" and err != "already_ready":
-		_toast.show_message(tr("ERR_" + err.to_upper()))
+		_toast.show_message(ErrorText.message(err))
 		return
 	var next: int = first_unready()
 	if next < 0:

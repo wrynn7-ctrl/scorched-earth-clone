@@ -35,9 +35,24 @@ const END_HOLD_TICKS: int = 42
 const SHORT_HOLD_TICKS: int = 18
 const MOVE_HOLD_TICKS: int = 5
 const POPUP_POOL: int = 14
-const FX_POOL: int = 3
+const FX_POOL: int = 8
 const FLAME_POOL: int = 2
 const BEAM_POOL: int = 2
+const PULL_POOL: int = 2
+## Sludge pours over this many ticks (the following events wait for it).
+const POUR_TICKS: int = 54
+## Event types shown at their own tick, independent of the list order: shells, their ends and the
+## blast flashes. Splitter children all start at the apex and land at different ticks, so
+## their ticks are not monotone along the list, while the terrain events of the same
+## timeline must stay in list order.
+const VISUAL_TYPES: PackedStringArray = ["projectile", "projectile_end", "explosion"]
+## Events that deserve the long hold before the next turn.
+const IMPACT_TYPES: PackedStringArray = ["explosion", "round_end", "beam", "flames", "tunnel", "terrain_add",
+		"terrain_pour", "tank_drag", "well_on"]
+## Hit-box of a tank for the HUD fade (world units around the ground point), emblem included.
+const TANK_FADE_RECT: Rect2 = Rect2(-22.0, -84.0, 44.0, 86.0)
+## Where the "you" arrow's tip sits above the ground point (world units).
+const YOU_TIP_Y: float = -86.0
 const SHAKE_PER_RADIUS: float = 1.0 / 80.0
 const MOVE_STEP: int = 10
 ## Minimum gap between idle autosaves (a burst of shop taps saves once).
@@ -78,6 +93,9 @@ var _flames: Array[FlameField] = []
 var _flame_next: int = 0
 var _beams: Array[BeamFx] = []
 var _beam_next: int = 0
+var _pulls: Array[PullRings] = []
+var _pull_next: int = 0
+var _markers: BattleMarkers = null
 var _wells: Dictionary = {}
 var _preview: TrajectoryPreview = null
 var _toast: Toast = null
@@ -100,6 +118,9 @@ var _summary_pending: bool = false
 var _events: Array[Dictionary] = []
 var _present: PackedInt32Array = PackedInt32Array()
 var _ev_i: int = 0
+## Visual events (VISUAL_TYPES) sorted by tick, and the index of the next one to show.
+var _vis: Array[Dictionary] = []
+var _vis_i: int = 0
 var _playhead: float = 0.0
 var _end_tick: float = 0.0
 var _playing: bool = false
@@ -111,7 +132,13 @@ var _trail_pool: Array[ShellTrail] = []
 var _round_winner: int = -1
 var _round_ended: bool = false
 var _timelines_played: int = 0
-var _needs_snap: bool = false
+## Tank whose turn the HUD shows (the "you" marker follows it) and the tank that fired.
+var _turn_tank: int = -1
+var _shooter: int = -1
+## The sludge pour in progress: {cols, material, start, done} or empty.
+var _pour: Dictionary = {}
+## tank id -> where a walk/drag put the tank on the ground (see _on_tank_slide).
+var _slide_ground: Dictionary = {}
 
 # --- autosave ---
 var _save_dirty: bool = false
@@ -123,6 +150,9 @@ var _elapsed: float = 0.0
 var _auto_timer: float = 0.0
 var _auto_fire_pending: bool = false
 var _hooks_done: bool = false
+var _frozen: bool = false
+var _fire_timeline: bool = false
+var _fire_count: int = 0
 
 
 func _init() -> void:
@@ -226,6 +256,11 @@ func _build_support_nodes() -> void:
 		b.name = "Beam%d" % i
 		_world.add_child(b)
 		_beams.append(b)
+	for i: int in range(PULL_POOL):
+		var pr := PullRings.new()
+		pr.name = "Pull%d" % i
+		_world.add_child(pr)
+		_pulls.append(pr)
 	for i: int in range(POPUP_POOL):
 		var p := DamagePopup.new()
 		p.name = "Popup%d" % i
@@ -234,6 +269,13 @@ func _build_support_nodes() -> void:
 	_toast = Toast.new()
 	_toast.name = "Toast"
 	_hud.get_parent().add_child(_toast)
+	# Above the HUD (10), below the overlays (20): the "you" arrow and off-screen shell chevrons.
+	var marker_layer := CanvasLayer.new()
+	marker_layer.name = "MarkerLayer"
+	marker_layer.layer = 11
+	add_child(marker_layer)
+	_markers = BattleMarkers.new()
+	marker_layer.add_child(_markers)
 	_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	_shop = ShopFlow.new()
 	_shop.all_ready.connect(_on_shop_all_ready)
@@ -377,7 +419,7 @@ func _rebuild_display() -> void:
 		_aim_power[t.id] = t.power
 	_rebuild_wells()
 	_clear_shells()
-	_needs_snap = false
+	_pour = {}
 
 
 func _shield_max(shield_type: int) -> int:
@@ -426,6 +468,7 @@ func _enter_phase() -> void:
 ## HUD + preview for whoever's turn it is now.
 func _begin_turn_ui() -> void:
 	var id: int = state.current_tank
+	_turn_tank = id
 	_ensure_selection(id)
 	_hud.show_turn(id)
 	_hud.set_angle_tenths(_aim_angle[id])
@@ -618,7 +661,7 @@ func submit_action(action: Dictionary) -> String:
 	var res: Dictionary = session.submit(action)
 	var err: String = res["err"]
 	if err != "":
-		_show_toast(tr("ERR_" + err.to_upper()))
+		_show_toast(ErrorText.message(err))
 		return err
 	_save_dirty = true
 	_play(res["events"] as Array[Dictionary])
@@ -848,8 +891,14 @@ func _begin_round() -> void:
 func _play(events: Array[Dictionary]) -> void:
 	_events = events
 	_present = _compute_present(events)
+	_vis = _visual_events(events)
 	_ev_i = 0
+	_vis_i = 0
+	_pour = {}
+	_slide_ground.clear()
 	_playhead = 0.0
+	_frozen = false
+	_fire_timeline = false
 	_timelines_played += 1
 	_round_winner = -1
 	_round_ended = false
@@ -860,10 +909,13 @@ func _play(events: Array[Dictionary]) -> void:
 	var last: int = 0
 	var impact: bool = false
 	for i: int in range(events.size()):
-		last = maxi(last, _present[i])
+		last = maxi(last, _present[i] if _present[i] >= 0 else (events[i]["tick"] as int))
 		var type: String = events[i]["type"]
-		if type == "explosion" or type == "round_end" or type == "beam" or type == "flames" or type == "tunnel":
+		if IMPACT_TYPES.has(type):
 			impact = true
+		elif type == "fire":
+			_fire_count += 1
+			_fire_timeline = _fire_count == ShotArgs.freeze_shot
 	var hold: int = END_HOLD_TICKS if impact else (MOVE_HOLD_TICKS if quiet else SHORT_HOLD_TICKS)
 	_end_tick = float(last + hold)
 	if _instant:
@@ -887,7 +939,10 @@ static func _is_move_only(events: Array[Dictionary]) -> bool:
 func _cancel_playback() -> void:
 	_playing = false
 	_events = []
+	_vis = []
 	_ev_i = 0
+	_vis_i = 0
+	_pour = {}
 	_clear_shells()
 	_cancel_tank_tweens()
 
@@ -900,25 +955,57 @@ func _cancel_tank_tweens() -> void:
 	_tank_tweens.clear()
 
 
-## Presentation tick of every event (see class comment). Monotone, so events always play in
-## order even when a later one has an earlier base tick.
+## Presentation tick of every list-order event (see class comment). Monotone, so events always
+## play in order even when a later one has an earlier base tick. Visual events (shells, blast
+## flashes) get -1: they are shown at their own tick by _vis (see VISUAL_TYPES).
 func _compute_present(events: Array[Dictionary]) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	var prev: int = 0
+	var shot: bool = false
 	for e: Dictionary in events:
+		shot = shot or e["type"] == "fire"
+	for i: int in range(events.size()):
+		var e: Dictionary = events[i]
 		var t: int = e["tick"]
+		var type: String = e["type"]
+		if VISUAL_TYPES.has(type):
+			out.append(-1)
+			continue
 		var p: int = t
-		match e["type"]:
+		# A shot that ends at tick 0 (the Photon Lance) still hands over the turn after a beat.
+		var post: int = POST_DELAY if (t > 0 or shot) else 0
+		match type:
 			"terrain_settle", "tank_fall", "tank_destroyed", "chute":
 				p = t + SETTLE_DELAY
 			"damage":
 				p = t + (SETTLE_DELAY if e["cause"] == "fall" else 0)
-			"wind", "turn", "round_end", "well_off":
-				p = t + (POST_DELAY if t > 0 else 0)
+			"wind", "turn", "round_end":
+				p = t + post
+			"well_off":
+				# A well replaced by its owner goes off together with the new one; an expiry
+				# goes off with the turn change.
+				var replaced: bool = i + 1 < events.size() and events[i + 1]["type"] == "well_on" \
+						and events[i + 1]["owner"] == e["owner"]
+				p = t if replaced else t + post
 			"money":
 				p = prev  # shown together with the damage / kill / round pay it belongs to
 		prev = maxi(prev, p)
 		out.append(prev)
+		if type == "terrain_pour":
+			prev += POUR_TICKS  # whatever follows waits for the sludge to flow
+	return out
+
+
+## The visual events of a timeline in tick order (stable: equal ticks keep list order).
+static func _visual_events(events: Array[Dictionary]) -> Array[Dictionary]:
+	var keyed: Array[Vector2i] = []
+	for i: int in range(events.size()):
+		if VISUAL_TYPES.has(events[i]["type"] as String):
+			keyed.append(Vector2i(events[i]["tick"] as int, i))
+	keyed.sort()  # Vector2i compares x then y: tick, then list index
+	var out: Array[Dictionary] = []
+	for k: Vector2i in keyed:
+		out.append(events[k.y])
 	return out
 
 
@@ -930,31 +1017,50 @@ func _process(delta: float) -> void:
 		var t: TankView = _tank_views[state.current_tank]
 		_hud.set_aim_pivot(get_viewport().get_canvas_transform() * (t.position + Vector2(0, -TankView.TANK_H * 0.5) * TankView.VISUAL_SCALE))
 		_sky.set_parallax(_camera.get_screen_center_position())
-	if _playing:
+	if _playing and not _frozen:
 		_playhead += delta * TPS * _speed
+		if ShotArgs.freeze_tick >= 0 and _fire_timeline and _playhead >= float(ShotArgs.freeze_tick):
+			_playhead = float(ShotArgs.freeze_tick)
+			_frozen = true  # screenshot hook: hold this moment of the shot
 		_advance_playback()
+	_update_overlays()
 	_tick_autosave(delta)
 	_run_auto_hooks(delta)
 
 
 func _advance_playback() -> void:
-	while _ev_i < _events.size() and float(_present[_ev_i]) <= _playhead:
+	while _vis_i < _vis.size() and float(_vis[_vis_i]["tick"] as int) <= _playhead:
+		_dispatch(_vis[_vis_i])
+		_vis_i += 1
+	while _ev_i < _events.size():
+		if _present[_ev_i] < 0:
+			_ev_i += 1  # a visual event: shown by _vis
+			continue
+		if float(_present[_ev_i]) > _playhead:
+			break
 		_dispatch(_events[_ev_i])
 		_ev_i += 1
+	_advance_pour()
 	for entry: Variant in _shells.values():
 		var sh: Dictionary = entry
+		# path[i] is the position at tick start + i + 1 (ARCHITECTURE section 26).
 		(sh["trail"] as ShellTrail).set_progress(clampf(_playhead - float(sh["start"]) - 1.0, 0.0, float((sh["points"] as int) - 1)))
-	if _playhead >= _end_tick and _ev_i >= _events.size():
+	if _frozen:
+		return
+	if _playhead >= _end_tick and _ev_i >= _events.size() and _vis_i >= _vis.size():
 		_finish_playback()
+
+
+## True once the screenshot hook (--freeze-tick) has stopped the playhead.
+func is_frozen() -> bool:
+	return _frozen
 
 
 func _finish_playback() -> void:
 	_playing = false
+	_flush_pour()
 	_clear_shells()
-	if _needs_snap:
-		_snap_display_to_state()  # M3-C2: a terrain function was missing; resync quietly
-	else:
-		check_consistency()
+	check_consistency()
 	_sync_round_wins()
 	timeline_finished.emit()
 	if _instant and _save_dirty:
@@ -981,13 +1087,18 @@ func _finish_playback() -> void:
 
 
 func _dispatch(e: Dictionary) -> void:
-	match e["type"]:
+	var type: String = e["type"]
+	if not _pour.is_empty() and not VISUAL_TYPES.has(type):
+		_flush_pour()  # the next terrain event builds on the finished pour
+	match type:
 		"round_start":
 			_rebuild_display()
+		"fire":
+			_shooter = e["tank"]
 		"projectile":
 			_start_shell(e)
 		"projectile_end":
-			_end_shell(e["id"] as int)
+			_end_shell(e)
 		"explosion":
 			_on_explosion(e)
 		"terrain_carve":
@@ -997,9 +1108,12 @@ func _dispatch(e: Dictionary) -> void:
 			display_terrain.settle(e["x0"], e["x1"])
 			_terrain_view.update_cells(display_terrain.cells)
 		"tunnel":
-			_on_tunnel(e)
+			display_terrain.carve_tunnel(e["x0"], e["y0"], e["x1"], e["y1"], e["radius"])
+			_terrain_view.update_cells(display_terrain.cells)
 		"terrain_add":
-			_on_terrain_add(e)
+			display_terrain.add_circle_skipping(e["x"], e["y"], e["radius"], e["material"],
+					e.get("skip", PackedInt32Array()) as PackedInt32Array)
+			_terrain_view.update_cells(display_terrain.cells)
 		"terrain_pour":
 			_on_terrain_pour(e)
 		"damage":
@@ -1038,6 +1152,7 @@ func _dispatch(e: Dictionary) -> void:
 			_hud.set_wind(e["wind"])
 		"turn":
 			var id: int = e["tank"]
+			_turn_tank = id
 			_ensure_selection(id)
 			_hud.show_turn(id)
 			_hud.set_angle_tenths(_aim_angle[id])
@@ -1046,7 +1161,7 @@ func _dispatch(e: Dictionary) -> void:
 		"round_end":
 			_round_ended = true
 			_round_winner = e["winner"]
-		# "fire" and "ready" have no presentation of their own; the shell appears with "projectile".
+		# "ready" has no presentation of its own.
 
 
 # --- shells ----------------------------------------------------------------------------
@@ -1066,7 +1181,8 @@ func _acquire_trail() -> ShellTrail:
 	return extra
 
 
-## Starts one projectile (id 0 is the main shell; splitter children start at their own tick).
+## Starts one projectile (id 0 is the main shell; splitter children start at the apex tick).
+## The trail is driven by the playhead: path[i] is the position at tick start + i + 1.
 func _start_shell(e: Dictionary) -> void:
 	if _instant:
 		return
@@ -1083,13 +1199,32 @@ func _start_shell(e: Dictionary) -> void:
 	trail.play(pts)  # self-driven start sets the path; we then drive it by the playhead
 	trail.set_process(false)
 	trail.set_progress(0.0)
-	_shells[e["id"] as int] = {"trail": trail, "start": e["tick"] as int, "points": pts.size()}
+	_shells[e["id"] as int] = {"trail": trail, "start": e["tick"] as int, "points": pts.size(),
+			"weapon": e.get("weapon", "") as String}
 
 
-func _end_shell(id: int) -> void:
-	if _shells.has(id):
-		((_shells[id] as Dictionary)["trail"] as ShellTrail).clear()
-		_shells.erase(id)
+func _end_shell(e: Dictionary) -> void:
+	var id: int = e["id"]
+	if not _shells.has(id):
+		return
+	var sh: Dictionary = _shells[id]
+	(sh["trail"] as ShellTrail).clear()
+	_shells.erase(id)
+	var reason: String = e["reason"]
+	if WeaponResolver.is_impact(reason) and _behavior_of(sh["weapon"] as String) == "anchor":
+		var def: Dictionary = WeaponDefs.get_def(sh["weapon"] as String)
+		var p: PullRings = _pulls[_pull_next]
+		_pull_next = (_pull_next + 1) % _pulls.size()
+		p.play(Vector2(float(e["x"]), float(e["y"])), float(def.get("pull_r", 180)), _shooter_color())
+		_haptic(30)
+
+
+static func _behavior_of(weapon_id: String) -> String:
+	return WeaponDefs.get_def(weapon_id).get("behavior", "") as String
+
+
+func _shooter_color() -> Color:
+	return PlayerLooks.color(_shooter) if _shooter >= 0 else NeonPalette.CYAN
 
 
 func _clear_shells() -> void:
@@ -1104,37 +1239,46 @@ func _on_explosion(e: Dictionary) -> void:
 	if _instant:
 		return
 	var radius: float = float(e["radius"])
-	_next_fx().play(Vector2(float(e["x"]), float(e["y"])), radius)
+	var style: int = Explosion.STYLE_STATIC if _behavior_of(e.get("weapon", "") as String) == "static" else Explosion.STYLE_BLAST
+	_next_fx().play(Vector2(float(e["x"]), float(e["y"])), radius, style)
 	_camera.shake(clampf(radius * SHAKE_PER_RADIUS, 0.15, 0.9))
 	_haptic(clampi(roundi(radius * 2.0), 15, 90))
 
 
-func _on_tunnel(e: Dictionary) -> void:
-	# M3-C2: Terrain.carve_tunnel may not exist yet; without it the display is snapped to the state after playback.
-	if display_terrain.has_method("carve_tunnel"):
-		display_terrain.call("carve_tunnel", e["x0"], e["y0"], e["x1"], e["y1"], e["radius"])
-		_terrain_view.update_cells(display_terrain.cells)
-	else:
-		_needs_snap = true
-
-
-func _on_terrain_add(e: Dictionary) -> void:
-	# M3-C2: Terrain.add_circle_skipping may not exist yet (see _on_tunnel).
-	if display_terrain.has_method("add_circle_skipping"):
-		display_terrain.call("add_circle_skipping", e["x"], e["y"], e["radius"], e["material"],
-				e.get("skip", PackedInt32Array()))
-		_terrain_view.update_cells(display_terrain.cells)
-	else:
-		_needs_snap = true
-
-
+## Sludge: the columns are poured over POUR_TICKS (it visibly flows), in placement order, so
+## the finished terrain is exactly the core's. Instant mode pours at once.
 func _on_terrain_pour(e: Dictionary) -> void:
-	# M3-C2: Terrain.pour may not exist yet (see _on_tunnel).
-	if display_terrain.has_method("pour"):
-		display_terrain.call("pour", e["cells"], e["material"])
+	var cols: PackedInt32Array = e["cells"]
+	if _instant or cols.size() < 2:
+		display_terrain.pour(cols, e["material"])
 		_terrain_view.update_cells(display_terrain.cells)
-	else:
-		_needs_snap = true
+		return
+	_pour = {"cols": cols, "material": e["material"], "start": _playhead, "done": 0}
+	_haptic(25)
+
+
+func _advance_pour() -> void:
+	if _pour.is_empty():
+		return
+	var cols: PackedInt32Array = _pour["cols"]
+	var k: float = clampf((_playhead - (_pour["start"] as float)) / float(POUR_TICKS), 0.0, 1.0)
+	_pour_to(ceili(float(cols.size()) * k))
+
+
+func _flush_pour() -> void:
+	if not _pour.is_empty():
+		_pour_to((_pour["cols"] as PackedInt32Array).size())
+
+
+func _pour_to(count: int) -> void:
+	var cols: PackedInt32Array = _pour["cols"]
+	var done: int = _pour["done"]
+	if count > done:
+		display_terrain.pour(cols.slice(done, count), _pour["material"] as int)
+		_terrain_view.update_cells(display_terrain.cells)
+		_pour["done"] = count
+	if count >= cols.size():
+		_pour = {}
 
 
 func _on_flames(e: Dictionary) -> void:
@@ -1178,10 +1322,26 @@ func _remove_well(owner_id: int) -> void:
 
 func _on_damage(e: Dictionary) -> void:
 	var id: int = e["tank"]
-	_tank_views[id].set_health(e["health"], SimConstants.MAX_HEALTH)
-	if not _instant:
-		var v: TankView = _tank_views[id]
-		_pop("-%d" % int(e["amount"]), PlayerLooks.color(id), v.position + Vector2(0, -52.0 * TankView.VISUAL_SCALE))
+	var v: TankView = _tank_views[id]
+	v.set_health(e["health"], SimConstants.MAX_HEALTH)
+	if _instant:
+		return
+	var amount: int = e["amount"]
+	var cause: String = e["cause"]
+	var at: Vector2 = v.position + Vector2(0, -52.0 * TankView.VISUAL_SCALE)
+	# Burning and the beam get their own colour, a word next to the number (never colour alone)
+	# and a glow on the hull; blasts and falls keep the tank's colour.
+	match cause:
+		"burn":
+			_pop(tr("DMG_BURN_FMT") % amount, NeonPalette.SUNSET, at)
+			v.hit_flash(NeonPalette.SUNSET, true)
+			_haptic(25)
+		"beam":
+			_pop(tr("DMG_BEAM_FMT") % amount, NeonPalette.CYAN, at)
+			v.hit_flash(Color(0.8, 1.0, 1.0), false)
+			_haptic(40)
+		_:
+			_pop("-%d" % amount, PlayerLooks.color(id), at)
 
 
 func _on_money(e: Dictionary) -> void:
@@ -1249,6 +1409,10 @@ func _on_tank_fall(e: Dictionary) -> void:
 	var v: TankView = _tank_views[id]
 	_finish_tank_tween(id)
 	var to := Vector2(v.position.x, float(e["to_y"]))
+	if _slide_ground.has(id) and not _more_falls_follow(id):
+		# The last fall after a walk or drag: the tank rests on the ground it was moved onto.
+		to = _slide_ground[id] as Vector2
+		_slide_ground.erase(id)
 	if _instant:
 		v.position = to
 		return
@@ -1270,6 +1434,9 @@ func _on_tank_slide(e: Dictionary) -> void:
 	var max_step: float = 6.0 if e["type"] == "tank_drag" else float(SimConstants.MAX_CLIMB)
 	var ys: PackedFloat32Array = _slide_heights(v.position.y, from_x, to_x, max_step)
 	var final := Vector2(float(to_x), ys[ys.size() - 1])
+	# Where the tank really ends up: the ground under its new column (the core sets y to the
+	# resting height at every step). The falls that follow a long drop may end higher.
+	_slide_ground[id] = Vector2(float(to_x), float(TankState.rest_y(display_terrain, to_x)))
 	if _instant:
 		v.position = final
 		return
@@ -1278,6 +1445,14 @@ func _on_tank_slide(e: Dictionary) -> void:
 	tw.set_speed_scale(_speed)
 	tw.tween_method(_set_slide_pos.bind(v, from_x, to_x, ys), 0.0, 1.0, dur)
 	_tank_tweens[id] = {"tween": tw, "end": final}
+
+
+## True if another tank_fall of tank `id` comes later in the running timeline.
+func _more_falls_follow(id: int) -> bool:
+	for i: int in range(_ev_i + 1, _events.size()):
+		if _events[i]["type"] == "tank_fall" and _events[i]["tank"] == id:
+			return true
+	return false
 
 
 ## Ground height under the tank at every column from `from_x` to `to_x` (inclusive), never
@@ -1336,6 +1511,76 @@ func _next_fx() -> Explosion:
 func _haptic(ms: int) -> void:
 	if ShowSettings.haptics and not _instant:
 		Input.vibrate_handheld(ms)
+
+
+# ======================================================================================
+# HUD occlusion, "you" marker, off-screen shell marker
+# ======================================================================================
+
+## Every frame: tells the HUD which screen rectangles have action behind them (it fades the
+## panels over them), draws the "you" arrow when the active tank sits under a panel and shows
+## a chevron for each shell above the top of the screen.
+func _update_overlays() -> void:
+	var live: bool = _hud.visible and _world.visible and state.terrain != null
+	if not live:
+		_hud.set_occluders([] as Array[Rect2])
+		_markers.set_you(false)
+		_markers.set_shells([] as Array[Dictionary])
+		return
+	var xf: Transform2D = get_viewport().get_canvas_transform()
+	var rects: Array[Rect2] = []
+	var segments := PackedVector2Array()
+	for t: TankState in state.tanks:
+		if t.alive:
+			rects.append(xf * _tank_rect(_tank_views[t.id]))
+	var chevrons: Array[Dictionary] = []
+	for entry: Variant in _shells.values():
+		var head: Vector2 = ((entry as Dictionary)["trail"] as ShellTrail).head_position()
+		rects.append(xf * Rect2(head - Vector2.ONE * 24.0, Vector2.ONE * 48.0))
+		var sp: Vector2 = xf * head
+		if sp.y < 0.0:
+			chevrons.append({"x": sp.x, "height": maxi(1, roundi(-sp.y / maxf(xf.get_scale().y, 0.001))),
+					"color": _shooter_color()})
+	for fx: Explosion in _fx:
+		_add_rect(rects, xf, fx.get_world_rect())
+	for f: FlameField in _flames:
+		_add_rect(rects, xf, f.get_world_rect())
+	for p: PullRings in _pulls:
+		_add_rect(rects, xf, p.get_world_rect())
+	for b: BeamFx in _beams:
+		if b.is_active():
+			var ends: PackedVector2Array = b.get_endpoints()
+			segments.append(xf * ends[0])
+			segments.append(xf * ends[1])
+	_hud.set_occluders(rects, segments)
+	_markers.set_shells(chevrons)
+	_update_you_marker(xf)
+
+
+static func _add_rect(rects: Array[Rect2], xf: Transform2D, r: Rect2) -> void:
+	if r.size != Vector2.ZERO:
+		rects.append(xf * r)
+
+
+## The tank's footprint for the fade: ground point, hull, emblem and health bar.
+static func _tank_rect(v: TankView) -> Rect2:
+	return Rect2(v.position + TANK_FADE_RECT.position, TANK_FADE_RECT.size)
+
+
+func _update_you_marker(xf: Transform2D) -> void:
+	if state.phase != SimConstants.PHASE_AIM or _turn_tank < 0 or _turn_tank >= _tank_views.size() \
+			or not state.tanks[_turn_tank].alive:
+		_markers.set_you(false)
+		return
+	var v: TankView = _tank_views[_turn_tank]
+	if _hud.is_under_panel(xf * _tank_rect(v)):
+		_markers.set_you(true, xf * (v.position + Vector2(0.0, YOU_TIP_Y)), PlayerLooks.color(_turn_tank))
+	else:
+		_markers.set_you(false)
+
+
+func get_markers() -> BattleMarkers:
+	return _markers
 
 
 # ======================================================================================
@@ -1484,6 +1729,7 @@ func _run_start_hooks() -> void:
 	if _hooks_done or _configured:
 		return
 	_hooks_done = true
+	_apply_screenshot_setup()
 	if ShotArgs.use_item != "":
 		use_item(ShotArgs.use_item)
 	if ShotArgs.open_picker:
@@ -1491,6 +1737,26 @@ func _run_start_hooks() -> void:
 	if ShotArgs.open_settings:
 		open_pause()
 		_open_settings_from_pause()
+
+
+## --place / --aim: arranges the first turn for a screenshot (tank positions and aim).
+func _apply_screenshot_setup() -> void:
+	var moved: bool = false
+	for spec: String in ShotArgs.places:
+		var parts: PackedStringArray = spec.split(":")
+		if parts.size() != 2:
+			continue
+		var i: int = parts[0].to_int()
+		var x: int = parts[1].to_int()
+		if i < 0 or i >= state.tanks.size() or x < 12 or x > state.terrain.width - 12:
+			continue
+		state.tanks[i].x = x
+		state.tanks[i].y = TankState.rest_y(state.terrain, x)
+		moved = true
+	if moved:
+		_rebuild_display()
+	_apply_initial_aim_override()
+	_begin_turn_ui()
 
 
 func _run_auto_hooks(delta: float) -> void:

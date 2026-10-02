@@ -49,6 +49,9 @@ var _items: ItemTray = null
 var _popup: WeaponPopup = null
 var _items_open: bool = false
 var _item_total: int = 0
+var _fade: HudFade = null
+## Opacity factor of the angle and power panels while the controls are locked (1 = unlocked).
+var _lock_alpha: float = 1.0
 
 
 func _init() -> void:
@@ -141,6 +144,13 @@ func _build() -> void:
 	_popup = WeaponPopup.new()
 	_popup.chosen.connect(func(id: String) -> void: weapon_selected.emit(id))
 	add_child(_popup)
+
+	_fade = HudFade.new()
+	_fade.name = "Fade"
+	_fade.alpha_changed.connect(_apply_alpha)
+	add_child(_fade)
+	for p: Control in [_wind, _money, _moves, _angle_panel, _power, _fire]:
+		_fade.add_panel(p)
 
 
 func _build_tray() -> void:
@@ -262,9 +272,9 @@ func get_pause_button() -> Button:
 ## Locks aiming during timeline playback: dims the panels and stops the drag surface.
 func set_controls_locked(locked: bool) -> void:
 	_aim.mouse_filter = Control.MOUSE_FILTER_IGNORE if locked else Control.MOUSE_FILTER_STOP
-	var dim: Color = Color(1, 1, 1, 0.45) if locked else Color.WHITE
-	_angle_panel.modulate = dim
-	_power.modulate = dim
+	_lock_alpha = 0.45 if locked else 1.0
+	_apply_alpha(_angle_panel)
+	_apply_alpha(_power)
 	_angle_panel.process_mode = Node.PROCESS_MODE_DISABLED if locked else Node.PROCESS_MODE_INHERIT
 	_power.process_mode = Node.PROCESS_MODE_DISABLED if locked else Node.PROCESS_MODE_INHERIT
 	_weapon_chip.disabled = locked
@@ -274,6 +284,43 @@ func set_controls_locked(locked: bool) -> void:
 	if locked:
 		_aim.cancel_drag()
 		_popup.close()
+
+
+## Fade (the action is behind a panel) times the lock dimming. Buttons use self_modulate:
+## the FIRE button pulses through its own modulate.
+func _apply_alpha(panel: Control) -> void:
+	var a: float = _fade.get_alpha(panel)
+	if panel == _angle_panel or panel == _power:
+		a *= _lock_alpha
+	if panel is Button:
+		panel.self_modulate = Color(1, 1, 1, a)
+	else:
+		panel.modulate = Color(1, 1, 1, a)
+
+
+## Screen rectangles (viewport coordinates) of whatever is happening behind the HUD. The
+## panels over them fade to ~30% (see HudFade).
+func set_occluders(rects: Array[Rect2], segments: PackedVector2Array = PackedVector2Array()) -> void:
+	_fade.set_occluders(rects, segments)
+
+
+func get_fade() -> HudFade:
+	return _fade
+
+
+## True if the viewport rectangle `r` lies under one of the fading panels.
+func is_under_panel(r: Rect2) -> bool:
+	return _fade.is_under_panel(r)
+
+
+## A press on a faded panel shows it in full at once. Watching in _input (not _gui_input)
+## because the buttons inside a panel consume the event first; this never consumes it.
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event is InputEventMouseButton or event is InputEventScreenTouch:
+		_fade.touch_at((event as InputEventMouse).position if event is InputEventMouse \
+				else (event as InputEventScreenTouch).position)
 
 
 func is_controls_locked() -> bool:

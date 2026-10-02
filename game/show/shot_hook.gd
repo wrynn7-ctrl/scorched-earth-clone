@@ -5,6 +5,8 @@ extends Node
 
 var _elapsed: float = 0.0
 var _done: bool = false
+var _host: Node = null
+var _held: float = 0.0
 
 
 func _init() -> void:
@@ -18,12 +20,26 @@ static func attach(host: Node) -> void:
 	if ShotArgs.shot_path != "":
 		var h := ShotHook.new()
 		h.name = "ShotHook"
+		h._host = host
 		host.add_child(h)
 
 
 func _process(delta: float) -> void:
 	_elapsed += delta
-	if not _done and _elapsed >= ShotArgs.shot_time:
+	if _done:
+		return
+	if ShotArgs.freeze_tick >= 0 and _host != null and _host.has_method("is_frozen"):
+		# Weapon moments: the battle stops its playhead at the wanted tick; give the effects a
+		# moment (real time) to reach their look, then capture. shot-time is the fallback.
+		if _host.call("is_frozen"):
+			_held += delta
+			if _held >= ShotArgs.freeze_hold:
+				_done = true
+				_take()
+			return
+		if _elapsed < ShotArgs.shot_time + 30.0:
+			return
+	if _elapsed >= ShotArgs.shot_time:
 		_done = true
 		_take()
 

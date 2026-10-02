@@ -20,6 +20,7 @@ const SHIELD_R: float = float(SimConstants.SHIELD_RADIUS) / VISUAL_SCALE
 const SHIELD_CY: float = -float(SimConstants.SHIELD_CENTER_DY) / VISUAL_SCALE
 const REPULSOR_R: float = float(SimConstants.REPULSOR_RADIUS) / VISUAL_SCALE
 const CHUTE_SHOW_SECONDS: float = 1.0
+const HIT_FLASH_SECONDS: float = 0.7
 
 var _angle_tenths: int = 900
 var _color_index: int = 0
@@ -35,6 +36,9 @@ var _break_t: float = -1.0
 var _repulsor: bool = false
 var _chute_left: float = 0.0
 var _anim_t: float = 0.0
+var _hit_t: float = 0.0
+var _hit_color: Color = Color.WHITE
+var _hit_flicker: bool = false
 var _aura: Node2D = null
 var _sparkle: CPUParticles2D = null
 
@@ -164,8 +168,25 @@ func repair_burst() -> void:
 		_sparkle.emitting = true
 
 
+## A short glow over the hull when something other than a blast hurt the tank: a flickering
+## orange for burning, a hard cyan-white flash for the Photon Lance. Reduced flashing keeps
+## the glow but drops the flicker and the peak.
+func hit_flash(color: Color, flicker: bool = false) -> void:
+	if _dead:
+		return
+	_hit_color = color
+	_hit_flicker = flicker and not ShowSettings.reduce_flashing
+	_hit_t = HIT_FLASH_SECONDS
+	_update_processing()
+
+
+func is_hit_flashing() -> bool:
+	return _hit_t > 0.0
+
+
 func _update_processing() -> void:
-	var run: bool = _shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _flicker > 0.0
+	var run: bool = _shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _flicker > 0.0 \
+			or _hit_t > 0.0
 	set_process(run and is_inside_tree())
 	if _aura != null:
 		_aura.queue_redraw()
@@ -179,8 +200,9 @@ func _process(delta: float) -> void:
 		if _break_t >= 1.0:
 			_break_t = -1.0
 	_chute_left = maxf(0.0, _chute_left - delta)
+	_hit_t = maxf(0.0, _hit_t - delta)
 	_aura.queue_redraw()
-	if not (_shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0):
+	if not (_shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _hit_t > 0.0):
 		set_process(false)
 
 
@@ -355,6 +377,19 @@ func _draw_aura() -> void:
 		_draw_break()
 	if _chute_left > 0.0:
 		_draw_chute(c)
+	if _hit_t > 0.0:
+		_draw_hit_flash()
+
+
+func _draw_hit_flash() -> void:
+	var k: float = _hit_t / HIT_FLASH_SECONDS
+	var a: float = k * (0.55 if ShowSettings.reduce_flashing else 0.9)
+	if _hit_flicker:
+		a *= 0.55 + 0.45 * sin(_hit_t * 55.0)
+	var hull: PackedVector2Array = _hull().slice(0, 6)
+	_aura.draw_colored_polygon(hull, Color(_hit_color, a * 0.7))
+	_aura.draw_polyline(_hull(), Color(_hit_color, a), 3.0, true)
+	_aura.draw_circle(Vector2(0, -TANK_H * 0.6), 11.0 + 5.0 * (1.0 - k), Color(_hit_color, a * 0.35))
 
 
 func _draw_break() -> void:

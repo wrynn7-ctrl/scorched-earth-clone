@@ -39,6 +39,16 @@ func point_count() -> int:
 	return _pts.size()
 
 
+## Bounding box of the burning points (empty when out); parent coordinates.
+func get_world_rect() -> Rect2:
+	if _t < 0.0 or _pts.is_empty():
+		return Rect2()
+	var r := Rect2(_pts[0], Vector2.ZERO)
+	for p: Vector2 in _pts:
+		r = r.expand(p)
+	return r.grow(20.0)
+
+
 func stop() -> void:
 	_t = -1.0
 	visible = false
@@ -62,11 +72,18 @@ func _draw() -> void:
 	var amp: float = 0.25 if ShowSettings.reduce_flashing else 0.5
 	var glow: Texture2D = FxTextures.glow()
 	for i: int in range(_pts.size()):
-		var f: float = 1.0 - amp + amp * sin(_t * 17.0 + _phase[i]) * sin(_t * 9.0 + _phase[i] * 1.7)
-		var size_px: float = (11.0 + 7.0 * f) * (1.0 - 0.35 * k)
-		var lift := Vector2(0.0, -size_px * 0.35)
-		draw_texture_rect(glow, Rect2(_pts[i] + lift - Vector2.ONE * size_px, Vector2.ONE * size_px * 2.0),
-				false, Color(1.0, 0.38, 0.1, 0.8 * fade * f))
-		var core: float = size_px * 0.8
-		draw_texture_rect(glow, Rect2(_pts[i] + lift * 1.6 - Vector2.ONE * core * 0.5, Vector2.ONE * core),
-				false, Color(1.0, 0.92, 0.6, fade * f))
+		var ph: float = _phase[i]
+		var f: float = 1.0 - amp + amp * sin(_t * 17.0 + ph) * sin(_t * 9.0 + ph * 1.7)
+		# Points that rest in the same column are spread a little so the patch reads as a fire,
+		# not one dot; each tongue licks upwards with its own flicker.
+		var base: Vector2 = _pts[i] + Vector2(sin(ph * 5.0) * 15.0, cos(ph * 3.0) * 4.0)
+		var size_px: float = (13.0 + 8.0 * f) * (1.0 - 0.35 * k)
+		var tongue: float = size_px * (0.5 + 0.5 * f)
+		draw_texture_rect(glow, Rect2(base + Vector2(0.0, -size_px * 0.35) - Vector2.ONE * size_px, Vector2.ONE * size_px * 2.0),
+				false, Color(1.0, 0.3, 0.08, 0.3 * fade * f))
+		var mid: float = size_px * 1.0
+		draw_texture_rect(glow, Rect2(base + Vector2(0.0, -tongue * 0.9) - Vector2.ONE * mid * 0.5, Vector2.ONE * mid),
+				false, Color(1.0, 0.55, 0.12, 0.34 * fade * f))
+		var tip: float = size_px * 0.6
+		draw_texture_rect(glow, Rect2(base + Vector2(sin(_t * 11.0 + ph) * 3.0, -tongue * 1.8) - Vector2.ONE * tip * 0.5, Vector2.ONE * tip),
+				false, Color(1.0, 0.85, 0.45, 0.4 * fade * f))
