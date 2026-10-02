@@ -16,6 +16,7 @@ var _row: HBoxContainer = null
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var box := VBoxContainer.new()
+	box.name = "Box"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(box)
 	_caption = Label.new()
@@ -29,6 +30,7 @@ func _init() -> void:
 	_readout.add_theme_color_override("font_color", NeonPalette.CYAN)
 	box.add_child(_readout)
 	_row = HBoxContainer.new()
+	_row.name = "Row"
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(_row)
 	_minus = FineButton.new()
@@ -53,7 +55,7 @@ func apply_scale() -> void:
 	_readout.add_theme_font_size_override("font_size", UiScale.font(26.0))
 	_minus.add_theme_font_size_override("font_size", UiScale.font(14.0))
 	_plus.add_theme_font_size_override("font_size", UiScale.font(14.0))
-	var bs := Vector2(UiScale.dp(72.0), UiScale.touch() * 1.05)
+	var bs := Vector2(UiScale.dp(64.0), UiScale.touch() * 1.05)
 	_minus.custom_minimum_size = bs
 	_plus.custom_minimum_size = bs
 	_row.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))

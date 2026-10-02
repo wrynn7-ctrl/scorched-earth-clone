@@ -8,6 +8,7 @@ config_version=5
 
 config/name="Craterline"
 config/icon="res://icon.svg"
+run/main_scene="res://show/demo_battlefield.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [debug]

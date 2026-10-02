@@ -11,7 +11,7 @@ const BASE_W: float = 1600.0
 const BASE_H: float = 900.0
 const MIN_TOUCH_DP: float = 48.0
 const MIN_FACTOR: float = 0.6
-const MAX_FACTOR: float = 2.4
+const MAX_FACTOR: float = 3.4
 const FALLBACK_DPI: float = 320.0
 
 ## Test/debug hooks: when > 0 they replace the real DPI / window size.
@@ -37,7 +37,8 @@ static func dpi() -> float:
 static func window_px() -> Vector2:
 	if window_px_override != Vector2.ZERO:
 		return window_px_override
-	return Vector2(DisplayServer.window_get_size())
+	var w := Vector2(DisplayServer.window_get_size())
+	return w if w.x > 0.0 and w.y > 0.0 else Vector2(BASE_W, BASE_H)  # headless reports 0
 
 
 ## Physical pixels per canvas unit for the given window size (stretch canvas_items, expand).

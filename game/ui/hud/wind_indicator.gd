@@ -12,6 +12,7 @@ var _value: Label = null
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var row := HBoxContainer.new()
+	row.name = "Row"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(row)
 	_arrow = Control.new()
@@ -20,6 +21,7 @@ func _init() -> void:
 	_arrow.draw.connect(_draw_arrow)
 	row.add_child(_arrow)
 	var col := VBoxContainer.new()
+	col.name = "Col"
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(col)
 	_caption = Label.new()

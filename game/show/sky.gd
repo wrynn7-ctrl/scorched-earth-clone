@@ -1,4 +1,4 @@
-class_name Sky
+class_name NeonSky
 extends CanvasLayer
 ## Background: gradient sky, synthwave sun or moon, perspective grid horizon, parallax stars.
 ## A single ColorRect + cheap shader on a CanvasLayer behind the world (not affected by the camera).

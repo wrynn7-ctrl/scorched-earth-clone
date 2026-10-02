@@ -15,6 +15,7 @@ var _minus: FineButton = null
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var box := VBoxContainer.new()
+	box.name = "Box"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(box)
 	_caption = Label.new()

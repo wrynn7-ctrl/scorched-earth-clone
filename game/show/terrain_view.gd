@@ -43,6 +43,11 @@ func get_texture_size() -> Vector2i:
 	return Vector2i(_texture.get_width(), _texture.get_height()) if _texture != null else Vector2i.ZERO
 
 
+## CPU-side copy of what was uploaded (for tests/debugging).
+func get_cells_image() -> Image:
+	return _image
+
+
 func get_cells_texture() -> ImageTexture:
 	return _texture
 

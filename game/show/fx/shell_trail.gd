@@ -117,6 +117,8 @@ func _update_visual() -> void:
 
 
 func _sample(idx: float) -> Vector2:
+	if _path.is_empty():
+		return Vector2.ZERO
 	var i0: int = clampi(int(idx), 0, _path.size() - 1)
 	var i1: int = mini(i0 + 1, _path.size() - 1)
 	return _path[i0].lerp(_path[i1], idx - float(i0))
