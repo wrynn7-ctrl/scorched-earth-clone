@@ -7,6 +7,7 @@ var _elapsed: float = 0.0
 var _done: bool = false
 var _host: Node = null
 var _held: float = 0.0
+var _resized: bool = false
 
 
 func _init() -> void:
@@ -28,6 +29,10 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _done:
 		return
+	if ShotArgs.resize_to != Vector2i.ZERO and not _resized and _elapsed >= ShotArgs.resize_after:
+		_resized = true
+		_resize_window()
+		return
 	if ShotArgs.freeze_tick >= 0 and _host != null and _host.has_method("is_frozen"):
 		# Weapon moments: the battle stops its playhead at the wanted tick; give the effects a
 		# moment (real time) to reach their look, then capture. shot-time is the fallback.
@@ -42,6 +47,17 @@ func _process(delta: float) -> void:
 	if _elapsed >= ShotArgs.shot_time:
 		_done = true
 		_take()
+
+
+## Debug: changes the window size mid-run (what Android does when it finishes rotating),
+## optionally capturing the "before" frame first. The normal screenshot timer keeps running.
+func _resize_window() -> void:
+	if ShotArgs.shot_before_path != "":
+		await RenderingServer.frame_post_draw
+		var before: Image = get_viewport().get_texture().get_image()
+		before.save_png(ShotArgs.shot_before_path)
+		print("shot: saved ", ShotArgs.shot_before_path, " size=", before.get_size())
+	get_window().size = ShotArgs.resize_to  # Window.size also sets the native window
 
 
 func _take() -> void:

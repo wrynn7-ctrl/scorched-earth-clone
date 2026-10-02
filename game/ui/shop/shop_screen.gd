@@ -165,7 +165,7 @@ func _build_popup() -> void:
 
 func _ready() -> void:
 	apply_scale()
-	get_viewport().size_changed.connect(apply_scale)
+	LayoutWatch.attach(self, apply_scale)
 
 
 ## The grid, list and detail panes take turns in the tree; free whichever is parked outside.
@@ -187,12 +187,8 @@ func is_tablet_layout() -> bool:
 
 
 func apply_scale() -> void:
-	var ins: Vector4 = UiScale.safe_insets()
+	UiScale.apply_edge_margins(_margin)
 	var pad: float = UiScale.dp(10.0)
-	_margin.add_theme_constant_override("margin_left", roundi(pad + ins.x))
-	_margin.add_theme_constant_override("margin_top", roundi(pad + ins.y))
-	_margin.add_theme_constant_override("margin_right", roundi(pad + ins.z))
-	_margin.add_theme_constant_override("margin_bottom", roundi(pad + ins.w))
 	_root.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 	_header.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
 	_toolbar.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))

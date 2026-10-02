@@ -65,7 +65,7 @@ func _ready() -> void:
 	_trail.finished.connect(_on_trail_finished)
 	_hud.set_wind(_wind)
 	_begin_turn(0)
-	get_viewport().size_changed.connect(_frame_camera)
+	LayoutWatch.attach(self, _frame_camera)
 	_frame_camera()
 
 

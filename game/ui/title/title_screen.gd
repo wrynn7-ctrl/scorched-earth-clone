@@ -35,12 +35,15 @@ func _init() -> void:
 func _ready() -> void:
 	get_tree().set_quit_on_go_back(true)
 	apply_scale()
-	get_viewport().size_changed.connect(apply_scale)
+	LayoutWatch.attach(self, apply_scale)
 	refresh_continue()
 	_start_pulse()
 	ShotHook.attach(self)
-	if ShotArgs.open_settings:
+	if ShotArgs.open_settings or ShotArgs.open_diag:
 		open_settings()
+	if ShotArgs.open_diag:
+		for i: int in range(SettingsOverlay.DIAG_TAPS):
+			_settings_overlay.tap_version()
 
 
 func _build() -> void:

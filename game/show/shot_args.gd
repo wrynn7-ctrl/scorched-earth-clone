@@ -7,6 +7,11 @@ extends RefCounted
 ##   --shot=<png>        save the viewport to <png> after --shot-time seconds, then quit
 ##   --shot-time=<s>     default 1.5 (real seconds since the scene started)
 ##   --dpi=<n>           emulate a screen density for UiScale (e.g. 500 for a phone)
+##   --open-diag         title: open settings and the hidden diagnostics screen (5 taps on the version)
+##   --safe=<l>,<t>,<r>,<b>  fake safe-area insets in physical pixels (cutout / gesture bar)
+##   --resize=<W>x<H>    after --resize-after seconds, resize the window to W x H (Android-like late size)
+##   --resize-after=<s>  default 0.6 (real seconds since the scene started)
+##   --shot-before=<png> with --resize: also save the viewport just before the resize
 ##   --seed=<n>          battle: fixed match seed
 ##   --rounds=<n>        battle: rounds per match
 ##   --speed=<f>         battle: playback speed multiplier (fast-forward for screenshots)
@@ -56,10 +61,14 @@ static var select_weapon: String = ""
 static var shop_tab: int = 0
 static var shop_select: String = ""
 static var open_settings: bool = false
+static var open_diag: bool = false
 static var freeze_tick: int = -1
 static var freeze_hold: float = 0.25
 static var freeze_shot: int = 1
 static var places: Array[String] = []
+static var resize_to: Vector2i = Vector2i.ZERO
+static var resize_after: float = 0.6
+static var shot_before_path: String = ""
 
 static var _parsed: bool = false
 
@@ -75,6 +84,20 @@ static func parse() -> void:
 			shot_time = a.substr(12).to_float()
 		elif a.begins_with("--dpi="):
 			UiScale.dpi_override = a.substr(6).to_float()
+		elif a == "--open-diag":
+			open_diag = true
+		elif a.begins_with("--safe="):
+			var q: PackedStringArray = a.substr(7).split(",")
+			if q.size() == 4:
+				UiScale.safe_px_override = Vector4(q[0].to_float(), q[1].to_float(), q[2].to_float(), q[3].to_float())
+		elif a.begins_with("--resize="):
+			var wh: PackedStringArray = a.substr(9).to_lower().split("x")
+			if wh.size() == 2:
+				resize_to = Vector2i(wh[0].to_int(), wh[1].to_int())
+		elif a.begins_with("--resize-after="):
+			resize_after = a.substr(15).to_float()
+		elif a.begins_with("--shot-before="):
+			shot_before_path = a.substr(14)
 		elif a.begins_with("--seed="):
 			seed_value = a.substr(7).to_int()
 		elif a.begins_with("--rounds="):

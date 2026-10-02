@@ -13,6 +13,14 @@ var _preview_btn: Button = null
 var _size_value: Label = null
 var _size_minus: Button = null
 var _size_plus: Button = null
+var _version_btn: Button = null
+var _diag: DiagnosticsOverlay = null
+var _version_taps: int = 0
+var _last_tap_ms: int = 0
+
+## Taps on the version number that open the hidden diagnostics (each within TAP_WINDOW_MS of the last).
+const DIAG_TAPS: int = 5
+const TAP_WINDOW_MS: int = 2000
 
 
 func _init() -> void:
@@ -44,8 +52,19 @@ func _init() -> void:
 	_size_plus.name = "TextLarger"
 	_size_value.name = "TextSizeValue"
 	end_container()
-	add_button(tr("SET_BACK"), 200.0).pressed.connect(close)
+	# BACK and the (hidden-diagnostics) version number share a row to keep the panel short.
+	begin_row()
+	add_button(tr("SET_BACK"), 160.0).pressed.connect(close)
 	_buttons[_buttons.size() - 1].name = "Back"
+	_version_btn = add_button(tr("SET_VERSION_FMT") % BuildInfo.VERSION, 140.0)
+	_version_btn.name = "Version"
+	_version_btn.flat = true
+	_version_btn.add_theme_color_override("font_color", NeonPalette.TEXT_DIM)
+	_btn_dp[_version_btn] = [140.0, 12.0]
+	_version_btn.pressed.connect(tap_version)
+	end_container()
+	_diag = DiagnosticsOverlay.new()
+	add_child(_diag)
 	_sync()
 
 
@@ -55,9 +74,29 @@ func open() -> void:
 
 
 func close() -> void:
+	if _diag.visible:
+		_diag.close()
 	if visible:
 		super.close()
 		closed.emit()
+
+
+## One tap on the version number; DIAG_TAPS quick taps in a row open the diagnostics screen.
+func tap_version() -> void:
+	var now: int = Time.get_ticks_msec()
+	_version_taps = _version_taps + 1 if now - _last_tap_ms <= TAP_WINDOW_MS else 1
+	_last_tap_ms = now
+	if _version_taps >= DIAG_TAPS:
+		_version_taps = 0
+		_diag.open()
+
+
+func get_version_button() -> Button:
+	return _version_btn
+
+
+func get_diagnostics() -> DiagnosticsOverlay:
+	return _diag
 
 
 ## Hides without emitting `closed` (the pause menu is being torn down).

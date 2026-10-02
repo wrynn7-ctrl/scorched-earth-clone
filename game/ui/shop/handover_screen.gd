@@ -70,7 +70,7 @@ func _label(label_name: String) -> Label:
 
 func _ready() -> void:
 	apply_scale()
-	get_viewport().size_changed.connect(apply_scale)
+	LayoutWatch.attach(self, apply_scale)
 
 
 func apply_scale() -> void:

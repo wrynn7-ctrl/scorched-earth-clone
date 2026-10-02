@@ -63,7 +63,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	apply_scale()
-	get_viewport().size_changed.connect(apply_scale)
+	LayoutWatch.attach(self, apply_scale)
 
 
 func _build() -> void:
@@ -195,14 +195,12 @@ static func _ignoring_spacer() -> Control:
 
 ## Re-applies dp-based sizes. Called on ready and whenever the viewport size changes.
 func apply_scale() -> void:
-	var pad: float = UiScale.dp(10.0)
-	var ins: Vector4 = UiScale.safe_insets()
-	_margin.add_theme_constant_override("margin_left", roundi(pad + ins.x))
-	_margin.add_theme_constant_override("margin_top", roundi(pad + ins.y))
-	_margin.add_theme_constant_override("margin_right", roundi(pad + ins.z))
-	_margin.add_theme_constant_override("margin_bottom", roundi(pad + ins.w))
-	_row.add_theme_constant_override("separation", roundi(pad))
-	_right.add_theme_constant_override("separation", roundi(pad))
+	UiScale.apply_edge_margins(_margin)
+	# The edge margin is 12 dp; gaps between the columns are a little tighter so the crowded
+	# ~700 dp phones at the largest text size still fit.
+	var gap: float = UiScale.dp(8.0)
+	_row.add_theme_constant_override("separation", roundi(gap))
+	_right.add_theme_constant_override("separation", roundi(gap))
 	_aim.min_radius = UiScale.dp(10.0)
 	_top_row.add_theme_constant_override("separation", roundi(UiScale.dp(4.0)))
 	var bsz := Vector2.ONE * UiScale.touch()

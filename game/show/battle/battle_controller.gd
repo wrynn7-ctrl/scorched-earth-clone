@@ -200,7 +200,7 @@ func _ready() -> void:
 	_hud.item_pressed.connect(func(id: String) -> void: use_item(id))
 	_hud.move_pressed.connect(func(dir: int) -> void: move_current(dir))
 	_hud.set_speed(_speed)
-	get_viewport().size_changed.connect(_frame_camera)
+	LayoutWatch.attach(self, _frame_camera)
 	_frame_camera()
 	_start_match(resume)
 	_auto_fire_pending = ShotArgs.auto_fire

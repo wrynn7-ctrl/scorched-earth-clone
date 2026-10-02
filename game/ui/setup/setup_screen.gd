@@ -76,7 +76,7 @@ func _init() -> void:
 func _ready() -> void:
 	get_tree().set_quit_on_go_back(false)
 	apply_scale()
-	get_viewport().size_changed.connect(apply_scale)
+	LayoutWatch.attach(self, apply_scale)
 	_refresh()
 	ShotHook.attach(self)
 
@@ -308,12 +308,8 @@ func _open_kind_popup(index: int) -> void:
 # ======================================================================================
 
 func apply_scale() -> void:
-	var ins: Vector4 = UiScale.safe_insets()
+	UiScale.apply_edge_margins(_margin)
 	var pad: float = UiScale.dp(10.0)
-	_margin.add_theme_constant_override("margin_left", roundi(pad + ins.x))
-	_margin.add_theme_constant_override("margin_top", roundi(pad + ins.y))
-	_margin.add_theme_constant_override("margin_right", roundi(pad + ins.z))
-	_margin.add_theme_constant_override("margin_bottom", roundi(pad + ins.w))
 	_columns.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
 	_options.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_players_box.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
