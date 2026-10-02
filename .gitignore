@@ -9,6 +9,11 @@
 # Signing material: never commit (CI reads these from GitHub Actions secrets)
 *.keystore
 *.jks
+# Exception: the public, debug-only keystore (see tools/android/README.md). Nothing else.
+!/tools/android/debug.keystore
 
 # OS
 .DS_Store
+
+# Build output
+/build/

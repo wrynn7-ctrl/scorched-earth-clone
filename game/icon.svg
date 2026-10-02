@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Placeholder launcher icon: neon crater on a dark sky. Replace with final art in M5. -->
+  <rect width="128" height="128" rx="24" fill="#0b0618"/>
+  <path d="M0 92 L38 92 Q64 124 90 92 L128 92 L128 128 L0 128 Z" fill="#ff2bd6"/>
+  <path d="M38 92 Q64 124 90 92" fill="none" stroke="#2bf0ff" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="92" cy="34" r="9" fill="#2bf0ff"/>
+</svg>
