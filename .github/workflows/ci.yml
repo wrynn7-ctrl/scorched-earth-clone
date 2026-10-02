@@ -1,0 +1,146 @@
+# Continuous integration: unit tests, then a debug-signed Android APK.
+# On pushes to the dev branch the APK is also published to the rolling pre-release `dev-latest`
+# (one fixed page to download from on a phone).
+name: CI
+
+on:
+  push:
+    branches: ["**"]   # branches only; tag pushes (such as dev-latest) do not run CI
+  pull_request:
+
+# Least privilege by default. Only the `publish-dev-release` job gets `contents: write`.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel a run on the dev branch half-way through publishing the release.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/claude/artillery-game-android-69i6of' }}
+
+env:
+  GODOT_VERSION: "4.7.2"
+  TOOLS_TAG: tools-godot-4.7.2
+
+defaults:
+  run:
+    shell: bash   # GitHub runs this as `bash -e -o pipefail`, so any failing command fails the step
+
+jobs:
+  test:
+    name: Tests (GUT + determinism check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TOOLS_TAG" --repo "${{ github.repository }}" \
+            --pattern "godot-${GODOT_VERSION}-linux.x86_64.zip" --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/godot-dl"
+          (cd "$RUNNER_TEMP/godot-dl" && grep " godot-${GODOT_VERSION}-linux.x86_64.zip\$" SHA256SUMS.txt | sha256sum -c -)
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot-dl/godot-${GODOT_VERSION}-linux.x86_64.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Determinism check (game/core)
+        run: tools/check_core_determinism.sh
+
+      # No cache for game/.godot: the import cache is cheap to rebuild and a stale one can hide script-class errors.
+      - name: Run GUT tests
+        run: tools/run_tests.sh
+
+  android-debug:
+    name: Android debug APK
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TOOLS_TAG" --repo "${{ github.repository }}" \
+            --pattern "godot-${GODOT_VERSION}-linux.x86_64.zip" --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/godot-dl"
+          (cd "$RUNNER_TEMP/godot-dl" && grep " godot-${GODOT_VERSION}-linux.x86_64.zip\$" SHA256SUMS.txt | sha256sum -c -)
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot-dl/godot-${GODOT_VERSION}-linux.x86_64.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      # Installs the export templates and the pinned Android SDK pieces if the runner image lacks them,
+      # writes the Godot editor settings, exports and verifies the signature.
+      - name: Build debug APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/build_android_debug.sh
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: craterline-debug-apk
+          path: build/craterline-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-dev-release:
+    name: Publish dev-latest pre-release
+    needs: android-debug
+    # Pushes to the dev branch only (never pull requests, never other branches).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/artillery-game-android-69i6of'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: craterline-debug-apk
+          path: dist
+
+      - name: Create or update the dev-latest pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          TAG=dev-latest
+          APK=dist/craterline-debug.apk
+          test -s "$APK"
+          SHORT="${SHA:0:7}"
+          NOW="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          TITLE="Latest test build (dev)"
+          printf '%s\n' \
+            "Debug build of the dev branch, signed with the public debug key (installs over the previous test build)." \
+            "" \
+            "- Commit: ${SHA} (${SHORT})" \
+            "- Built: ${NOW}" \
+            "- Branch: ${GITHUB_REF_NAME}" \
+            "- Workflow run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
+            "" \
+            "Download \`craterline-debug.apk\` below. See docs/INSTALL_ON_PHONE.md for install steps." \
+            > "$RUNNER_TEMP/notes.md"
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            # Move the tag to this commit, delete the old asset(s), upload the new one, refresh title and notes.
+            gh api -X PATCH "repos/${REPO}/git/refs/tags/${TAG}" -f sha="$SHA" -F force=true >/dev/null
+            gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' | while IFS= read -r name; do
+              gh release delete-asset "$TAG" "$name" --repo "$REPO" --yes
+            done
+            gh release upload "$TAG" "$APK" --repo "$REPO"
+            gh release edit "$TAG" --repo "$REPO" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md" \
+              --prerelease --latest=false
+          else
+            gh release create "$TAG" "$APK" --repo "$REPO" --target "$SHA" \
+              --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md" --prerelease --latest=false
+          fi
+          echo "Published: ${GITHUB_SERVER_URL}/${REPO}/releases/tag/${TAG}"
