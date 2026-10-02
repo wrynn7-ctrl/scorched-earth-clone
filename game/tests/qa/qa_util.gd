@@ -39,6 +39,15 @@ const EVENT_FIELDS: Dictionary = {
 	"tank_move": {"tank": TYPE_INT, "from_x": TYPE_INT, "to_x": TYPE_INT, "fuel": TYPE_INT},
 	"ready": {"tank": TYPE_INT},
 	"well_off": {"owner": TYPE_INT},
+	# M3-C2 weapon behaviours (section 21)
+	"tunnel": {"x0": TYPE_INT, "y0": TYPE_INT, "x1": TYPE_INT, "y1": TYPE_INT, "radius": TYPE_INT},
+	"terrain_add": {"x": TYPE_INT, "y": TYPE_INT, "radius": TYPE_INT, "material": TYPE_INT,
+			"skip": TYPE_PACKED_INT32_ARRAY},
+	"terrain_pour": {"x": TYPE_INT, "cells": TYPE_PACKED_INT32_ARRAY, "material": TYPE_INT},
+	"flames": {"points": TYPE_PACKED_INT32_ARRAY},
+	"beam": {"x0": TYPE_INT, "y0": TYPE_INT, "x1": TYPE_INT, "y1": TYPE_INT},
+	"well_on": {"owner": TYPE_INT, "x": TYPE_INT, "y": TYPE_INT, "expires_turn": TYPE_INT},
+	"tank_drag": {"tank": TYPE_INT, "from_x": TYPE_INT, "to_x": TYPE_INT},
 	# Not in the section 10 table: only emitted by Simulation.start_round().
 	"round_start": {"round": TYPE_INT},
 }

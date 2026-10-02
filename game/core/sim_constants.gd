@@ -68,6 +68,6 @@ const WALK_DROP: int = 3  # per-step drops up to this are walking, not falling
 const SHIELD_RADIUS: int = 24
 const SHIELD_CENTER_DY: int = 6
 const REPULSOR_RADIUS: int = 60
-const REPULSOR_PUSH: int = 6554  # 0.10 cell/tick^2 at the centre, Q16.16
+const REPULSOR_PUSH: int = 131072  # 2.00 cell/tick^2 at the centre, Q16.16 (tuned in M3-C2)
 const REPULSOR_CHARGE: int = 100
 const REPAIR_HEAL: int = 40

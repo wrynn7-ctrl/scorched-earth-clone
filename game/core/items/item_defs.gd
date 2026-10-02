@@ -17,7 +17,7 @@ const DEFS: Dictionary = {
 	"fortress_field": {"id": "fortress_field", "kind": "item", "tier": "full", "price": 7000, "bundle": 1,
 			"behavior": "shield", "hp": 100, "anchor_resist": true},
 	"repulsor_field": {"id": "repulsor_field", "kind": "item", "tier": "full", "price": 6000, "bundle": 1,
-			"behavior": "repulsor", "field_r": 60, "charge": 100, "push": 6554},
+			"behavior": "repulsor", "field_r": 60, "charge": 100, "push": 131072},
 	"drift_chute": {"id": "drift_chute", "kind": "item", "tier": "free", "price": 1500, "bundle": 2,
 			"behavior": "chute", "passive": true},
 	"fuel_cell": {"id": "fuel_cell", "kind": "item", "tier": "free", "price": 1000, "bundle": 1,

@@ -115,6 +115,130 @@ func add_circle(cx: int, cy: int, r: int, material: int) -> Rect2i:
 	return _fill_circle(cx, cy, r, material, true)
 
 
+## Fills air cells only, within the circle, skipping every cell inside the half-open boxes
+## `skip_boxes` = [x0, y0, x1, y1, ...] (cells with x0 <= x < x1 and y0 <= y < y1). Used by the
+## dirt weapons: the core skips alive tank boxes and records them in the `terrain_add` event so
+## the show layer can repeat exactly the same call.
+func add_circle_skipping(cx: int, cy: int, r: int, material: int, skip_boxes: PackedInt32Array) -> Rect2i:
+	if r < 0:
+		return Rect2i()
+	var x0: int = maxi(cx - r, 0)
+	var x1: int = mini(cx + r, width - 1)
+	var bb_y0: int = maxi(cy - r, 0)
+	var bb_y1: int = mini(cy + r, height - 1)
+	if x0 > x1 or bb_y0 > bb_y1:
+		return Rect2i()
+	var r2: int = r * r
+	var nb: int = skip_boxes.size() / 4
+	for x: int in range(x0, x1 + 1):
+		var dx: int = x - cx
+		var dy: int = FixedMath.isqrt(r2 - dx * dx)
+		var y0: int = maxi(cy - dy, 0)
+		var y1: int = mini(cy + dy, height - 1)
+		var base: int = x * height
+		var blocked: PackedInt32Array = PackedInt32Array()  # [ya0, ya1) pairs for this column
+		for b: int in range(nb):
+			if x >= skip_boxes[b * 4] and x < skip_boxes[b * 4 + 2]:
+				blocked.append(skip_boxes[b * 4 + 1])
+				blocked.append(skip_boxes[b * 4 + 3])
+		for y: int in range(y0, y1 + 1):
+			if cells[base + y] != 0 or _in_ranges(blocked, y):
+				continue
+			cells[base + y] = material
+	return Rect2i(x0, bb_y0, x1 - x0 + 1, bb_y1 - bb_y0 + 1)
+
+
+static func _in_ranges(ranges: PackedInt32Array, y: int) -> bool:
+	for i: int in range(0, ranges.size(), 2):
+		if y >= ranges[i] and y < ranges[i + 1]:
+			return true
+	return false
+
+
+## Clears every cell within `r` of the segment (x0, y0)-(x1, y1): the union of discs of radius
+## `r` centred on each integer step of the segment (step i of n = max(|dx|, |dy|) is at
+## (x0 + dx*i/n, y0 + dy*i/n), integer division truncating toward zero). Returns the clipped
+## bounding box (empty if nothing is on the map or r < 0). Used by the tunneler and the beam;
+## the show layer re-applies it from the `tunnel` event.
+func carve_tunnel(x0: int, y0: int, x1: int, y1: int, r: int) -> Rect2i:
+	if r < 0:
+		return Rect2i()
+	var bx0: int = maxi(mini(x0, x1) - r, 0)
+	var bx1: int = mini(maxi(x0, x1) + r, width - 1)
+	var by0: int = maxi(mini(y0, y1) - r, 0)
+	var by1: int = mini(maxi(y0, y1) + r, height - 1)
+	if bx0 > bx1 or by0 > by1:
+		return Rect2i()
+	var cols: int = bx1 - bx0 + 1
+	var lo: PackedInt32Array = PackedInt32Array()
+	var hi: PackedInt32Array = PackedInt32Array()
+	lo.resize(cols)
+	hi.resize(cols)
+	lo.fill(height)
+	hi.fill(-1)
+	var half: PackedInt32Array = PackedInt32Array()
+	for k: int in range(r + 1):
+		half.append(FixedMath.isqrt(r * r - k * k))
+	var dx: int = x1 - x0
+	var dy: int = y1 - y0
+	var n: int = maxi(absi(dx), absi(dy))
+	# A convex capsule has one y-interval per column, and discs one step apart overlap, so the
+	# per-column union of the discs' chords is exact.
+	for i: int in range(n + 1):
+		var cx: int = x0
+		var cy: int = y0
+		if n > 0:
+			cx = x0 + (dx * i) / n
+			cy = y0 + (dy * i) / n
+		var xa: int = maxi(cx - r, bx0)
+		var xb: int = mini(cx + r, bx1)
+		for x: int in range(xa, xb + 1):
+			var h: int = half[absi(x - cx)]
+			var k: int = x - bx0
+			lo[k] = mini(lo[k], cy - h)
+			hi[k] = maxi(hi[k], cy + h)
+	for k: int in range(cols):
+		var ya: int = maxi(lo[k], 0)
+		var yb: int = mini(hi[k], height - 1)
+		var base: int = (bx0 + k) * height
+		for y: int in range(ya, yb + 1):
+			cells[base + y] = 0
+	return Rect2i(bx0, by0, cols, by1 - by0 + 1)
+
+
+## Places one cell of `material` on top of each listed column, in order (the cell above the
+## column's first solid cell; a column that is already full to y = 0 is skipped, off-map
+## columns are ignored). Returns the bounding box of the cells placed (empty if none). Used
+## by the sludge; the show layer re-applies it from the `terrain_pour` event.
+func pour(columns: PackedInt32Array, material: int) -> Rect2i:
+	var tops: PackedInt32Array = PackedInt32Array()
+	tops.resize(width)
+	tops.fill(-1)
+	var min_x: int = width
+	var max_x: int = -1
+	var min_y: int = height
+	var max_y: int = -1
+	for x: int in columns:
+		if x < 0 or x >= width:
+			continue
+		var top: int = tops[x]
+		if top < 0:
+			top = surface_y(x)
+		if top <= 0:
+			tops[x] = 0
+			continue
+		top -= 1
+		tops[x] = top
+		cells[x * height + top] = material
+		min_x = mini(min_x, x)
+		max_x = maxi(max_x, x)
+		min_y = mini(min_y, top)
+		max_y = maxi(max_y, top)
+	if max_x < 0:
+		return Rect2i()
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
 func _fill_circle(cx: int, cy: int, r: int, value: int, air_only: bool) -> Rect2i:
 	if r < 0:
 		return Rect2i()
