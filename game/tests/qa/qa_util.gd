@@ -95,17 +95,16 @@ static func bot_action(state: MatchState, rng: Rng) -> Dictionary:
 		return fire(me.id, rng.range_int(0, SimConstants.MAX_ANGLE), rng.range_int(1, SimConstants.MAX_POWER))
 	var tgt: TankState = targets[rng.range_int(0, targets.size() - 1)]
 	var angle: int = rng.range_int(300, 700) if tgt.x >= me.x else rng.range_int(1100, 1500)
-	var best_p: int = 500
-	var best_d: int = 1 << 40
-	for p: int in range(60, SimConstants.MAX_POWER + 1, 80):
-		var tr: Dictionary = Ballistics.trace(state, me.id, angle, p, WEAPON, SimConstants.WIND_USE_STATE,
+	# Flat-ground range formula as a first guess (p^2 ~ 519 * range / sin(2a)), then 2 refinement traces.
+	var dist: int = maxi(1, absi(tgt.x - me.x))
+	var sin2: int = absi(FixedMath.sin10(2 * angle))
+	var power: int = clampi(FixedMath.isqrt(519 * dist * FixedMath.ONE / maxi(1, sin2)), 10, SimConstants.MAX_POWER)
+	for _i: int in range(2):
+		var tr: Dictionary = Ballistics.trace(state, me.id, angle, power, WEAPON, SimConstants.WIND_USE_STATE,
 				SimConstants.MAX_FLIGHT_TICKS)
-		var ex: int = tr["end_x"]
-		var d: int = absi(ex - tgt.x)
-		if d < best_d:
-			best_d = d
-			best_p = p
-	var power: int = clampi(best_p + rng.range_int(-25, 25), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+		var hit: int = maxi(1, absi((tr["end_x"] as int) - me.x))
+		power = clampi(FixedMath.isqrt(power * power * dist / hit), 10, SimConstants.MAX_POWER)
+	power = clampi(power + rng.range_int(-15, 15), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 	return fire(me.id, angle, power)
 
 
@@ -350,8 +349,8 @@ static func check_order(events: Array[Dictionary], literal: bool) -> Array[Strin
 			"round_end": rank = 10
 			"wind": rank = 11
 			"turn": rank = 12
-		if not literal and (type == "tank_fall" or (type == "damage" and e["cause"] == "fall")):
-			rank = 7  # one combined phase
+		if type == "tank_fall" or (type == "damage" and e["cause"] == "fall"):
+			rank = 7  # one combined phase: (tank_fall, damage(fall)?) pairs per tank (ARCHITECTURE §10)
 		if rank < last_rank:
 			errs.append("%s (rank %d) after rank %d" % [type, rank, last_rank])
 		last_rank = maxi(last_rank, rank)

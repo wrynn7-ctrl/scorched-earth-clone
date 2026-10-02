@@ -14,145 +14,91 @@
 			"op": "fire",
 			"tank": 0,
 			"angle": 529,
-			"power": 495,
-			"fp": "d89fa723b619a6a6",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "f8cf4987d3dc3b14"
+			"power": 511,
+			"fp": "e9625fb875c59d7e",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "8548194435c3314f"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
 			"angle": 656,
-			"power": 566,
-			"fp": "b3b01469143e3e68",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "d7e581aa875f021f"
+			"power": 548,
+			"fp": "81577d35586667e0",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "d7bf7a3f4a784608"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
 			"angle": 1104,
-			"power": 959,
-			"fp": "f46bd5f4cb498536",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "f43da7b277df0d35"
+			"power": 965,
+			"fp": "f0524da877fcab61",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "7c7e1a993be1e9dd"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
 			"angle": 407,
-			"power": 460,
-			"fp": "bed9ceced1b81ca3",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "6abbfcc25d4eff3b"
+			"power": 501,
+			"fp": "d25dae8833608cee",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "86419c56982ba46c"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
 			"angle": 670,
-			"power": 525,
-			"fp": "5fd8621338487c34",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "84a7b2b448a3d034"
+			"power": 558,
+			"fp": "b5f9b5dd217a0bd4",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "8ebe99ee547ea02e"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
 			"angle": 1190,
-			"power": 842,
-			"fp": "21a097a335d69392",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "a31ed66f8ab558e1"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 441,
-			"power": 721,
-			"fp": "04d78fcf00d06af1",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "66326cb8eb5b2df7"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 1319,
-			"power": 597,
-			"fp": "4cee87dd78d8adab",
+			"power": 821,
+			"fp": "2dffc4d44c2a2e16",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
-			"evh": "bf1a26f664d9315f"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1357,
-			"power": 456,
-			"fp": "8a54cd6552bafbfa",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "bba975f34392c120"
+			"evh": "2d0ca2dbbb1e448b"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 345,
-			"power": 564,
-			"fp": "93a9d1951d85f155",
+			"angle": 359,
+			"power": 515,
+			"fp": "dc7b60a29887c7aa",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "97e47b2766bfe252"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 118,
+			"power": 313,
+			"fp": "bca8e31d1907c517",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "ff7592ab67f0f931"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1165,
+			"power": 119,
+			"fp": "78125ace009b5a3a",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "dbe7d18bf4198be9"
+			"evh": "2501232fced8d664"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 1414,
-			"power": 437,
-			"fp": "760047637082faaa",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "1350a0f17a251caf"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 523,
-			"power": 470,
-			"fp": "f021626ebdd0215d",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "59950f1ad205a982"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1189,
-			"power": 545,
-			"fp": "041ab2176e62f497",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "a164e3b41a6de595"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 308,
-			"power": 637,
-			"fp": "02a8d17ae5721deb",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "ee66b5bdcee7e61f"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1459,
-			"power": 895,
-			"fp": "43d49bf183309d43",
-			"ev": "fire,projectile,projectile_end,wind,turn",
-			"evh": "45eebbc3dfeab4f7"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 391,
-			"power": 533,
-			"fp": "2a75969b1f632d44",
+			"angle": 1306,
+			"power": 444,
+			"fp": "e0fac684c48b3e5d",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
-			"evh": "33fbd9895ea8c85f"
+			"evh": "23b1171ab82c4297"
 		},
 		{
 			"op": "start_round",
@@ -163,146 +109,92 @@
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 536,
-			"power": 615,
-			"fp": "046f4dc548af9be9",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "f793a4c4465dda1f"
+			"angle": 632,
+			"power": 657,
+			"fp": "01f0dec2bcf782eb",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "e864f7ecdfd8f7a1"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 1397,
-			"power": 706,
-			"fp": "4e59addf3667f2e9",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "94e828e16b8497a8"
+			"angle": 1323,
+			"power": 509,
+			"fp": "dc844cfaea4bc484",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "1c4bc6646c8a1304"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 617,
-			"power": 595,
-			"fp": "625aac9e78b586bd",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "0de2efd7d5f7d541"
+			"angle": 579,
+			"power": 866,
+			"fp": "f9929699d6c43d27",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "380e727bc370a91b"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 1228,
-			"power": 528,
-			"fp": "9e48bbe9be017d09",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "5225b607b82a5c2a"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 562,
-			"power": 232,
-			"fp": "ef8a8d4bc40f37ae",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "03bc3725882e6010"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 1417,
-			"power": 469,
-			"fp": "47751303d48eaca7",
-			"ev": "fire,projectile,projectile_end,wind,turn",
-			"evh": "a451deecc9197ac1"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 1453,
-			"power": 279,
-			"fp": "99c84c1fbd69e7c2",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "bd04ed1f7b1b65be"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1482,
-			"power": 534,
-			"fp": "a5dba70fd7807498",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "544fe51794c30baf"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 1415,
-			"power": 577,
-			"fp": "5a9e95d64f453594",
-			"ev": "fire,projectile,projectile_end,wind,turn",
-			"evh": "36ee9fbf2fa8e440"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 1359,
-			"power": 528,
-			"fp": "13784a51f2e04d79",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "11c1670668733f4c"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1137,
-			"power": 856,
-			"fp": "a43c194ca053783a",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "c940678126a59589"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 549,
-			"power": 829,
-			"fp": "0283b561e7915b41",
+			"angle": 1311,
+			"power": 507,
+			"fp": "ee6ca208518b1a51",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "3be9c98519f3d369"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 317,
-			"power": 618,
-			"fp": "dfb0197520f4fa44",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "84b3144b0e355127"
+			"evh": "b1e9598a2e3ede27"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 26,
-			"power": 365,
-			"fp": "30fe2f3aa2beed8c",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
-			"evh": "89e4013a44f69c26"
+			"angle": 1191,
+			"power": 798,
+			"fp": "72cd3d4ecc56fefa",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "c800399d0e30a9b4"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 583,
-			"power": 582,
-			"fp": "b3dca39655c9bd0f",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,tank_fall,wind,turn",
-			"evh": "905691bce35d9d5a"
+			"angle": 536,
+			"power": 835,
+			"fp": "b9af50e0f5ee1041",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "66559ef5aaede1d5"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 1443,
-			"power": 501,
-			"fp": "7e7c18c6a011a7f9",
+			"angle": 1397,
+			"power": 513,
+			"fp": "849ae08dcebfa6cb",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "f5246ba2f2e5ed2f"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1404,
+			"power": 503,
+			"fp": "86390bdfca7dc0a6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "e5c6aac07c49d2b1"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 492,
+			"power": 603,
+			"fp": "c0c222fa4a1db5f8",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "c6c8727920d7545b"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1246,
+			"power": 518,
+			"fp": "010d4b905e6010ad",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
-			"evh": "274587888471b7df"
+			"evh": "19743838a603bb86"
 		},
 		{
 			"op": "start_round",
@@ -313,101 +205,164 @@
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 1298,
-			"power": 814,
-			"fp": "79b03b81918f9d4b",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "555b9ff45aefeb4a"
+			"angle": 1159,
+			"power": 591,
+			"fp": "7eedde7e04265ffc",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "4221b25d6b58e738"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 470,
-			"power": 719,
-			"fp": "796ece338481a7ba",
+			"angle": 524,
+			"power": 558,
+			"fp": "33b9ddc4bc4b1979",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "8d5ee44001139c45"
+			"evh": "5f0d0e324be8e63f"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 548,
-			"power": 498,
-			"fp": "a753b6887a05a708",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "6244acfa825ae541"
+			"angle": 682,
+			"power": 630,
+			"fp": "955ac8a1fdeabae6",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "a124672343e5b527"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 1293,
-			"power": 591,
-			"fp": "1ec32c3d9162e1a5",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
-			"evh": "8f562799ad6b3604"
+			"angle": 1415,
+			"power": 577,
+			"fp": "1feee397dcfa51aa",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "c8f8f495ca84c55e"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 526,
-			"power": 562,
-			"fp": "373c4ed9484f2a9c",
+			"angle": 559,
+			"power": 601,
+			"fp": "dd37699184707fa3",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "e54f96c7c324d0b3"
+			"evh": "c96ada0e51274cba"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 320,
-			"power": 429,
-			"fp": "bb6d3ac118c9be60",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,tank_destroyed,wind,turn",
-			"evh": "1785ae4a6b7aa580"
+			"angle": 1137,
+			"power": 606,
+			"fp": "69e3a326b7b6eebf",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "6f982f8993def25a"
 		},
 		{
 			"op": "fire",
-			"tank": 0,
-			"angle": 316,
-			"power": 521,
-			"fp": "68206539e56f52b4",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "1bb00c7172458c02"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 1291,
-			"power": 549,
-			"fp": "bce685f814c2e4a0",
+			"tank": 2,
+			"angle": 1349,
+			"power": 606,
+			"fp": "f57648099ccd7bf0",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,tank_fall,damage,wind,turn",
-			"evh": "3ab3d39d4bfa5fd9"
+			"evh": "ac544126eb4e3612"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 454,
-			"power": 556,
-			"fp": "ee7a3d4512af9afc",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "03193a505f258e6f"
+			"angle": 317,
+			"power": 709,
+			"fp": "e39dd11b349acb94",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "bf7e8e78059e1b3b"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 1463,
-			"power": 615,
-			"fp": "6c2af4c271359b25",
+			"angle": 26,
+			"power": 365,
+			"fp": "74dc983d29738389",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "d59c3c0901644891"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1183,
+			"power": 576,
+			"fp": "059930fd285a1e08",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "d9951f1d220424dc"
+			"evh": "35780a09917c119b"
 		},
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 519,
-			"power": 573,
-			"fp": "7e9094d3bec318b5",
+			"angle": 1609,
+			"power": 68,
+			"fp": "7b2a8a73b459f8f4",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "d2117dc81d7b32e3"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 148,
+			"power": 114,
+			"fp": "d638bd3815668238",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "c06876989a0ca4a9"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1270,
+			"power": 560,
+			"fp": "6a5e325cc9a4f268",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "ad2ee7051508ae5f"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 411,
+			"power": 716,
+			"fp": "5d013b4f99fb4eef",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "2af2d9e45bccbde0"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1465,
+			"power": 952,
+			"fp": "943412fc235f3303",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "0b50c525853af35f"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 493,
+			"power": 746,
+			"fp": "e8a5b23fbd1bbe09",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "d5604e79aa8bcd18"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 940,
+			"power": 291,
+			"fp": "1f7c722341fc739b",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
+			"evh": "e7bb5a4ffb565171"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 338,
+			"power": 706,
+			"fp": "e491d6afb8c7b0cd",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
-			"evh": "e4386717b933c7de"
+			"evh": "12e7763985151802"
 		},
 		{
 			"op": "start_round",
@@ -418,95 +373,77 @@
 		{
 			"op": "fire",
 			"tank": 0,
-			"angle": 482,
-			"power": 487,
-			"fp": "0a7c19c5ad96bcb8",
+			"angle": 316,
+			"power": 517,
+			"fp": "a8469952387fd702",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "0fc691c57897e367"
+			"evh": "e28fdca0f5be047e"
 		},
 		{
 			"op": "fire",
 			"tank": 1,
-			"angle": 424,
-			"power": 432,
-			"fp": "a967733ec4f6c640",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
-			"evh": "433c5f88b68d35d9"
+			"angle": 1191,
+			"power": 620,
+			"fp": "51db7ad17377da03",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
+			"evh": "248a7aef98d74db8"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
+			"angle": 1231,
+			"power": 818,
+			"fp": "3b1c4bf53d836108",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "62311e563ed60209"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
+			"angle": 519,
+			"power": 506,
+			"fp": "423937bd26f010d7",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
+			"evh": "a49a2f19a86b9aa2"
+		},
+		{
+			"op": "fire",
+			"tank": 1,
+			"angle": 1282,
+			"power": 529,
+			"fp": "4d3c0d4672bc87dc",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,damage,wind,turn",
+			"evh": "7015c2aece017c32"
+		},
+		{
+			"op": "fire",
+			"tank": 2,
+			"angle": 1224,
+			"power": 587,
+			"fp": "0d46901cd11ba682",
+			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
+			"evh": "fb806fe1557eeb8c"
+		},
+		{
+			"op": "fire",
+			"tank": 0,
 			"angle": 1305,
 			"power": 869,
-			"fp": "70b33b6d4515c0a6",
+			"fp": "6432e3e06d57d66e",
 			"ev": "fire,projectile,projectile_end,wind,turn",
-			"evh": "bb552f11ff8e24e1"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 314,
-			"power": 665,
-			"fp": "5b0b5d8a5da34010",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "0aacf09b71514d8a"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 948,
-			"power": 801,
-			"fp": "c2fc90eb43b8dadf",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "6a4148bc59202d1d"
+			"evh": "f8440aabd40f5281"
 		},
 		{
 			"op": "fire",
 			"tank": 2,
-			"angle": 347,
-			"power": 626,
-			"fp": "d7cc6f03ed034dac",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_fall,wind,turn",
-			"evh": "956534162174c068"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 515,
-			"power": 488,
-			"fp": "3ce7ae7805a49dba",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,wind,turn",
-			"evh": "54042eda43b08af2"
-		},
-		{
-			"op": "fire",
-			"tank": 1,
-			"angle": 715,
-			"power": 652,
-			"fp": "a92645ecbc03a912",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
-			"evh": "d96f9938abbb4984"
-		},
-		{
-			"op": "fire",
-			"tank": 2,
-			"angle": 1146,
-			"power": 694,
-			"fp": "3174becdccbbde0f",
-			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,wind,turn",
-			"evh": "acd2d2ff5cac608d"
-		},
-		{
-			"op": "fire",
-			"tank": 0,
-			"angle": 660,
-			"power": 722,
-			"fp": "ae3e7e00f1490183",
+			"angle": 1389,
+			"power": 755,
+			"fp": "90b078a604a1b78b",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,terrain_settle,tank_destroyed,round_end",
-			"evh": "356e1e6f38c0cd7f"
+			"evh": "f8a9031abe3c2654"
 		}
 	],
 	"final_phase": "match_over",
 	"final_round": 3,
-	"final_fp": "ae3e7e00f1490183"
+	"final_fp": "90b078a604a1b78b"
 }

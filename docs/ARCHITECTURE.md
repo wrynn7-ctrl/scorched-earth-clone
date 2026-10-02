@@ -64,7 +64,8 @@ Only `Simulation` mutates `MatchState`. Everything else reads state and submits 
 - API:
   - `static func generate(w: int, h: int, rng: Rng) -> Terrain`: smooth rolling hills from integer value noise /
     midpoint displacement. Surface y stays within [h*30/100, h*85/100]. Materials are bands by depth below the surface.
-  - `is_solid(x, y) -> bool`, `surface_y(x) -> int` (first solid y from the top; `height` if the column is empty).
+  - `get_cell(x, y) -> int` (0 outside the sides/above; `Terrain.BEDROCK` = 16 below the map),
+    `is_solid(x, y) -> bool`, `surface_y(x) -> int` (first solid y from the top; `height` if the column is empty).
   - `carve_circle(cx, cy, r) -> Rect2i`: clears cells with dx²+dy² ≤ r², returns the changed bounding box (clipped).
   - `add_circle(cx, cy, r, material) -> Rect2i`: fills air cells only (dirt weapons, M3).
   - `settle(x0, x1) -> Array[Dictionary]`: in each column of [x0, x1], solid cells fall straight down until nothing
@@ -120,8 +121,9 @@ never applied. M2 kinds: `fire`. Later: `move`, `use_item`, `buy`, `sell`, `read
 
 ## 10. Timeline (output of the simulation)
 `Simulation.apply_action(state, action) -> Array[Dictionary]`. Each event has `"type"` and `"tick"` (ticks since the
-action started). Order of events within one impact: `explosion → terrain_carve → damage* → terrain_settle → tank_fall*
-→ damage(fall)* → tank_destroyed*`, then `round_end` **or** (`wind`, `turn`).
+action started). Order of events within one impact: `explosion → terrain_carve → damage* → terrain_settle →
+(tank_fall → damage(fall)?)* → tank_destroyed*`, then `round_end` **or** (`wind`, `turn`). Each falling tank's
+`damage(fall)`, if any, comes directly after its own `tank_fall`.
 | type | fields |
 |---|---|
 | `fire` | tank, angle, power, weapon |
@@ -136,6 +138,7 @@ action started). Order of events within one impact: `explosion → terrain_carve
 | `wind` | wind |
 | `turn` | tank |
 | `round_end` | winner (tank id, or −1 for a draw) |
+| `round_start` | round (emitted only by `start_round`, followed by `wind` and `turn`) |
 
 The **show** layer keeps its own copy of the terrain and re-applies `terrain_carve`/`terrain_settle` by calling the same
 `Terrain` functions, so visuals match exactly. After playback it checks `Simulation.fingerprint` against the authoritative state.

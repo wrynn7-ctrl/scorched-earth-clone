@@ -6,6 +6,8 @@ extends RefCounted
 
 const BAND_HEIGHT: int = 32
 const BAND_COUNT: int = 15
+## Reported by get_cell below the map (matches is_solid's bedrock floor). Never stored in cells.
+const BEDROCK: int = 16
 
 var width: int = 0
 var height: int = 0
@@ -75,8 +77,10 @@ func duplicate_terrain() -> Terrain:
 
 
 func get_cell(x: int, y: int) -> int:
-	if x < 0 or x >= width or y < 0 or y >= height:
+	if x < 0 or x >= width or y < 0:
 		return 0
+	if y >= height:
+		return BEDROCK
 	return cells[x * height + y]
 
 

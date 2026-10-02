@@ -41,7 +41,7 @@ func _check_order(events: Array[Dictionary]) -> void:
 		var rank: int = RANK[type]
 		if type == "damage":
 			if e["cause"] == "fall":
-				rank = 8
+				rank = 7  # fall damage is paired with its tank_fall (ARCHITECTURE §10)
 				seen_fall_damage = true
 			else:
 				assert_false(seen_fall_damage, "explosion damage precedes fall damage")

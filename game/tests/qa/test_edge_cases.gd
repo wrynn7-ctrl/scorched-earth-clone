@@ -308,9 +308,8 @@ func test_repeated_explosions_dig_to_the_bottom() -> void:
 	assert_eq(t.carve_circle(800, H, 28).size.x > 0, true, "an explosion on bedrock still carves the upper half-disc")
 	assert_eq(t.carve_circle(800, H + 40, 28).size.x, 0, "an explosion fully below the map is a no-op")
 	assert_eq(t.cells.size(), W * H)
-	_bug(t.get_cell(800, H) != 0 or not t.is_solid(800, H),
-			"Terrain.get_cell(x, y>=height) returns 0 (air) while is_solid(x, y>=height) returns true (bedrock); "
-			+ "inconsistent API (terrain.gd get_cell vs is_solid). Low severity, no current caller affected.")
+	assert_eq(t.get_cell(800, H), Terrain.BEDROCK, "get_cell below the map reports bedrock")
+	assert_true(t.is_solid(800, H), "is_solid below the map agrees with get_cell")
 
 
 func test_dig_to_bottom_via_simulation_shots() -> void:

@@ -193,7 +193,7 @@ func test_lost_shot_timeline_shape() -> void:
 
 ## Spec section 10: "... terrain_settle -> tank_fall* -> damage(fall)* -> tank_destroyed*".
 ## The simulation interleaves them per tank (tank_fall A, damage A, tank_fall B, damage B).
-func test_literal_order_all_tank_falls_before_fall_damage() -> void:
+func test_fall_damage_pairs_with_its_tank_fall() -> void:
 	# Two tanks standing side by side on a 2-cell sheet; one shell removes the sheet under both.
 	var base: MatchState = QaUtil.flat_state([200, 790, 814, 1500])
 	for x: int in range(base.terrain.width):
@@ -223,11 +223,10 @@ func test_literal_order_all_tank_falls_before_fall_damage() -> void:
 	if found.is_empty():
 		return
 	assert_eq(QaUtil.check_order(found, false).size(), 0, "relaxed order is fine")
-	var errs: Array[String] = QaUtil.check_order(found, true)
-	_bug(errs.is_empty(), (
-			"Timeline interleaves tank_fall and damage(fall) per tank (tank_fall A, damage A, tank_fall B, damage B, ...) "
-			+ "but docs/ARCHITECTURE.md section 10 says 'terrain_settle -> tank_fall* -> damage(fall)* -> tank_destroyed*' "
-			+ "(and game/tests/core/test_simulation.gd RANK expects the same). Repro: flat ground y=600 reduced to a 2-cell "
-			+ "sheet, tanks at x=790 and 814, shooter at x=200 fires angle %d power %d. Seen: %s. "
-			+ "Cause: game/core/simulation.gd _resolve_explosion loop emits _damage_tank inside the per-tank tank_fall loop. "
-			+ "Low severity; fix either the code or the doc.") % [hit.x, hit.y, ",".join(QaUtil.types(found).slice(5))])
+	# ARCHITECTURE §10: each damage(fall) directly follows the tank_fall of the same tank.
+	for k: int in range(found.size()):
+		var e: Dictionary = found[k]
+		if e["type"] == "damage" and e["cause"] == "fall":
+			var prev: Dictionary = found[k - 1]
+			assert_eq(prev["type"], "tank_fall", "fall damage at %d follows a tank_fall (shot %s)" % [k, hit])
+			assert_eq(prev.get("tank", -1), e["tank"], "fall damage pairs with the same tank's fall")
