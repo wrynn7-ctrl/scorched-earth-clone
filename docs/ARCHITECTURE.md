@@ -227,7 +227,7 @@ new_match ─► "shop" ─(all tanks ready)─► start_round ─► "aim" ─�
 | ion_shield | free | 4000 / 1 | shield | 60 shield HP |
 | fortress_field | full | 7000 / 1 | shield | 100 shield HP; halves Riptide pull |
 | repulsor_field | full | 6000 / 1 | repulsor | field r 60, charge 100 (−1 per tick a shell is inside), pushes shells away |
-| drift_chute | free | 1500 / 2 | chute | passive: auto-used on a fall > FALL_SAFE, negates fall damage |
+| drift_chute | free | 1500 / 2 | chute | passive: auto-used on a fall that would cause damage (≥ 1 HP), negates it |
 | fuel_cell | free | 1000 / 1 | fuel | +100 fuel when drawn |
 | nanorepair_kit | free | 3000 / 1 | repair | +40 health (max 100); ends turn |
 

@@ -164,11 +164,19 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 		t.repulsor_charge = 100 * t.id
 		for i: int in range(Catalog.count()):
 			t.inventory[i] = (i * 7 + t.id * 11) % 100
+	# These values fill the binary format to its limits, which is more than the simulation can ever produce
+	# (a shield_type that is not a shield, fuel 2e9, ...): SaveCodec.decode now refuses such a state, so the
+	# format round trip is exercised on StateSerial directly.
 	var res: Dictionary = SaveCodec.decode(SaveCodec.encode(state, [] as Array[Dictionary]))
-	assert_true(res["ok"], "extreme state decodes: %s" % res["error"])
-	if not res["ok"]:
+	assert_false(res["ok"], "decode refuses a state the simulation cannot produce")
+	assert_eq(res["error"], "invalid_state")
+	var buf := StreamPeerBuffer.new()
+	StateSerial.write(buf, state)
+	buf.seek(0)
+	var got: MatchState = StateSerial.read(buf)
+	assert_not_null(got, "the snapshot format itself holds the extreme values")
+	if got == null:
 		return
-	var got: MatchState = res["state"]
 	for f: String in _fields(state):
 		match f:
 			"settings":
