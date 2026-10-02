@@ -9,11 +9,12 @@ var _sub: Label = null
 
 
 func _init() -> void:
+	super._init()
 	name = "RoundEndOverlay"
 	_title = add_title("")
 	_sub = add_label("", 14.0)
 	set_tally(PackedInt32Array([0, 0]))
-	add_button(tr("OVERLAY_NEXT_ROUND")).pressed.connect(func() -> void: next_round_pressed.emit())
+	add_button(tr("OVERLAY_NEXT_ROUND"), 240.0).pressed.connect(func() -> void: next_round_pressed.emit())
 	_buttons[0].name = "NextRound"
 
 

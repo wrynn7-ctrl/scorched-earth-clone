@@ -13,6 +13,7 @@ extends RefCounted
 ##   --aim=<a>,<p>       battle: initial aim (tenths of degrees, power) of the first tank
 ##   --auto-fire         battle: fire once, shortly after start, with the current aim
 ##   --auto-play         battle: every turn, aim with a ballistic search and fire
+##   --open-pause        battle: open the pause menu shortly after start
 ##   --auto-next         battle: with --auto-play, also press NEXT ROUND automatically
 
 static var shot_path: String = ""
@@ -25,6 +26,7 @@ static var aim_power: int = -1
 static var auto_fire: bool = false
 static var auto_play: bool = false
 static var auto_next: bool = false
+static var open_pause: bool = false
 
 static var _parsed: bool = false
 
@@ -55,5 +57,7 @@ static func parse() -> void:
 			auto_fire = true
 		elif a == "--auto-play":
 			auto_play = true
+		elif a == "--open-pause":
+			open_pause = true
 		elif a == "--auto-next":
 			auto_next = true

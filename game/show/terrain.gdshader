@@ -56,7 +56,7 @@ void fragment() {
 		float depth = clamp(wp.y / float(world_size.y), 0.0, 1.0);
 		// Opaque dirt: bright enough near the surface to clearly read as a solid mass in front of
 		// the sky's ground plane (it was too close to that plane's dark purple).
-		vec3 base = STRATA[clamp(m, 0, 15)] * mix(1.15, 0.5, depth);
+		vec3 base = STRATA[clamp(m, 0, 15)] * mix(1.0, 0.42, depth);
 		// Faint grid + scanline texture inside the dirt.
 		float hl = step(0.86, fract(wp.y / 6.0));
 		float vl = step(0.94, fract(wp.x / 24.0));

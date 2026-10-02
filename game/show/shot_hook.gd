@@ -7,6 +7,11 @@ var _elapsed: float = 0.0
 var _done: bool = false
 
 
+func _init() -> void:
+	# Keep ticking while the tree is paused (pause-menu screenshots).
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
 ## Adds a hook to `host` if the command line asked for a screenshot.
 static func attach(host: Node) -> void:
 	ShotArgs.parse()

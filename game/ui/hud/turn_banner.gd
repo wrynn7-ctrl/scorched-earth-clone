@@ -33,7 +33,7 @@ func _ready() -> void:
 
 
 func apply_scale() -> void:
-	_label.add_theme_font_size_override("font_size", UiScale.font(16.0))
+	_label.add_theme_font_size_override("font_size", UiScale.font(15.0))
 	_emblem.custom_minimum_size = Vector2.ONE * UiScale.dp(28.0)
 
 

@@ -10,12 +10,15 @@ var _sub: Label = null
 
 
 func _init() -> void:
+	super._init()
 	name = "MatchEndOverlay"
 	_title = add_title("")
 	_sub = add_label("", 14.0)
 	set_tally(PackedInt32Array([0, 0]))
-	add_button(tr("OVERLAY_NEW_MATCH")).pressed.connect(func() -> void: new_match_pressed.emit())
-	add_button(tr("OVERLAY_TITLE")).pressed.connect(func() -> void: title_pressed.emit())
+	begin_row()
+	add_button(tr("OVERLAY_NEW_MATCH"), 150.0).pressed.connect(func() -> void: new_match_pressed.emit())
+	add_button(tr("OVERLAY_TITLE"), 110.0).pressed.connect(func() -> void: title_pressed.emit())
+	end_container()
 	_buttons[0].name = "NewMatch"
 	_buttons[1].name = "Title"
 

@@ -15,6 +15,9 @@ var _buttons: Array[Button] = []
 var _labels: Array[Label] = []
 var _tally_box: VBoxContainer = null
 var _font_dp: Dictionary = {}
+var _btn_dp: Dictionary = {}  # Button -> [min width in dp, font dp]
+## Where the add_* helpers put new controls (defaults to the main column).
+var _target: Container = null
 
 
 func _init() -> void:
@@ -23,7 +26,7 @@ func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim = ColorRect.new()
 	_dim.name = "Dim"
-	_dim.color = Color(NeonPalette.BG_DEEP, 0.78)
+	_dim.color = Color(NeonPalette.BG_DEEP, 0.6)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_dim)
@@ -40,6 +43,7 @@ func _init() -> void:
 	_box = VBoxContainer.new()
 	_box.name = "Box"
 	_margin.add_child(_box)
+	_target = _box
 	visible = false
 
 
@@ -49,14 +53,21 @@ func _ready() -> void:
 
 
 func apply_scale() -> void:
-	var pad: int = roundi(UiScale.dp(22.0))
+	var pad: int = roundi(UiScale.dp(16.0))
 	for side: String in ["left", "top", "right", "bottom"]:
 		_margin.add_theme_constant_override("margin_" + side, pad)
-	_box.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
-	_panel.custom_minimum_size = Vector2(UiScale.dp(320.0), 0.0)
+	_box.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
+	_panel.custom_minimum_size = Vector2(UiScale.dp(300.0), 0.0)
+	for c: Node in _box.find_children("*", "Container", true, false):
+		if c is GridContainer:
+			(c as GridContainer).add_theme_constant_override("h_separation", roundi(UiScale.dp(16.0)))
+			(c as GridContainer).add_theme_constant_override("v_separation", roundi(UiScale.dp(8.0)))
+		elif c is HBoxContainer:
+			(c as HBoxContainer).add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 	for b: Button in _buttons:
-		b.custom_minimum_size = Vector2(UiScale.dp(260.0), UiScale.touch() * 1.15)
-		b.add_theme_font_size_override("font_size", UiScale.font(18.0))
+		var spec: Array = _btn_dp[b]
+		b.custom_minimum_size = Vector2(UiScale.dp(float(spec[0])), UiScale.touch())
+		b.add_theme_font_size_override("font_size", UiScale.font(float(spec[1])))
 	for l: Label in _labels:
 		l.add_theme_font_size_override("font_size", UiScale.font(float(_font_dp[l])))
 	if _tally_box != null:
@@ -71,7 +82,7 @@ func close() -> void:
 	visible = false
 
 
-func add_title(text: String, color: Color = NeonPalette.CYAN, size_dp: float = 28.0) -> Label:
+func add_title(text: String, color: Color = NeonPalette.CYAN, size_dp: float = 23.0) -> Label:
 	var l: Label = add_label(text, size_dp, color)
 	return l
 
@@ -84,23 +95,48 @@ func add_label(text: String, size_dp: float = 16.0, color: Color = NeonPalette.T
 	l.add_theme_color_override("font_color", color)
 	_font_dp[l] = size_dp
 	_labels.append(l)
-	_box.add_child(l)
+	_target.add_child(l)
 	return l
 
 
-func add_button(text: String) -> Button:
+## A full-width button in the current target (width_dp is the minimum width).
+func add_button(text: String, width_dp: float = 260.0) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_btn_dp[b] = [width_dp, 17.0]
 	_buttons.append(b)
-	_box.add_child(b)
+	_target.add_child(b)
 	return b
+
+
+## Starts a horizontal row; following add_* calls go into it until end_container().
+func begin_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	_box.add_child(row)
+	_target = row
+	return row
+
+
+## Starts a 2-column grid (used for the settings toggles).
+func begin_grid() -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 2
+	_box.add_child(g)
+	_target = g
+	return g
+
+
+func end_container() -> void:
+	_target = _box
 
 
 ## A "Caption ...... ON/OFF" row; `on_changed(bool)` is called after each press. Returns the button.
 func add_toggle(caption: String, value: bool, on_changed: Callable) -> Button:
 	var row := HBoxContainer.new()
-	_box.add_child(row)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_target.add_child(row)
 	var l := Label.new()
 	l.text = caption
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -116,6 +152,7 @@ func add_toggle(caption: String, value: bool, on_changed: Callable) -> Button:
 	b.toggled.connect(func(on: bool) -> void:
 		b.text = tr("SET_ON") if on else tr("SET_OFF")
 		on_changed.call(on))
+	_btn_dp[b] = [84.0, 14.0]
 	_buttons.append(b)
 	row.add_child(b)
 	return b
@@ -129,7 +166,7 @@ func set_tally(wins: PackedInt32Array, highlight: int = -1) -> void:
 		_box.add_child(_tally_box)
 	for c: Node in _tally_box.get_children():
 		_tally_box.remove_child(c)
-		c.queue_free()
+		c.free()
 	for i: int in range(wins.size()):
 		var row := HBoxContainer.new()
 		row.name = "Row%d" % i

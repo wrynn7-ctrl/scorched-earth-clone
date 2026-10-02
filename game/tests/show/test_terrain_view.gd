@@ -42,3 +42,12 @@ func test_full_size_world() -> void:
 	var tv: TerrainView = add_child_autofree(TerrainView.new())
 	tv.setup(cells, 1600, 900)
 	assert_eq(tv.get_texture_size(), Vector2i(900, 1600))
+
+
+func test_dirt_is_fully_opaque_in_shader() -> void:
+	# Regression: dirt must never let the sky's grid show through. The solid branch of the
+	# fragment shader writes alpha exactly 1.0, and the quad itself is drawn with white.
+	var code: String = (load("res://show/terrain.gdshader") as Shader).code
+	var solid_branch: String = code.get_slice("if (solid) {", 1).get_slice("} else {", 0)
+	assert_true(solid_branch.contains("COLOR = vec4(col, 1.0);"), "solid cells are written with alpha 1")
+	assert_false(solid_branch.contains("COLOR.a"), "no later alpha modification")

@@ -12,22 +12,30 @@ var _preview_btn: Button = null
 
 
 func _init() -> void:
+	super._init()
 	name = "PauseOverlay"
-	add_title(tr("PAUSE_TITLE"))
-	_round_label = add_label("", 14.0)
-	add_button(tr("PAUSE_RESUME")).pressed.connect(func() -> void: resume_pressed.emit())
+	add_title(tr("PAUSE_TITLE"), NeonPalette.CYAN, 24.0)
+	_round_label = add_label("", 13.0)
+	# Compact on purpose: a phone in landscape is only ~330 dp tall.
+	begin_grid()
 	add_toggle(tr("SET_HAPTICS"), ShowSettings.haptics, func(on: bool) -> void: ShowSettings.haptics = on).name = "Haptics"
 	add_toggle(tr("SET_SHAKE"), ShowSettings.screen_shake, func(on: bool) -> void: ShowSettings.screen_shake = on).name = "Shake"
 	add_toggle(tr("SET_REDUCE_FLASH"), ShowSettings.reduce_flashing, func(on: bool) -> void: ShowSettings.reduce_flashing = on).name = "ReduceFlashing"
 	_preview_btn = add_toggle(tr("SET_PREVIEW"), ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF, _on_preview)
 	_preview_btn.name = "Preview"
 	_refresh_preview_text()
-	add_button(tr("PAUSE_RESTART")).pressed.connect(func() -> void: restart_pressed.emit())
-	add_button(tr("PAUSE_QUIT")).pressed.connect(func() -> void: quit_pressed.emit())
-	# Names for tests / debugging.
-	_buttons[0].name = "Resume"
-	_buttons[_buttons.size() - 2].name = "Restart"
-	_buttons[_buttons.size() - 1].name = "Quit"
+	end_container()
+	begin_row()
+	var resume: Button = add_button(tr("PAUSE_RESUME"), 120.0)
+	resume.name = "Resume"
+	resume.pressed.connect(func() -> void: resume_pressed.emit())
+	var restart: Button = add_button(tr("PAUSE_RESTART"), 150.0)
+	restart.name = "Restart"
+	restart.pressed.connect(func() -> void: restart_pressed.emit())
+	var quit: Button = add_button(tr("PAUSE_QUIT"), 150.0)
+	quit.name = "Quit"
+	quit.pressed.connect(func() -> void: quit_pressed.emit())
+	end_container()
 
 
 func open_for(round_number: int, rounds: int) -> void:
