@@ -5,7 +5,7 @@ extends RefCounted
 ## Params per behaviour:
 ##   shield    hp (anchor_resist: halves Riptide pull)
 ##   repulsor  field_r (cells), charge (ticks of use), push (Q16.16 cell/tick^2 at the centre)
-##   chute     passive, consumed automatically on a fall > FALL_SAFE
+##   chute     passive, consumed automatically on a fall that would cost >= 1 HP
 ##   fuel      amount (fuel units per cell)
 ##   repair    heal (HP, capped at MAX_HEALTH); ends the turn
 

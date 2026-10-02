@@ -10,6 +10,14 @@ const MAX_TANKS_READ: int = 8
 const MAX_WELLS_READ: int = 64
 const MAX_INVENTORY_READ: int = 1024
 
+# Sanity ceilings used by validate(); far above anything play can reach.
+const MAX_FUEL: int = 100000
+const MAX_MONEY: int = 1_000_000_000
+const MAX_COUNTER: int = 1_000_000_000  # kills, damage_dealt, turn_number
+const WELL_SLACK_Y: int = 64  # wells may sit a little above or below the map (shield bubbles, bedrock)
+const M32: int = 0xFFFFFFFF
+const INVALID: String = "invalid_state"
+
 
 static func phase_code(phase: String) -> int:
 	if phase == SimConstants.PHASE_AIM:
@@ -197,3 +205,178 @@ static func _read_tank(b: StreamPeerBuffer) -> TankState:
 		inv[i] = b.get_32()
 	t.inventory = inv
 	return t
+
+
+# --- range validation -----------------------------------------------------------------------
+
+## Returns "" if `state` is something the simulation can produce, otherwise a short reason.
+## Used by SaveCodec.decode (which reports every reason as "invalid_state"): a save is only
+## protected by a checksum, so anyone can re-seal a tampered state, and a state like
+## current_tank 99 would soft-lock the match. Cost is O(tanks x catalog), never per cell.
+static func validate(state: MatchState) -> String:
+	var err: String = _validate_header(state)
+	if err != "":
+		return err
+	var n: int = state.tanks.size()
+	for t: TankState in state.tanks:
+		err = _validate_tank(state, t, n)
+		if err != "":
+			return "tank %d: %s" % [t.id, err]
+	err = _validate_flow(state)
+	if err != "":
+		return err
+	return _validate_wells(state, n)
+
+
+static func _validate_header(state: MatchState) -> String:
+	var st: MatchSettings = state.settings
+	if st.num_tanks < SimConstants.MIN_TANKS or st.num_tanks > SimConstants.MAX_TANKS:
+		return "settings.num_tanks %d" % st.num_tanks
+	if st.rounds < SimConstants.MIN_ROUNDS or st.rounds > SimConstants.MAX_ROUNDS:
+		return "settings.rounds %d" % st.rounds
+	if st.wind_max < 0 or st.wind_max > SimConstants.WIND_MAX:
+		return "settings.wind_max %d" % st.wind_max
+	if st.start_money < 0 or st.start_money > SimConstants.MAX_START_MONEY:
+		return "settings.start_money %d" % st.start_money
+	if state.tanks.size() != st.num_tanks:
+		return "tank count %d != settings.num_tanks %d" % [state.tanks.size(), st.num_tanks]
+	if state.phase != SimConstants.PHASE_AIM and state.phase != SimConstants.PHASE_SHOP \
+			and state.phase != SimConstants.PHASE_MATCH_OVER:
+		return "phase '%s'" % state.phase
+	if state.round_index < -1 or state.round_index >= st.rounds:
+		return "round_index %d" % state.round_index
+	if state.wind < -st.wind_max or state.wind > st.wind_max:
+		return "wind %d beyond +-%d" % [state.wind, st.wind_max]
+	if state.turn_number < 0 or state.turn_number > MAX_COUNTER:
+		return "turn_number %d" % state.turn_number
+	if state.current_tank < 0 or state.current_tank >= state.tanks.size():
+		return "current_tank %d" % state.current_tank
+	if state.wind_rng_state.size() != 4:
+		return "wind_rng_state size"
+	var any_set: bool = false
+	for w: int in state.wind_rng_state:
+		if w < 0 or w > M32:
+			return "wind_rng_state word %d" % w
+		any_set = any_set or w != 0
+	# Only a match that has not started yet has an unseeded wind stream (all zero words).
+	if not any_set and state.round_index >= 0:
+		return "wind_rng_state is all zero"
+	return ""
+
+
+## Phase, round, terrain and who-may-act consistency.
+static func _validate_flow(state: MatchState) -> String:
+	var rounds: int = state.settings.rounds
+	var before_start: bool = state.round_index == -1
+	if before_start and state.phase != SimConstants.PHASE_SHOP:
+		return "round_index -1 outside the shop"
+	if state.phase == SimConstants.PHASE_MATCH_OVER and state.round_index != rounds - 1:
+		return "match_over before the last round"
+	if state.phase == SimConstants.PHASE_SHOP and state.round_index == rounds - 1:
+		return "shop after the last round"
+	var terrain: Terrain = state.terrain
+	if terrain == null:
+		if not before_start:
+			return "terrain missing"
+	else:
+		if before_start:
+			return "terrain before the first round"
+		if terrain.width != SimConstants.WORLD_W or terrain.height != SimConstants.WORLD_H:
+			return "terrain size %dx%d" % [terrain.width, terrain.height]
+		if terrain.cells.size() != terrain.width * terrain.height:
+			return "terrain cell count"
+	if state.phase == SimConstants.PHASE_AIM:
+		var alive: int = 0
+		for t: TankState in state.tanks:
+			if t.alive:
+				alive += 1
+		if alive < 2:
+			return "aim phase with %d tank(s) alive" % alive
+		if not state.tanks[state.current_tank].alive:
+			return "current_tank %d is dead" % state.current_tank
+	return ""
+
+
+static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
+	var st: MatchSettings = state.settings
+	if t.id != state.tanks.find(t):
+		return "id does not match its position"
+	if t.team < 0 or t.team >= SimConstants.MAX_TANKS or t.color_index < 0 or t.color_index >= SimConstants.MAX_TANKS:
+		return "team/color"
+	if t.health < 0 or t.health > SimConstants.MAX_HEALTH:
+		return "health %d" % t.health
+	if t.alive != (t.health > 0):
+		return "alive=%s with health %d" % [str(t.alive), t.health]
+	if t.angle < 0 or t.angle > SimConstants.MAX_ANGLE:
+		return "angle %d" % t.angle
+	if t.power < SimConstants.MIN_POWER or t.power > SimConstants.MAX_POWER:
+		return "power %d" % t.power
+	if t.money < 0 or t.money > MAX_MONEY:
+		return "money %d" % t.money
+	if t.kills < 0 or t.kills > MAX_COUNTER or t.damage_dealt < 0 or t.damage_dealt > MAX_COUNTER:
+		return "kills/damage_dealt"
+	if t.round_wins < 0 or t.round_wins > st.rounds:
+		return "round_wins %d" % t.round_wins
+	if t.ready and state.phase != SimConstants.PHASE_SHOP:
+		return "ready outside the shop"
+	if t.fuel < 0 or t.fuel > MAX_FUEL:
+		return "fuel %d" % t.fuel
+	if t.repulsor_charge < 0 or t.repulsor_charge > SimConstants.REPULSOR_CHARGE:
+		return "repulsor_charge %d" % t.repulsor_charge
+	var err: String = _validate_shield(t)
+	if err != "":
+		return err
+	err = _validate_inventory(t)
+	if err != "":
+		return err
+	if state.terrain != null:
+		var half: int = SimConstants.TANK_W / 2
+		if t.x - half < 0 or t.x + half > SimConstants.WORLD_W:
+			return "box off the map (x %d)" % t.x
+		if t.y < 0 or t.y > SimConstants.WORLD_H:
+			return "y %d" % t.y
+	return ""
+
+
+static func _validate_shield(t: TankState) -> String:
+	if t.shield_type == -1:
+		return "" if t.shield_hp == 0 else "shield_hp %d without a shield" % t.shield_hp
+	var id: String = Catalog.id_at(t.shield_type)
+	if id == "" or not ItemDefs.has(id) or ItemDefs.get_def(id)["behavior"] != "shield":
+		return "shield_type %d" % t.shield_type
+	var max_hp: int = ItemDefs.get_def(id)["hp"]
+	if t.shield_hp < 1 or t.shield_hp > max_hp:
+		return "shield_hp %d (max %d)" % [t.shield_hp, max_hp]
+	return ""
+
+
+static func _validate_inventory(t: TankState) -> String:
+	if t.inventory.size() != Catalog.count():
+		return "inventory size"
+	for i: int in range(t.inventory.size()):
+		var units: int = t.inventory[i]
+		if units < 0 or units > SimConstants.INVENTORY_CAP:
+			return "inventory[%d] = %d" % [i, units]
+	if t.inventory[Catalog.index_of(Catalog.SPARK_DART)] != 0:
+		return "spark_dart stored"
+	return ""
+
+
+## Wells: one per owner at most, in ascending owner order, owner a real tank, coordinates near the map.
+static func _validate_wells(state: MatchState, n: int) -> String:
+	var last_owner: int = -1
+	for w: Dictionary in state.wells:
+		var owner: int = w["owner"]
+		if owner < 0 or owner >= n:
+			return "well owner %d" % owner
+		if owner <= last_owner:
+			return "wells not in strict owner order"
+		last_owner = owner
+		var wx: int = w["x"]
+		var wy: int = w["y"]
+		if wx < 0 or wx >= SimConstants.WORLD_W or wy < -WELL_SLACK_Y or wy > SimConstants.WORLD_H + WELL_SLACK_Y:
+			return "well at (%d, %d)" % [wx, wy]
+		var ex: int = w["expires_turn"]
+		if ex < 0 or ex > state.turn_number + 2 * SimConstants.MAX_TANKS:
+			return "well expires_turn %d" % ex
+	return ""

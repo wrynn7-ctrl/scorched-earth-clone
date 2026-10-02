@@ -282,7 +282,8 @@ In `"shop"`, `not_your_turn` does not apply. Dead tanks (from the previous round
   of the tank centre gets an accel away from it of `0.10 × (60 − d) / 60` cell/tick², and charge −1 per tick while
   inside. At 0 → event `repulsor_down`.
 - **Chute:** when a tank falls more than `FALL_SAFE` and owns a `drift_chute`, one is consumed and no fall damage is
-  taken. Event `chute {tank}` is emitted between `tank_fall` and where the damage would have been.
+  taken. A chute is only consumed when the fall would actually cause damage (computed fall damage >= 1); a fall of 13 cells
+  costs 0 HP and keeps the chute. Event `chute {tank}` is emitted between `tank_fall` and where the damage would have been.
 - **Repair:** +40 health (cap 100), then the turn ends. Event `repair {tank, amount, health}`.
 
 ## 21. Weapon behaviours (game/core/weapons/*.gd)
@@ -359,11 +360,11 @@ All new `TankState` fields, `MatchState.wells` and anything else added to state 
 - Weapon param keys: `r`, `dmg` for blasts. Q16.16 params are stored raw; splitter `spread` is in tenths of a cell/tick.
   See the header of `weapon_defs.gd`.
 - `START_FUEL = 0`: moving needs a Fuel Cell.
-- `damage.amount` is the nominal amount after shield absorption. Event order per hit: `shield_hit → damage → money`.
+- `damage.amount` is the nominal amount after shield absorption. Event order per hit: `shield_hit → [shield_down] → damage → money`.
 - Walking falls have no attacker (no money effect). Team damage counts as self-damage.
 - The repulsor never pushes its owner's shell, and resets at `start_round`.
 - Save format: magic, version, snapshot from `StateSerial` (shared with the fingerprint), action JSON, fingerprint,
-  SHA-256 trailer. Decode errors: `too_short, bad_magic, bad_version, corrupt, fingerprint`; plus `no_file` from SaveStore.
+  SHA-256 trailer. Decode errors: `too_short, bad_magic, bad_version, corrupt, fingerprint, invalid_state` (the last when `StateSerial.validate` rejects out-of-range values); plus `no_file` from SaveStore.
 
 ## 26. M3-C2 resolutions (binding; supersede §17/§20/§21 where they differ)
 - **Tuned constants:** `REPULSOR_PUSH` = 2.00 cell/tick² (131072). Seeker accel = 0.10 cell/tick² (6554). Well strength

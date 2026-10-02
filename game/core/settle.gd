@@ -31,13 +31,13 @@ static func drop_tanks(state: MatchState, x0: int, x1: int, attacker: int, tick:
 
 
 ## Emits `tank_fall` for a drop from `from_y` to `to_y`, then either consumes a Drift
-## Chute (`chute`, no damage) or applies fall damage (which ignores shields). The caller has
-## already moved the tank.
+## Chute (`chute`, no damage) or applies fall damage (which ignores shields). A chute is only
+## spent when the fall would actually cost at least 1 HP. The caller has already moved the tank.
 static func apply_fall(state: MatchState, tank_id: int, from_y: int, to_y: int, attacker: int, tick: int,
 		events: Array[Dictionary]) -> void:
 	events.append({"type": "tank_fall", "tick": tick, "tank": tank_id, "from_y": from_y, "to_y": to_y})
-	var fall: int = to_y - from_y
-	if fall <= SimConstants.FALL_SAFE:
+	var amt: int = (to_y - from_y - SimConstants.FALL_SAFE) / SimConstants.FALL_DMG_DIV
+	if amt <= 0:
 		return
 	var t: TankState = state.tanks[tank_id]
 	var chute: int = Catalog.index_of("drift_chute")
@@ -45,6 +45,4 @@ static func apply_fall(state: MatchState, tank_id: int, from_y: int, to_y: int, 
 		t.inventory[chute] -= 1
 		events.append({"type": "chute", "tick": tick, "tank": tank_id})
 		return
-	var amt: int = (fall - SimConstants.FALL_SAFE) / SimConstants.FALL_DMG_DIV
-	if amt > 0:
-		Simulation.apply_damage(state, attacker, tank_id, amt, "fall", tick, events)
+	Simulation.apply_damage(state, attacker, tank_id, amt, "fall", tick, events)

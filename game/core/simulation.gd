@@ -101,15 +101,19 @@ static func standings(state: MatchState) -> Array[int]:
 # --- actions ---------------------------------------------------------------------------
 
 ## Converts whole-number floats (as JSON parsing produces, e.g. 452.0) to ints and leaves
-## everything else untouched. Returns a new Dictionary.
+## everything else untouched (NaN, infinities and values outside the int64 range stay as they
+## are: int() of those differs between CPUs). Returns a new Dictionary.
+## The bounds are written with integers because core code has no float literals; v / 2 and
+## 2^62 are exact, so `v / 2 < 2^62` is `v < 2^63`.
 static func normalize_action(a: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key: Variant in a.keys():
 		var v: Variant = a[key]
 		if typeof(v) == TYPE_FLOAT:
-			var i: int = int(v)
-			if v == i:
-				v = i
+			if v >= -9223372036854775807 - 1 and v / 2 < 4611686018427387904:
+				var i: int = int(v)
+				if v == i:
+					v = i
 		out[key] = v
 	return out
 
@@ -204,7 +208,8 @@ static func _validate_fire(tank: TankState, action: Dictionary) -> String:
 
 static func _validate_move(tank: TankState, action: Dictionary) -> String:
 	var dx: int = action["dx"]
-	if dx == 0 or absi(dx) > SimConstants.MOVE_MAX_DX:
+	# Not absi(dx): absi(INT64_MIN) overflows back to INT64_MIN and would pass the range check.
+	if dx == 0 or dx < -SimConstants.MOVE_MAX_DX or dx > SimConstants.MOVE_MAX_DX:
 		return "bad_field"
 	if tank.fuel <= 0 and tank.stock_of("fuel_cell") <= 0:
 		return "no_fuel"

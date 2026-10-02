@@ -279,6 +279,24 @@ func test_drift_chute_negates_walking_fall_damage() -> void:
 	assert_eq(s.tanks[0].stock_of("drift_chute"), 1, "one chute consumed")
 
 
+func test_drift_chute_is_kept_when_the_walking_fall_costs_no_hp() -> void:
+	for drop: int in [13, 4]:
+		var s: MatchState = _state()
+		_ledge(s, drop)
+		s.tanks[0].fuel = 100
+		s.tanks[0].set_stock("drift_chute", 2)
+		var ev: Array[Dictionary] = Simulation.apply_action(s, U.move(0, 60))
+		assert_eq(U.types(ev), ["tank_move", "tank_fall"] as Array[String], "drop %d: no chute, no damage" % drop)
+		assert_eq(s.tanks[0].stock_of("drift_chute"), 2)
+	var s14: MatchState = _state()
+	_ledge(s14, 14)
+	s14.tanks[0].fuel = 100
+	s14.tanks[0].set_stock("drift_chute", 2)
+	var ev14: Array[Dictionary] = Simulation.apply_action(s14, U.move(0, 60))
+	assert_eq(U.types(ev14), ["tank_move", "tank_fall", "chute"] as Array[String], "14 cells = 1 HP: the chute is used")
+	assert_eq(s14.tanks[0].stock_of("drift_chute"), 1)
+
+
 func test_a_steep_slope_is_one_accumulated_fall() -> void:
 	var s: MatchState = _state()
 	_slope(s, 330, 1500, 600, 5)  # every column 5 lower than its left neighbour

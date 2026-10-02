@@ -11,14 +11,7 @@ const M3 = preload("res://tests/qa/qa_m3.gd")
 const MATCHES: int = 60
 const STEPS_AFTER_SPLIT: int = 10  # compared steps per match once the first save point is passed
 const ROOT_SEED: int = 0x5A7E0000
-const KNOWN_ERRORS: Array[String] = ["too_short", "bad_magic", "bad_version", "corrupt", "fingerprint"]
-
-
-func _bug(ok: bool, desc: String) -> void:
-	if ok:
-		pass_test("bug no longer reproduces (remove the pending guard): %s" % desc)
-	else:
-		pending("BUG: %s" % desc)
+const KNOWN_ERRORS: Array[String] = ["too_short", "bad_magic", "bad_version", "corrupt", "fingerprint", "invalid_state"]
 
 
 func _settings(m: int) -> MatchSettings:
@@ -309,7 +302,7 @@ func test_action_log_roundtrip_types() -> void:
 
 ## SHA-256 only detects accidental corruption (anyone can re-seal), but a save that decodes ok=true into a
 ## state the simulation can never produce is a soft-lock waiting to happen (e.g. current_tank 99: every action
-## answers not_your_turn). decode() currently validates structure and the fingerprint only.
+## answers not_your_turn). decode() validates structure, the fingerprint and (StateSerial.validate) the ranges.
 func test_decode_validates_the_ranges_of_the_state_it_returns() -> void:
 	var base: MatchState = _aim_state(1234)
 	assert_eq(base.phase, SimConstants.PHASE_AIM, "a mid-round state")
@@ -338,11 +331,9 @@ func test_decode_validates_the_ranges_of_the_state_it_returns() -> void:
 		var res: Dictionary = SaveCodec.decode(SaveCodec.encode(st, [] as Array[Dictionary]))
 		if res["ok"]:
 			accepted.append(name)
-	_bug(accepted.is_empty(), ("SaveCodec.decode (game/core/save_codec.gd, StateSerial.read in game/core/state_serial.gd) returns ok=true "
-			+ "for states the simulation can never produce: %s. A tampered or buggy-writer save then loads into a soft-locked or "
-			+ "inconsistent match (current_tank 99 makes every action answer not_your_turn). Suggested: range-check "
-			+ "current_tank, shield_type, health, inventory (0..99, spark_dart 0), terrain size, num_tanks and well owners "
-			+ "in StateSerial.read and return null.") % str(accepted))
+	assert_eq(accepted, [] as Array[String], "decode must refuse states the simulation can never produce")
+	var res0: Dictionary = SaveCodec.decode(SaveCodec.encode(base, [] as Array[Dictionary]))
+	assert_true(res0["ok"], "the untampered state still decodes")
 
 
 ## A re-sealed save whose action log is not valid JSON is rejected with "corrupt". (JSON.parse_string prints an

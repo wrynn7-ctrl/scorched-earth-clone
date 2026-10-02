@@ -8,13 +8,6 @@ const QaUtil = preload("res://tests/qa/qa_util.gd")
 const M3 = preload("res://tests/qa/qa_m3.gd")
 
 
-func _bug(ok: bool, desc: String) -> void:
-	if ok:
-		pass_test("bug no longer reproduces (remove the pending guard): %s" % desc)
-	else:
-		pending("BUG: %s" % desc)
-
-
 func _flat(xs: Array[int]) -> MatchState:
 	var s: MatchState = QaUtil.flat_state(xs, 600)
 	for t: TankState in s.tanks:
@@ -116,17 +109,15 @@ func test_move_dx_range_and_extreme_values() -> void:
 	assert_eq(Simulation.validate_action(s, _move(0, 9223372036854775807)), "bad_field")
 	assert_eq(Simulation.validate_action(s, _move(0, 200)), "")
 	assert_eq(Simulation.validate_action(s, _move(0, -200)), "")
-	# INT64_MIN: |dx| overflows back to a negative number, so `absi(dx) > 200` is false.
-	var v: String = Simulation.validate_action(s, _move(0, -9223372036854775807 - 1))
-	var desc: String = ("move dx = INT64_MIN (-9223372036854775808, reachable from JSON as -9.223372036854775808e18) passes "
-			+ "validate_action ('%s' instead of 'bad_field'): absi(INT64_MIN) overflows back to INT64_MIN, so the range check "
-			+ "`absi(dx) > MOVE_MAX_DX` in Simulation._validate_move (game/core/simulation.gd:207) is skipped. Harmless "
-			+ "today (the move loop runs 0 steps and emits a no-op tank_move) but it lets a malformed network action through.") % v
-	_bug(v == "bad_field", desc)
+	# INT64_MIN: absi() of it overflows back to INT64_MIN, so the range check must not use absi.
+	assert_eq(Simulation.validate_action(s, _move(0, -9223372036854775807 - 1)), "bad_field")
+	assert_eq(Simulation.validate_action(s, _move(0, -9223372036854775807)), "bad_field")
 	# The same value through the JSON path the saves and online play use.
 	var parsed: Variant = JSON.parse_string(JSON.stringify({"kind": "move", "tank": 0, "dx": -9223372036854775807 - 1}))
 	var norm: Dictionary = Simulation.normalize_action(parsed as Dictionary)
 	assert_eq(typeof(norm["dx"]), TYPE_INT, "whole-number floats at the int64 edge normalise to int")
+	assert_eq(Simulation.validate_action(s, norm), "bad_field", "and are still refused after normalising")
+	assert_eq(Simulation.apply_action(s, norm).size(), 0, "an illegal move changes nothing")
 
 
 func test_walking_off_a_cliff_costs_fall_damage_without_a_chute() -> void:
@@ -159,14 +150,21 @@ func test_walking_off_a_cliff_with_a_chute_is_free_and_consumes_one() -> void:
 	var ev2: Array[Dictionary] = _do(s2, _move(0, 200), "12 cell drop")
 	assert_eq(QaUtil.types(ev2), ["tank_move", "tank_fall"] as Array[String])
 	assert_eq(s2.tanks[0].stock_of("drift_chute"), 1)
-	# 13 cells: the chute is consumed although the fall damage would have been (13-12)/2 = 0.
+	# 13 cells: the fall would cost (13-12)/2 = 0 HP, so the chute is kept.
 	var s3: MatchState = _cliff([400, 1200] as Array[int], 500, 613)
 	s3.tanks[0].fuel = 500
 	s3.tanks[0].set_stock("drift_chute", 1)
 	var ev3: Array[Dictionary] = _do(s3, _move(0, 200), "13 cell drop")
-	assert_eq(QaUtil.types(ev3), ["tank_move", "tank_fall", "chute"] as Array[String])
-	assert_eq(s3.tanks[0].stock_of("drift_chute"), 0, "a chute is spent on a fall that would have cost 0 HP (spec: fall > FALL_SAFE)")
-	# Without the chute a 13-cell fall does no damage and emits no damage event.
+	assert_eq(QaUtil.types(ev3), ["tank_move", "tank_fall"] as Array[String])
+	assert_eq(s3.tanks[0].stock_of("drift_chute"), 1, "no chute is spent on a fall that costs 0 HP")
+	# 14 cells costs 1 HP: now the chute goes.
+	var s5: MatchState = _cliff([400, 1200] as Array[int], 500, 614)
+	s5.tanks[0].fuel = 500
+	s5.tanks[0].set_stock("drift_chute", 1)
+	var ev5: Array[Dictionary] = _do(s5, _move(0, 200), "14 cell drop")
+	assert_eq(QaUtil.types(ev5), ["tank_move", "tank_fall", "chute"] as Array[String])
+	assert_eq(s5.tanks[0].stock_of("drift_chute"), 0)
+	# Without a chute a 13-cell fall does no damage and emits no damage event.
 	var s4: MatchState = _cliff([400, 1200] as Array[int], 500, 613)
 	s4.tanks[0].fuel = 500
 	var ev4: Array[Dictionary] = _do(s4, _move(0, 200), "13 cell drop, no chute")

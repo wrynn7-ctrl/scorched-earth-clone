@@ -38,7 +38,7 @@ static func encode(state: MatchState, actions: Array[Dictionary]) -> PackedByteA
 
 
 ## Returns {ok: bool, error: String, state: MatchState or null, actions: Array[Dictionary]}.
-## Errors: too_short, bad_magic, bad_version, corrupt, fingerprint.
+## Errors: too_short, bad_magic, bad_version, corrupt, fingerprint, invalid_state.
 static func decode(bytes: PackedByteArray) -> Dictionary:
 	var result: Dictionary = {"ok": false, "error": "", "state": null, "actions": [] as Array[Dictionary]}
 	if bytes.size() < MAGIC.length() + 4 + SUM_LEN + FP_LEN + 4:
@@ -84,6 +84,11 @@ static func decode(bytes: PackedByteArray) -> Dictionary:
 		actions.append(Simulation.normalize_action(item as Dictionary))
 	if Simulation.fingerprint(state) != stored_fp:
 		result["error"] = "fingerprint"
+		return result
+	# Checksums only catch accidents: a re-sealed, hand-edited state still has to be one the
+	# simulation could have produced.
+	if StateSerial.validate(state) != "":
+		result["error"] = "invalid_state"
 		return result
 	result["ok"] = true
 	result["state"] = state

@@ -31,11 +31,26 @@ func test_fall_of_thirteen_gives_no_damage_and_does_not_emit_damage() -> void:
 	assert_eq(U.types(ev), ["tank_fall"] as Array[String], "(13 - 12) / 2 = 0")
 
 
-func test_a_chute_is_used_for_any_fall_above_the_safe_height() -> void:
+func test_a_chute_is_kept_for_a_fall_that_costs_no_damage() -> void:
 	var s: MatchState = U.flat_state(2)
 	s.tanks[0].set_stock("drift_chute", 2)
 	var ev: Array[Dictionary] = []
-	Settle.apply_fall(s, 0, 600, 613, -1, 4, ev)
+	for to_y: int in [601, 612, 613]:  # 13 cells: (13 - 12) / 2 = 0 HP, so no chute is spent
+		Settle.apply_fall(s, 0, 600, to_y, -1, 4, ev)
+	assert_eq(U.types(ev), ["tank_fall", "tank_fall", "tank_fall"] as Array[String])
+	assert_eq(s.tanks[0].stock_of("drift_chute"), 2)
+	assert_eq(s.tanks[0].health, 100)
+	# Not a fall at all (upwards or level): nothing happens apart from the tank_fall event.
+	Settle.apply_fall(s, 0, 600, 600, -1, 4, ev)
+	Settle.apply_fall(s, 0, 600, 500, -1, 4, ev)
+	assert_eq(s.tanks[0].stock_of("drift_chute"), 2)
+
+
+func test_a_chute_is_used_once_the_fall_would_cost_one_hp() -> void:
+	var s: MatchState = U.flat_state(2)
+	s.tanks[0].set_stock("drift_chute", 2)
+	var ev: Array[Dictionary] = []
+	Settle.apply_fall(s, 0, 600, 614, -1, 4, ev)  # 14 cells: (14 - 12) / 2 = 1 HP
 	assert_eq(U.types(ev), ["tank_fall", "chute"] as Array[String], "chute sits between tank_fall and the damage")
 	assert_eq(ev[1], {"type": "chute", "tick": 4, "tank": 0})
 	assert_eq(s.tanks[0].stock_of("drift_chute"), 1)

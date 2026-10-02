@@ -101,3 +101,43 @@ func test_normalized_action_applies_like_the_original() -> void:
 	var ev_b: Array[Dictionary] = Simulation.apply_action(b_state, Simulation.normalize_action(_json_roundtrip(act)))
 	assert_eq(ev_a, ev_b)
 	assert_eq(Simulation.fingerprint(a_state), Simulation.fingerprint(b_state))
+
+
+## int() of a float outside the int64 range is undefined (x86 wraps to INT64_MIN, ARM saturates), and
+## 2^63 would compare equal to INT64_MAX on ARM. Such values must stay floats on every device.
+func test_floats_outside_the_int64_range_stay_floats() -> void:
+	var parsed: Dictionary = JSON.parse_string("{\"a\": 1e30, \"b\": -1e30, \"c\": 9223372036854775808, \"d\": 18446744073709551616}")
+	var fixed: Dictionary = Simulation.normalize_action(parsed)
+	for k: String in ["a", "b", "c", "d"]:
+		assert_eq(typeof(fixed[k]), TYPE_FLOAT, "%s is out of range and stays a float" % k)
+		assert_eq(fixed[k], parsed[k], k)
+
+
+func test_the_int64_edges_that_are_exact_convert() -> void:
+	var fixed: Dictionary = Simulation.normalize_action(_json_roundtrip({"lo": -9223372036854775807 - 1, "mid": 4611686018427387904,
+			"neg": -4611686018427387904}))
+	assert_eq(typeof(fixed["lo"]), TYPE_INT)
+	assert_eq(fixed["lo"], -9223372036854775807 - 1)
+	assert_eq(fixed["mid"], 4611686018427387904)
+	assert_eq(fixed["neg"], -4611686018427387904)
+
+
+func test_nan_and_infinity_stay_untouched_and_invalid() -> void:
+	var nan_v: Variant = NAN
+	var inf_v: Variant = INF
+	var fixed: Dictionary = Simulation.normalize_action({"kind": "fire", "tank": 0, "angle": nan_v, "power": inf_v,
+			"weapon": "pulse_missile"})
+	assert_eq(typeof(fixed["angle"]), TYPE_FLOAT)
+	assert_eq(typeof(fixed["power"]), TYPE_FLOAT)
+	assert_eq(Simulation.validate_action(U.flat_state(2), fixed), "bad_field")
+
+
+func test_extreme_dx_is_refused_after_normalising() -> void:
+	var s: MatchState = U.flat_state(2)
+	s.tanks[0].fuel = 100
+	for dx: int in [-9223372036854775807 - 1, -9223372036854775807, 9223372036854775807, -201, 201, 0]:
+		assert_eq(Simulation.validate_action(s, U.move(0, dx)), "bad_field", "dx %d" % dx)
+		var viajson: Dictionary = Simulation.normalize_action(_json_roundtrip(U.move(0, dx)))
+		assert_eq(Simulation.validate_action(s, viajson), "bad_field", "dx %d via JSON" % dx)
+	assert_eq(Simulation.validate_action(s, U.move(0, -200)), "")
+	assert_eq(Simulation.validate_action(s, U.move(0, 200)), "")
