@@ -4,7 +4,7 @@
 |---|---|
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
-| M3 — Full single-player loop | ✅ Done 2026-10-02 (owner phone test pending) |
+| M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; HUD edge bug on S26 Ultra being fixed) |
 | M4 — AI opponents | ⬜ Not started |
 | M5 — Polish, sound, effects | ⬜ Not started |
 | M6 — Local pass-and-play | ⬜ Not started |
@@ -44,6 +44,7 @@
 | M3-Q Weapon edge cases, economy invariants, save/load + JSON fuzz, golden replays v2 | qa-tester | ✅ reviewed (740 tests; 0 high/medium bugs) |
 | M3-F Hardening: move dx overflow, save range validation, chute only when it saves HP | core-sim-dev | ✅ reviewed |
 | M3-CI Split CI tests into parallel jobs, runner suite selection, timeout, pin Ubuntu 24.04 | release-eng | ✅ reviewed (CI 4 min, 759 tests) |
+| M3-UI-EDGE Owner bug: on the S26 Ultra the HUD is laid out in a smaller rect (gaps right/left/bottom); re-layout on resize, canvas-unit safe area, diagnostics overlay | show-ui-dev | 🟡 running |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
