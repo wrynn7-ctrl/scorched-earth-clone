@@ -27,10 +27,15 @@
 |---|---|---|
 | M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | ✅ reviewed (GUT 9.7.1) |
 | M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | ✅ reviewed (91 tests; generate 6 ms, shot 10 ms, fingerprint 13 ms) |
-| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | 🟡 running |
+| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ✅ reviewed (local APK build verified; first CI run pending) |
 | M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | 🟡 running |
 | M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ⬜ after M2-C + M2-S1 |
 | M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | 🟡 running |
+
+## Decisions / notes
+- Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
+- Non-Gradle export gives minSdk 24 (still covers Android 8+). minSdk 26 / targetSdk 36 get enforced when Gradle builds are enabled (M5, needed for billing).
+- The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
 
 ## Open items for the owner
 - Pick a final title (PLAN.md §2); "Craterline" is the working title.
