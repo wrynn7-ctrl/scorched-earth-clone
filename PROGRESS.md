@@ -30,12 +30,18 @@
 | M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ✅ reviewed (CI green end-to-end: tests → APK → dev-latest release) |
 | M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | ✅ reviewed (screenshots in docs/screenshots) |
 | M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | 🟡 running |
-| M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | 🟡 running |
+| M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | ✅ reviewed (6 golden replays, 300-match fuzz; 2 low bugs fixed) |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
 - Non-Gradle export gives minSdk 24 (still covers Android 8+). minSdk 26 / targetSdk 36 get enforced when Gradle builds are enabled (M5, needed for billing).
 - The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
+
+## Carry-overs for M3 (from QA)
+- Saves/Firebase: actions parsed from JSON have float fields → add `Simulation.normalize_action()` that int-casts before validation.
+- Money for damage must use actual health removed (timeline `damage.amount` is nominal, not clamped).
+- Validate/clamp `MatchSettings` (num_tanks 2..8, wind_max ≥ 0) inside `new_match` so the fingerprint stores clamped values.
+- `tools/run_tests.sh` ignores `-gdir=` overrides (use `-gselect=`); fix when convenient.
 
 ## Open items for the owner
 - Pick a final title (PLAN.md §2); "Craterline" is the working title.
