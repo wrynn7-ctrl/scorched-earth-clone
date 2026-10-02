@@ -16,10 +16,11 @@
 ### 2026-10-02
 - Asked clarifying questions; received answers (Godot 4, live + async friends-only online via Firebase, neon/synthwave, free-to-try + one unlock + Play Pass, Android 8.0+, phones + tablets, GitHub Actions builds, English first).
 - Wrote PLAN.md draft.
+- PLAN v2: Skin Studio (private, image import = full version), block/report/name filter, new Play account timeline, Godot download workaround.
 
 ## Open items for the owner
 - Approve or change PLAN.md.
-- Answer the player-made skins questions (see chat).
+- Confirm skins details (see chat).
 - Pick a title (PLAN.md §2).
-- Optional: allow `github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com`, `dl.google.com` in the cloud environment's network settings.
-- Before M8: check the Google Play developer account and start lining up 12+ testers.
+- ✅ Network domains added (GitHub release downloads still blocked by per-repo policy; mirror workaround planned).
+- Create a new Google Play developer account during M2–M3; line up 12+ testers for the 14-day closed test (start ~M5–M6).

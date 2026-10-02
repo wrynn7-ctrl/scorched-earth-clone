@@ -1,6 +1,6 @@
 # PLAN — Neon Artillery Game for Android
 
-Status: **DRAFT — waiting for your approval.** No code gets written until you approve.
+Status: **DRAFT v2 — waiting for your approval.** Updated with your skins, blocking and Play account answers. No code gets written until you approve.
 
 ---
 
@@ -119,10 +119,18 @@ The classic genre has no aiming guide; part of the skill is guessing. Our defaul
 | Online | Can **join** a friend's match (and use the full arsenal inside it) | Can **host** matches |
 | Terrain themes | 2 | All |
 | Custom match rules | — | ✅ (gravity, wind strength, starting money, rounds…) |
+| Skin Studio (tank editor) | ✅ shapes, colors, patterns, decals, glow | ✅ + **import your own images** |
 
 **Why "free players can join online games":** a friend can try the full game with you at no cost. That's the best advertising a no-ads game can get.
 
 **Google Play Pass:** Play Pass is **by Google's selection**: you apply in the Play Console and Google decides. Its rules (no ads, everything unlocked for subscribers) already fit our design: Play Pass subscribers simply get the full unlock automatically. Being accepted is not guaranteed.
+
+### 4.1 Skin Studio (player-made tank skins)
+- An **in-game editor** for designing your own tank look: pick a body and turret style, colors, patterns (stripes, circuits, camo, grid), decals, and glow color and intensity. Save as many skins as you like.
+- **Full version only:** import a picture from your phone (photo picker), then crop it and place it on the tank. The game shrinks it and gives it a neon-style filter so it fits the art.
+- **Only you ever see your skins.** They're stored on your device and never uploaded. In online matches your opponents see your tank in its standard style. In pass-and-play everyone shares one screen, so they'll see it there.
+- **Colorblind-safe identity:** your *player color* (glow outline, name tag, emblem) always stays from the colorblind-friendly palette, so a custom skin can't make tanks hard to tell apart.
+- Because skins are never shared, Google's moderation rules for user-made content don't apply to them. That keeps the feature simple and cheap.
 
 **How the unlock works:** one Google Play in-app product ("full_unlock") that is bought once and kept forever. Purchases restore automatically on a new phone, and the unlock keeps working offline once verified.
 
@@ -269,7 +277,13 @@ The **show** layer and **AI** only *read* state and *submit* actions. Only the s
 - Sign-in is **automatic and anonymous** (no form to fill in), with optional **Google sign-in** to keep online matches when you switch phones.
 - **Delete my online data** button in Settings, plus a web page for the same. Google requires this for apps that create accounts.
 
-### 7.5 Cost (rough)
+### 7.5 Safety tools: blocking, reporting, names
+- **Block a player:** they can't invite you, join your matches or see when you're online, and you won't see their name or invites. Blocks are enforced by the server, not just hidden in the app.
+- **Report a player** (e.g. for an offensive name): reports go to a private list in Firebase that you review. I'll include a simple guide for that.
+- **Display names** pass through a bad-word filter, and players can be renamed if they're reported.
+- Display names are the only player-made content other players can see. These tools cover what Google expects for that, even in a friends-only game.
+
+### 7.6 Cost (rough)
 | Usage | Monthly cost |
 |---|---|
 | Development and small launch | **$0** (inside free allowances) |
@@ -334,14 +348,15 @@ Batch 2 (after batch 1):
 
 ### M5 — Polish, sound, effects
 - `show-ui-dev`: particles, screen shake, haptics, camera, menus, transitions, terrain themes, accessibility settings, generated sound effects, music channel, free/full gating screens.
+- `show-ui-dev`: **Skin Studio** (editor, save/load skins on device, image import gated to the full version).
 - `release-eng`: Google Play Billing plugin + "full unlock" (testable via Play's test purchases once the app is on a test track).
 
 ### M6 — Local pass-and-play
 - `show-ui-dev`: "Pass to Player 2" screen (hides the shop/aim between players), 2–8 humans, mixed with AI.
 
 ### M7 — Online multiplayer
-- `backend-dev`: Firebase project config, database rules + emulator tests, Cloud Functions (create/join by code, turn notifications, timeouts, purchase verification, data deletion), Godot network client, reconnect/resume.
-- `show-ui-dev`: online lobby, invite/share, "Your matches" list, reconnecting states.
+- `backend-dev`: Firebase project config, database rules + emulator tests, Cloud Functions (create/join by code, turn notifications, timeouts, purchase verification, data deletion, **block/report**), Godot network client, reconnect/resume.
+- `show-ui-dev`: online lobby, invite/share, "Your matches" list, reconnecting states, block/report screens, display-name setup.
 - `qa-tester`: two-device simulation tests (two headless game instances against the emulator), disconnect scenarios, tampered-action rejection.
 
 ### M8 — Play Store release prep
@@ -353,17 +368,18 @@ Batch 2 (after batch 1):
 - **Data Safety (draft):** collects an anonymous account ID, optional display name, online match data, and a device notification token. **No** location, contacts, ads, analytics or tracking. Encrypted in transit; users can request deletion. Purchases are handled by Google Play.
 - **No ad SDKs, no analytics SDKs.** Crash reporting stays *off* unless you decide otherwise later.
 - **Original IP:** no "Scorched Earth" name, weapon names, art, sounds or text. Everything is newly named and generated.
-- **Google Play developer account (your action, any time before M8):**
-  - Check your old account still works at play.google.com/console.
-  - ⚠️ **Personal accounts created after Nov 2023 must run a closed test with at least 12 testers for 14 days** before going public. If yours is older, this may not apply. Either way, start collecting 12+ friends as testers early.
-  - Set up a **payments profile** (needed for the in-app unlock).
+- **Google Play developer account (your action; your old one was closed, so you'll create a new one):**
+  - Sign up at play.google.com/console ($25 one-time). Identity verification can take a few days to a couple of weeks, so **start during M2–M3**.
+  - ⚠️ As a **new personal account**, you must run a **closed test with at least 12 testers who stay opted in for 14 days** before you can publish publicly. **Plan:** start the closed test around M5–M6 with the in-progress game, so the 14 days pass while we build online play. Start lining up 12+ friends now. They need Android phones and a Google account.
+  - Set up a **payments profile** (needed to sell the unlock).
+  - Once the account exists, test builds can also come through the Play Store's **internal testing** track, which is easier than installing APK files by hand.
 
 ---
 
 ## 12. Future ideas (not in the first release)
 - **Matchmaking** with strangers.
-- **Player-made tank skins**: details depend on your answers to the questions at the end of my message.
-- **Player-made sounds** (e.g. record your own "fire" or "victory" sound). Same sharing and moderation questions as skins.
+- **Sharing skins** with friends or in a public gallery. This would need moderation (report, review, removal) because other people would see the content.
+- **Player-made sounds** (e.g. record your own "fire" or "victory" sound), following the same model as skins: private to the creator first, sharing later only with moderation.
 - Google Play Games achievements and leaderboards.
 - Translations.
 - Campaign / challenge mode (scripted puzzles: "hit the target with exactly one Riptide Anchor").
@@ -380,8 +396,6 @@ Batch 2 (after batch 1):
 | Your test phone hides performance problems | Frame-time budgets, FPS overlay, test on a mid-range device before release. |
 | Play Pass not accepted | The game works fine without it, since the free/unlock model stands alone. |
 | Firebase cost surprise | Budget alerts; the action-list design uses very little data per match. |
-| Cloud session can't download tools (see below) | GitHub Actions can run all tests and builds as a fallback. |
+| Cloud session can't download tools (see below) | Mirror workaround below; GitHub Actions runs every test and build anyway. |
 
-**Environment note:** this cloud workspace currently **blocks downloads from GitHub release pages and Google's Android download server**. I need the Godot program (hosted on GitHub) to run tests here quickly. Fix: in the cloud environment settings (environment menu in the session title bar → Edit → Network access), allow these domains:
-`github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com`, `dl.google.com`.
-If you'd rather not, I'll run everything through GitHub Actions instead. It works, just with slower feedback (a few minutes per check instead of seconds).
+**Environment note:** this cloud workspace can download files from **your own project's GitHub page** but not from other projects' release pages (such as Godot's). Workaround, no action needed from you: in M2, a small GitHub Actions job copies the official Godot program into your project's **Releases** page, and I download it from there. Google's Android download server (`dl.google.com`) now works, thanks to your network change.
