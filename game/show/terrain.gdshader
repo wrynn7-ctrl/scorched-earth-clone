@@ -54,7 +54,9 @@ void fragment() {
 
 	if (solid) {
 		float depth = clamp(wp.y / float(world_size.y), 0.0, 1.0);
-		vec3 base = STRATA[clamp(m, 0, 15)] * mix(0.62, 0.26, depth);
+		// Opaque dirt: bright enough near the surface to clearly read as a solid mass in front of
+		// the sky's ground plane (it was too close to that plane's dark purple).
+		vec3 base = STRATA[clamp(m, 0, 15)] * mix(1.15, 0.5, depth);
 		// Faint grid + scanline texture inside the dirt.
 		float hl = step(0.86, fract(wp.y / 6.0));
 		float vl = step(0.94, fract(wp.x / 24.0));
@@ -64,7 +66,7 @@ void fragment() {
 		// Glowing rim where solid meets air; inner glow bleeds a little into the dirt.
 		float rim = smoothstep(0.55, 1.0, edge);
 		vec3 col = base + ecol * (edge * 0.55 + rim * 1.3) * glow_strength;
-		COLOR = vec4(col, 1.0);
+		COLOR = vec4(col, 1.0);  // alpha is exactly 1: nothing behind the dirt may show through
 	} else {
 		// Air: soft halo hugging the surface, transparent elsewhere.
 		float halo = edge * edge * 0.8 * glow_strength;

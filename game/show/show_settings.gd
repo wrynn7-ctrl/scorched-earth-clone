@@ -3,12 +3,22 @@ extends RefCounted
 ## Global presentation switches (accessibility). The settings screen writes these;
 ## show-layer nodes only read them. Floats/visual-only, never touches the simulation.
 
+## Trajectory preview modes (PLAN 3.5). More modes (long, full) come later.
+const PREVIEW_OFF: int = 0
+const PREVIEW_SHORT: int = 1
+
 ## Master "reduce motion" flag: disables camera shake and large animated motion.
 static var reduce_motion: bool = false
 ## Dim the bright explosion flash for flash-sensitive players.
 static var reduce_flashing: bool = false
 ## Separate user toggle for camera shake (on by default).
 static var screen_shake: bool = true
+## Vibrate on explosions (Android only; no-op elsewhere).
+static var haptics: bool = true
+## Aiming aid: PREVIEW_OFF or PREVIEW_SHORT.
+static var trajectory_preview: int = PREVIEW_SHORT
+## Playback speed multiplier for timelines (1.0 or 2.0).
+static var playback_speed: float = 1.0
 
 
 static func shake_enabled() -> bool:
@@ -19,3 +29,6 @@ static func reset() -> void:
 	reduce_motion = false
 	reduce_flashing = false
 	screen_shake = true
+	haptics = true
+	trajectory_preview = PREVIEW_SHORT
+	playback_speed = 1.0

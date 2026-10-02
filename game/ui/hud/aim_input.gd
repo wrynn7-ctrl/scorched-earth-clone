@@ -51,6 +51,14 @@ func set_color(c: Color) -> void:
 	_color = c
 
 
+## Ends an in-progress drag (used when input gets locked mid-gesture).
+func cancel_drag() -> void:
+	if _dragging:
+		_dragging = false
+		drag_ended.emit()
+		queue_redraw()
+
+
 func is_dragging() -> bool:
 	return _dragging
 
