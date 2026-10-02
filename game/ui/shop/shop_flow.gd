@@ -33,6 +33,10 @@ func _init() -> void:
 	visible = false
 
 
+func _ready() -> void:
+	LayoutWatch.attach(self, func() -> void: LayoutGuard.fit(self), true)
+
+
 ## Starts the flow with the first player who is not ready. `start_player` (>= 0) picks a
 ## specific player and `skip_handover` jumps straight into their shop (screenshots, tests).
 func open(state: MatchState, submit: Callable, start_player: int = -1, skip_handover: bool = false,

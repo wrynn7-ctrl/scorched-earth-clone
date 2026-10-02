@@ -70,10 +70,11 @@ static func _flat(c: Color) -> StyleBoxFlat:
 
 func _ready() -> void:
 	apply_scale()
-	LayoutWatch.attach(self, apply_scale)
+	LayoutWatch.attach(self, apply_scale, true)
 
 
 func apply_scale() -> void:
+	LayoutGuard.fit(self)
 	var pad: int = roundi(UiScale.dp(12.0))
 	for side: String in ["left", "top", "right", "bottom"]:
 		_margin.add_theme_constant_override("margin_" + side, pad)

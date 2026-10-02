@@ -102,6 +102,9 @@ var _toast: Toast = null
 var _shop: ShopFlow = null
 var _pause_overlay: PauseOverlay = null
 var _settings_overlay: SettingsOverlay = null
+## The hidden diagnostics screen opened by a long press on the pause button (the one in the
+## settings overlay is opened by tapping the version number).
+var _diag: DiagnosticsOverlay = null
 var _round_overlay: RoundEndOverlay = null
 var _match_overlay: MatchEndOverlay = null
 ## tank id -> {tween: Tween, end: Vector2}: the one slide/fall animation a tank view may have.
@@ -194,6 +197,7 @@ func _ready() -> void:
 	_hud.power_changed.connect(_on_hud_power)
 	_hud.fire_pressed.connect(func() -> void: fire_current())
 	_hud.pause_pressed.connect(open_pause)
+	_hud.diagnostics_requested.connect(open_diagnostics)
 	_hud.speed_pressed.connect(toggle_speed)
 	_hud.weapon_picker_requested.connect(open_weapon_picker)
 	_hud.weapon_selected.connect(func(id: String) -> void: select_weapon(id))
@@ -217,7 +221,9 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			if _settings_overlay != null and _settings_overlay.visible:
+			if _diag != null and _diag.visible:
+				_diag.close()
+			elif _settings_overlay != null and _settings_overlay.visible:
 				_settings_overlay.close()
 			elif is_paused():
 				close_pause()
@@ -296,6 +302,9 @@ func _build_support_nodes() -> void:
 	_settings_overlay = SettingsOverlay.new()
 	_settings_overlay.closed.connect(_on_settings_closed)
 	_overlay_layer.add_child(_settings_overlay)
+	_diag = DiagnosticsOverlay.new()
+	_diag.closed.connect(_on_diag_closed)
+	_overlay_layer.add_child(_diag)
 
 
 func _frame_camera() -> void:
@@ -540,6 +549,10 @@ func get_settings_overlay() -> SettingsOverlay:
 	return _settings_overlay
 
 
+func get_diagnostics() -> DiagnosticsOverlay:
+	return _diag
+
+
 func get_round_overlay() -> RoundEndOverlay:
 	return _round_overlay
 
@@ -763,6 +776,23 @@ func close_pause() -> void:
 		_settings_overlay.close_silently()
 	if is_inside_tree():
 		get_tree().paused = false
+	_request_preview()
+
+
+## Long press on the pause button: the layout diagnostics over the (paused) battle.
+func open_diagnostics() -> void:
+	if _diag.visible:
+		return
+	_preview.hide_preview()
+	get_tree().paused = true
+	_diag.open()
+
+
+func _on_diag_closed() -> void:
+	# Back to whatever was behind it: the pause menu keeps the tree paused, the battle does not.
+	if is_paused() or _settings_overlay.visible:
+		return
+	get_tree().paused = false
 	_request_preview()
 
 

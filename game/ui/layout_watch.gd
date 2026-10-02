@@ -13,14 +13,19 @@ var _callback: Callable = Callable()
 var _signature: String = ""
 var _since_poll: float = 0.0
 var _viewport: Viewport = null
+## When true the host (a Control meant to cover the whole screen) is also checked every frame
+## with LayoutGuard.fit().
+var _guard: bool = false
 
 
 ## Hooks `callback` (usually the host's apply_scale) to every kind of resize. Call from _ready().
-static func attach(host: Node, callback: Callable) -> LayoutWatch:
+## `guard_rect` also makes the host re-assert full-screen coverage every frame (see LayoutGuard).
+static func attach(host: Node, callback: Callable, guard_rect: bool = false) -> LayoutWatch:
 	var w := LayoutWatch.new()
 	w.name = "LayoutWatch"
 	w._host = host
 	w._callback = callback
+	w._guard = guard_rect
 	host.add_child(w)
 	return w
 
@@ -39,6 +44,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _guard and _host is Control and LayoutGuard.fit(_host as Control):
+		_run()  # the rect was wrong: dp layout inside it may be stale too
 	_since_poll += delta
 	if _since_poll < POLL_SECONDS:
 		return

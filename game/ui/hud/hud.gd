@@ -21,8 +21,13 @@ signal weapon_selected(item_id: String)
 signal weapon_picker_requested
 signal item_pressed(item_id: String)
 signal move_pressed(dir: int)
+## The pause button was held for LONG_PRESS_SECONDS: open the hidden diagnostics screen.
+signal diagnostics_requested
 
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
+const LONG_PRESS_SECONDS: float = 1.5
+## Group of the live HUD, so the diagnostics screen can find it without a reference.
+const GROUP: StringName = &"battle_hud"
 
 var _aim: AimInput = null
 var _margin: MarginContainer = null
@@ -52,18 +57,47 @@ var _item_total: int = 0
 var _fade: HudFade = null
 ## Opacity factor of the angle and power panels while the controls are locked (1 = unlocked).
 var _lock_alpha: float = 1.0
+## How often the layout guard had to put the root or the Safe container back (diagnostics).
+var _corrections: int = 0
+var _pause_held: float = -1.0  # seconds the pause button has been down, -1 = up
+var _pause_long: bool = false  # the long press fired: swallow the release
 
 
 func _init() -> void:
 	theme = THEME
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_to_group(GROUP)
 	_build()
 
 
 func _ready() -> void:
 	apply_scale()
 	LayoutWatch.attach(self, apply_scale)
+
+
+func _process(delta: float) -> void:
+	# Every frame, so a wrong rect is never visible for more than one frame.
+	_enforce_layout()
+	if _pause_held >= 0.0:
+		_pause_held += delta
+		if _pause_held >= LONG_PRESS_SECONDS:
+			_pause_held = -1.0
+			_pause_long = true
+			diagnostics_requested.emit()
+
+
+## Puts the root and the Safe container back over the whole visible rect if anything moved or
+## shrank them (see LayoutGuard). The weapon popup does the same through its own LayoutWatch.
+func _enforce_layout() -> void:
+	if LayoutGuard.fit(self):
+		_corrections += 1
+	if LayoutGuard.fit(_margin):
+		_corrections += 1
+
+
+func get_layout_corrections() -> int:
+	return _corrections
 
 
 func _build() -> void:
@@ -120,7 +154,11 @@ func _build() -> void:
 	_pause_btn.name = "Pause"
 	_pause_btn.focus_mode = Control.FOCUS_NONE
 	_pause_btn.text = tr("HUD_PAUSE_ICON")
-	_pause_btn.pressed.connect(func() -> void: pause_pressed.emit())
+	_pause_btn.pressed.connect(_on_pause_released)
+	_pause_btn.button_down.connect(func() -> void:
+		_pause_held = 0.0
+		_pause_long = false)
+	_pause_btn.button_up.connect(func() -> void: _pause_held = -1.0)
 	_top_row.add_child(_pause_btn)
 	_center.add_child(_ignoring_spacer())
 	_build_tray()
@@ -195,6 +233,7 @@ static func _ignoring_spacer() -> Control:
 
 ## Re-applies dp-based sizes. Called on ready and whenever the viewport size changes.
 func apply_scale() -> void:
+	_enforce_layout()
 	UiScale.apply_edge_margins(_margin)
 	# The edge margin is 12 dp; gaps between the columns are a little tighter so the crowded
 	# ~700 dp phones at the largest text size still fit.
@@ -214,6 +253,67 @@ func apply_scale() -> void:
 		n.call("apply_scale")
 	_items_toggle.custom_minimum_size = Vector2(UiScale.dp(70.0), maxf(UiScale.touch(), _weapon_chip.custom_minimum_size.y))
 	_items_toggle.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+
+
+# --- Diagnostics ---
+
+static func _fmt_rect(r: Rect2) -> String:
+	return "%d,%d %dx%d" % [roundi(r.position.x), roundi(r.position.y), roundi(r.size.x), roundi(r.size.y)]
+
+
+static func _fmt_node(c: Control) -> String:
+	return _fmt_rect(c.get_global_rect()) if c != null else "-"
+
+
+## Rectangles (viewport coordinates) the diagnostics screen outlines: root, the content rect
+## inside the Safe margins, and the three columns.
+func get_outline_rects() -> Dictionary:
+	var safe: Rect2 = _margin.get_global_rect()
+	var content := Rect2(safe.position + Vector2(float(_margin.get_theme_constant("margin_left")),
+			float(_margin.get_theme_constant("margin_top"))), safe.size - Vector2(
+			float(_margin.get_theme_constant("margin_left") + _margin.get_theme_constant("margin_right")),
+			float(_margin.get_theme_constant("margin_top") + _margin.get_theme_constant("margin_bottom"))))
+	return {"root": get_global_rect(), "content": content, "columns": [
+		_left.get_global_rect(), _center.get_global_rect(), _right.get_global_rect()]}
+
+
+## Everything that decides where the HUD is drawn, one short line each (hidden diagnostics screen).
+func diagnostics_lines() -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	var vp: Viewport = get_viewport()
+	out.append("--- battle HUD ---")
+	out.append("HUD root: %s  visible rect: %s" % [_fmt_node(self), _fmt_rect(vp.get_visible_rect())])
+	out.append("HUD root min size %s  anchors %s..%s" % [str(get_combined_minimum_size()),
+			str(Vector2(anchor_left, anchor_top)), str(Vector2(anchor_right, anchor_bottom))])
+	out.append("Safe: %s  margins L%d T%d R%d B%d" % [_fmt_node(_margin), _margin.get_theme_constant("margin_left"),
+			_margin.get_theme_constant("margin_top"), _margin.get_theme_constant("margin_right"),
+			_margin.get_theme_constant("margin_bottom")])
+	out.append("Safe min size %s  Row min size %s" % [str(_margin.get_combined_minimum_size()), str(_row.get_combined_minimum_size())])
+	out.append("Row: %s" % _fmt_node(_row))
+	out.append("Left: %s" % _fmt_node(_left))
+	out.append("Center: %s  min %s" % [_fmt_node(_center), str(_center.get_combined_minimum_size())])
+	out.append("Right: %s" % _fmt_node(_right))
+	out.append("PowerPanel: %s" % _fmt_node(_power))
+	out.append("Fire: %s" % _fmt_node(_fire))
+	out.append("AnglePanel: %s" % _fmt_node(_angle_panel))
+	var parent: Node = get_parent()
+	if parent is CanvasLayer:
+		var cl: CanvasLayer = parent
+		out.append("parent: CanvasLayer layer %d  offset %s rot %.2f scale %s  follow_viewport %s (scale %.2f)" % [
+			cl.layer, str(cl.offset), cl.rotation, str(cl.scale), str(cl.follow_viewport_enabled), cl.follow_viewport_scale])
+		out.append("layer transform: %s" % str(cl.transform))
+	else:
+		out.append("parent: %s" % (parent.get_class() if parent != null else "none"))
+	var cam: Camera2D = vp.get_camera_2d()
+	if cam != null:
+		out.append("camera: zoom %s  pos %s  centre %s" % [str(cam.zoom), str(cam.position), str(cam.get_screen_center_position())])
+	else:
+		out.append("camera: none")
+	out.append("root canvas_transform: %s" % str(vp.canvas_transform))
+	out.append("global_canvas_transform: %s" % str(vp.global_canvas_transform))
+	out.append("layout corrections: HUD %d  all screens %d%s" % [_corrections, LayoutGuard.corrections,
+			("  last: " + LayoutGuard.last_fix) if LayoutGuard.last_fix != "" else ""])
+	return out
 
 
 # --- Public API (plain data) ---
@@ -425,6 +525,14 @@ func get_wind_indicator() -> WindIndicator:
 
 func get_turn_banner() -> TurnBanner:
 	return _banner
+
+
+## A long press already opened the diagnostics: its release must not also open the pause menu.
+func _on_pause_released() -> void:
+	if _pause_long:
+		_pause_long = false
+		return
+	pause_pressed.emit()
 
 
 func _on_aim_angle(a: int) -> void:
