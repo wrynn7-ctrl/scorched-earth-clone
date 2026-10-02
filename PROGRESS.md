@@ -25,10 +25,11 @@
 ## M2 tasks
 | Task | Agent | Status |
 |---|---|---|
-| M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | 🟡 running |
+| M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | ✅ reviewed (GUT 9.7.1) |
 | M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | 🟡 running |
-| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ⬜ after M2-F |
-| M2-S Battlefield rendering, touch controls, playback | show-ui-dev | ⬜ after M2-F (integration after M2-C) |
+| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | 🟡 running |
+| M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | 🟡 running |
+| M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ⬜ after M2-C + M2-S1 |
 | M2-Q Determinism golden tests | qa-tester | ⬜ after M2-C |
 
 ## Open items for the owner
