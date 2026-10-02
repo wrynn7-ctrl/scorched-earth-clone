@@ -1,0 +1,14 @@
+# Godot 4
+.godot/
+/game/android/
+
+# Export outputs
+*.apk
+*.aab
+
+# Signing material: never commit (CI reads these from GitHub Actions secrets)
+*.keystore
+*.jks
+
+# OS
+.DS_Store

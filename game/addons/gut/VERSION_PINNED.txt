@@ -1,0 +1,3 @@
+GUT v9.7.1 (godot_4_7 branch)
+Source: https://github.com/bitwes/Gut (tag v9.7.1, commit aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605)
+Note: the task named bitwarden/gut, which does not exist; the real GUT upstream is bitwes/Gut.
