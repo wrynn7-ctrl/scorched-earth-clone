@@ -3,8 +3,8 @@
 | Milestone | Status |
 |---|---|
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
-| M2 — Playable prototype | ✅ Done 2026-10-02 (owner phone test pending) |
-| M3 — Full single-player loop | ⬜ Not started |
+| M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
+| M3 — Full single-player loop | 🟡 In progress |
 | M4 — AI opponents | ⬜ Not started |
 | M5 — Polish, sound, effects | ⬜ Not started |
 | M6 — Local pass-and-play | ⬜ Not started |
@@ -31,6 +31,16 @@
 | M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | ✅ reviewed (screenshots in docs/screenshots) |
 | M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ✅ reviewed (200 tests total) |
 | M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | ✅ reviewed (6 golden replays, 300-match fuzz; 2 low bugs fixed) |
+
+## M3 tasks
+| Task | Agent | Status |
+|---|---|---|
+| M2-UI-1 Owner feedback: angle ±0.1 buttons → neon up/down arrows | show-ui-dev | 🟡 running |
+| M3 contract (ARCHITECTURE §16–§24) | lead | ✅ written |
+| M3-C1 Phases, catalog, economy, shop/move/item actions, shields/chute/repair, saves | core-sim-dev | 🟡 running |
+| M3-C2 Weapon behaviours (splitter, roller, tunneler, dirt, sludge, fire, seeker, beam, static, well, anchor) | core-sim-dev | ⬜ after C1 |
+| M3-U1 Match setup, shop screen, weapon/item picker, move/item controls, round summary, autosave/continue | show-ui-dev | ⬜ after C1 + UI-1 |
+| M3-Q Weapon edge cases, economy and save/load fuzz | qa-tester | ⬜ after C2 |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
