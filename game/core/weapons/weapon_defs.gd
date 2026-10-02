@@ -11,10 +11,10 @@ extends RefCounted
 ##   dirt      r (add_circle radius)
 ##   sludge    volume (cells)
 ##   fire      points, dmg_per_point, reach (cells), cap (per tank)
-##   seeker    accel (Q16.16 max lateral cell/tick^2), r, dmg
+##   seeker    accel (Q16.16 max lateral cell/tick^2; tuned to 0.10 in M3-C2), r, dmg
 ##   beam      length, cut (max solid cells), beam_r, dmg
 ##   static    r, dmg
-##   well      well_r, strength (Q16.16 cell/tick^2 at centre), cycles (full turn cycles)
+##   well      well_r, strength (Q16.16 cell/tick^2 at centre; tuned to 0.15 in M3-C2), cycles (full turn cycles)
 ##   anchor    pull_r, max_pull (cells)
 ## spark_dart is unlimited (never stored in inventories): `bundle` is 1 only to keep maths safe.
 

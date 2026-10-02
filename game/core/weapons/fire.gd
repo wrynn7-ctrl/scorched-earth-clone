@@ -2,8 +2,8 @@
 class_name FireBehavior
 extends RefCounted
 ## Ember Rain / Inferno Gel (docs/ARCHITECTURE.md section 21): at the impact, `points` flame
-## points scatter around the impact column and each walks downhill (<= MAX_STEPS steps) to
-## rest on the surface. Every flame point damages each alive tank whose hit box is within
+## points scatter around the impact column and each flows downhill (SurfaceCache.flow_dir,
+## <= MAX_STEPS steps) to rest on the surface. Every flame point damages each alive tank whose hit box is within
 ## `reach` cells of it (`dmg_per_point`), capped per tank at `cap`. Damage is applied once, at
 ## the impact tick, as cause "burn" (shields absorb it). The terrain is not changed.
 ## Events: flames {points: [x, y, ...]}, then damage*.
@@ -41,11 +41,13 @@ static func flame_points(terrain: Terrain, ex: int, count: int) -> PackedInt32Ar
 	var out: PackedInt32Array = PackedInt32Array()
 	for i: int in range(count):
 		var c: int = clampi(ex + (i * SCATTER_STEP) % (2 * SPREAD + 1) - SPREAD, 0, terrain.width - 1)
+		var dir: int = 0
 		var steps: int = 0
 		while steps < MAX_STEPS:
-			var d: int = cache.pick_dir(c, i % 2 == 1)
+			var d: int = cache.flow_dir(c, dir, false)
 			if d == 0:
 				break
+			dir = d
 			c += d
 			steps += 1
 		out.append(c)

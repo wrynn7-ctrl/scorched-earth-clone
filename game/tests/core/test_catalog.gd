@@ -96,12 +96,12 @@ func test_key_params_from_the_table() -> void:
 			w["ember_rain"]["cap"]], [60, 2, 6, 40])
 	assert_eq([w["inferno_gel"]["points"], w["inferno_gel"]["dmg_per_point"], w["inferno_gel"]["cap"]], [110, 3, 70])
 	assert_eq([w["seeker"]["r"], w["seeker"]["dmg"]], [28, 55])
-	assert_eq(w["seeker"]["accel"], 3277, "0.05 cell/tick^2 in Q16.16")
+	assert_eq(w["seeker"]["accel"], 6554, "0.10 cell/tick^2 in Q16.16 (tuned in M3-C2, was 0.05)")
 	assert_eq([w["photon_lance"]["length"], w["photon_lance"]["cut"], w["photon_lance"]["beam_r"],
 			w["photon_lance"]["dmg"]], [900, 120, 3, 35])
 	assert_eq([w["static_burst"]["r"], w["static_burst"]["dmg"]], [40, 10])
 	assert_eq([w["singularity_seed"]["well_r"], w["singularity_seed"]["strength"], w["singularity_seed"]["cycles"]],
-			[300, 7864, 2])
+			[300, 9830, 2])
 	assert_eq([w["riptide_anchor"]["pull_r"], w["riptide_anchor"]["max_pull"]], [180, 120])
 	var it: Dictionary = ItemDefs.DEFS
 	assert_eq([it["glow_shield"]["hp"], it["ion_shield"]["hp"], it["fortress_field"]["hp"]], [30, 60, 100])

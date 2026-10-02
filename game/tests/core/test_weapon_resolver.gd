@@ -93,37 +93,49 @@ func test_explosion_damage_scales_with_the_weapon() -> void:
 		assert_gt(first["amount"] as int, 0, id)
 
 
-func test_every_other_behavior_resolves_as_a_plain_explosion_for_now() -> void:
+## What each behaviour emits on a flat-ground impact (the first listed event type is its signature).
+const SIGNATURE: Dictionary = {
+	"prism_splitter": "projectile_end", "prism_cascade": "projectile_end", "glide_orb": "explosion",
+	"heavy_orb": "explosion", "bore_shell": "tunnel", "deep_bore": "tunnel", "mound_mortar": "terrain_add",
+	"landslide": "terrain_add", "sludge_shell": "terrain_pour", "ember_rain": "flames", "inferno_gel": "flames",
+	"seeker": "explosion", "photon_lance": "beam", "static_burst": "explosion", "singularity_seed": "well_on",
+	"riptide_anchor": "projectile_end",
+}
+
+
+func test_every_behavior_runs_its_own_resolver() -> void:
 	assert_eq(STUBS.size(), 16)
 	for id: String in STUBS:
-		var def: Dictionary = WeaponDefs.get_def(id)
 		var s: MatchState = U.flat_state(2)
 		s.tanks[0].set_stock(id, 2)
 		var ev: Array[Dictionary] = _fire_with(s, id)
 		assert_eq(U.find(ev, "fire")[0]["weapon"], id)
-		assert_eq(U.find(ev, "projectile").size(), 1, "%s: one flight" % id)
-		var ex: Array[Dictionary] = U.find(ev, "explosion")
-		assert_eq(ex.size(), 1, id)
-		assert_eq(ex[0]["radius"], def.get("r", 28), "%s: r from the def, else 28" % id)
+		assert_gt(U.find(ev, SIGNATURE[id] as String).size(), 0, "%s emits %s" % [id, SIGNATURE[id]])
 		assert_eq(s.tanks[0].stock_of(id), 1, "%s consumed one" % id)
 		assert_eq(s.current_tank, 1, "%s ended the turn" % id)
 		var types: Array[String] = U.types(ev)
 		assert_eq(types.slice(types.size() - 2), ["wind", "turn"] as Array[String])
-
-
-func test_fallback_damage_uses_dmg_or_55() -> void:
-	# mound_mortar has r 40 but no dmg -> 55; prism_splitter has dmg 40 (children r 24 / dmg 40).
-	for pair: Array in [["mound_mortar", 55, 40], ["singularity_seed", 55, 28], ["prism_splitter", 40, 24],
-			["static_burst", 10, 40]]:
+	# Behaviours without a blast: no explosion at all.
+	for id: String in ["mound_mortar", "landslide", "sludge_shell", "ember_rain", "inferno_gel", "photon_lance",
+			"singularity_seed", "riptide_anchor"]:
 		var s: MatchState = U.flat_state(2)
-		var id: String = pair[0]
 		s.tanks[0].set_stock(id, 1)
-		var p: int = U.power_for_target(s, 450, s.tanks[1].x)
-		var ev: Array[Dictionary] = _fire_with(s, id, 450, p)
-		assert_eq(U.find(ev, "explosion")[0]["radius"], pair[2], id)
-		var d: Dictionary = U.find(ev, "damage")[0]
-		var dist: int = 0  # the shell ends inside tank 1's box
-		assert_eq(d["amount"], maxi(1, (pair[1] as int) * ((pair[2] as int) - dist) / (pair[2] as int)), id)
+		assert_eq(U.find(_fire_with(s, id), "explosion").size(), 0, id)
+
+
+func test_blast_helper_settles_the_union_of_extra_and_crater() -> void:
+	var s: MatchState = U.flat_state(2)
+	var ev: Array[Dictionary] = []
+	var extra: Rect2i = s.terrain.carve_tunnel(400, 610, 460, 610, 4)
+	WeaponResolver.blast(s, 0, 480, 600, 12, 10, "bore_shell", 5, ev, extra)
+	var st: Dictionary = U.find(ev, "terrain_settle")[0]
+	assert_eq([st["x0"], st["x1"]], [396, 492])
+	var plain: Array[Dictionary] = []
+	WeaponResolver.blast(s, 0, 100, 600, 12, 10, "bore_shell", 5, plain)
+	assert_eq([U.find(plain, "terrain_settle")[0]["x0"], U.find(plain, "terrain_settle")[0]["x1"]], [88, 112])
+	var off: Array[Dictionary] = []
+	WeaponResolver.blast(s, 0, -200, 600, 12, 10, "bore_shell", 5, off)
+	assert_eq(U.find(off, "terrain_settle").size(), 0, "a blast entirely off the map settles nothing")
 
 
 func test_all_weapons_survive_the_event_contract_on_random_terrain() -> void:

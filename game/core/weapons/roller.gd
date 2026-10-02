@@ -3,9 +3,10 @@ class_name RollerBehavior
 extends RefCounted
 ## Glide Orb / Heavy Orb (docs/ARCHITECTURE.md section 21). After a terrain impact the shell
 ## becomes a roller on the surface of the impact column (one extra tick on the path), then
-## each tick it takes `speed` single-cell steps toward the strictly lower neighbouring column
-## (ties go left). It explodes on contact with an alive tank's hit box, when no neighbour is
-## lower (valley, or a map wall) and after `max_roll` ticks. A shell that hits a tank or a
+## each tick it takes `speed` single-cell steps toward the lower neighbouring column and keeps
+## its direction over level ground (SurfaceCache.flow_dir; it does not start on level ground).
+## It explodes on contact with an alive tank's hit box, when nothing lower or level lies ahead
+## (valley, or a map wall) and after `max_roll` ticks. A shell that hits a tank or a
 ## shield bubble explodes there at once. The rolling positions are appended to the same
 ## projectile path, one entry per tick, so projectile_end.tick is the end of the roll.
 
@@ -51,14 +52,16 @@ static func roll(state: MatchState, x: int, speed: int, max_roll: int, path_in: 
 	path.append(FixedMath.from_cell(ry))
 	var contact: bool = _touches_tank(state, rx, ry)
 	var rolled: int = 0
+	var dir: int = 0
 	var stopped: bool = false
 	while rolled < max_roll and not contact and not stopped:
 		var moved: bool = false
 		for _s: int in range(speed):
-			var d: int = cache.pick_dir(rx, false)
+			var d: int = cache.flow_dir(rx, dir, false)
 			if d == 0:
 				stopped = true
 				break
+			dir = d
 			rx += d
 			ry = maxi(0, cache.top(rx) - 1)
 			moved = true

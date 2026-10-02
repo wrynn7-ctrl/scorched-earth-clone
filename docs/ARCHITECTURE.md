@@ -364,3 +364,32 @@ All new `TankState` fields, `MatchState.wells` and anything else added to state 
 - The repulsor never pushes its owner's shell, and resets at `start_round`.
 - Save format: magic, version, snapshot from `StateSerial` (shared with the fingerprint), action JSON, fingerprint,
   SHA-256 trailer. Decode errors: `too_short, bad_magic, bad_version, corrupt, fingerprint`; plus `no_file` from SaveStore.
+
+## 26. M3-C2 resolutions (binding; supersede §17/§20/§21 where they differ)
+- **Tuned constants:** `REPULSOR_PUSH` = 2.00 cell/tick² (131072). Seeker accel = 0.10 cell/tick² (6554). Well strength
+  = 0.15 cell/tick² (9830).
+- **Seeker:** after the apex, it steers on the *predicted landing x* at the target's centre height, not the current gap.
+  The gain saturates at 25 cells of predicted miss. The target is the nearest alive enemy, locked at the apex.
+- **Shared flow rule** (sludge, roller, fire), in `weapons/surface_cache.gd`:
+  - Move toward the strictly lower neighbour; keep direction over level ground; stop when the next column ahead is
+    higher.
+  - Ties alternate by column parity (left on even columns).
+  - A resting roller or flame only starts moving if its level run ends in a drop within 8 columns.
+- **Splitter:** the main shell ends at the apex with `projectile_end.reason = "split"`. Children resolve sequentially,
+  in index order, against the world left by earlier children. Hitting something before the apex explodes with the
+  child r/dmg.
+- **Path/tick convention:** `projectile.path[i]` is the position at tick `event.tick + i + 1`, and
+  `projectile_end.tick = event.tick + path.size()/2`. Ticks are not monotone across splitter children.
+- **New damage causes:** `burn` (fire) and `beam` (photon lance).
+- **Terrain functions used by the show:**
+  - `carve_tunnel(x0, y0, x1, y1, r)` (union of discs along the segment);
+  - `pour(columns, material)`;
+  - `add_circle_skipping(cx, cy, r, material, skip)`. `skip` = half-open tank boxes [x0, y0, x1, y1, …].
+- **Behaviour details:**
+  - Dirt uses the impact column's surface material, and tanks can be buried.
+  - A tunnel and its crater share one settle.
+  - The beam has no projectile/explosion, and a shield absorbs its damage.
+  - Static strips shields before damage.
+  - A same-owner well emits `well_off` then `well_on`, and the pull affects everyone's shells, the owner's included.
+  - The anchor triggers on any impact; `tank_drag` only for tanks that moved.
+  - Fire start columns use a fixed ±10 pattern (no RNG). One damage event per tank per shot.
