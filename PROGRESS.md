@@ -2,8 +2,8 @@
 
 | Milestone | Status |
 |---|---|
-| M1 — Clarifying questions → PLAN.md → approval | 🟡 PLAN.md drafted, waiting for approval |
-| M2 — Playable prototype | ⬜ Not started |
+| M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
+| M2 — Playable prototype | 🟡 In progress |
 | M3 — Full single-player loop | ⬜ Not started |
 | M4 — AI opponents | ⬜ Not started |
 | M5 — Polish, sound, effects | ⬜ Not started |
@@ -18,9 +18,20 @@
 - Wrote PLAN.md draft.
 - PLAN v2: Skin Studio (private, image import = full version), block/report/name filter, new Play account timeline, Godot download workaround.
 
+- Plan approved (image import in M5; reports: review list + auto-hide after 3 reports).
+- Godot 4.7.2 mirrored into this repo's release `tools-godot-4.7.2` (workaround for the container's download policy).
+- Added CLAUDE.md (rules for all agents), docs/ARCHITECTURE.md (binding technical contract), and 6 subagent definitions in .claude/agents/.
+
+## M2 tasks
+| Task | Agent | Status |
+|---|---|---|
+| M2-F Project foundation (project.godot, GUT, test runner, determinism check) | release-eng | 🟡 running |
+| M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | 🟡 running |
+| M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ⬜ after M2-F |
+| M2-S Battlefield rendering, touch controls, playback | show-ui-dev | ⬜ after M2-F (integration after M2-C) |
+| M2-Q Determinism golden tests | qa-tester | ⬜ after M2-C |
+
 ## Open items for the owner
-- Approve or change PLAN.md.
-- Confirm skins details (see chat).
-- Pick a title (PLAN.md §2).
+- Pick a final title (PLAN.md §2); "Craterline" is the working title.
 - ✅ Network domains added (GitHub release downloads still blocked by per-repo policy; mirror workaround planned).
 - Create a new Google Play developer account during M2–M3; line up 12+ testers for the 14-day closed test (start ~M5–M6).
