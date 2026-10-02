@@ -3,7 +3,7 @@
 | Milestone | Status |
 |---|---|
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
-| M2 — Playable prototype | 🟡 In progress |
+| M2 — Playable prototype | ✅ Done 2026-10-02 (owner phone test pending) |
 | M3 — Full single-player loop | ⬜ Not started |
 | M4 — AI opponents | ⬜ Not started |
 | M5 — Polish, sound, effects | ⬜ Not started |
@@ -29,13 +29,19 @@
 | M2-C Core simulation (math, RNG, terrain, ballistics, damage, turns, fingerprint) | core-sim-dev | ✅ reviewed (91 tests; generate 6 ms, shot 10 ms, fingerprint 13 ms) |
 | M2-CI GitHub Actions: tests + debug APK + Android export | release-eng | ✅ reviewed (CI green end-to-end: tests → APK → dev-latest release) |
 | M2-S1 Neon visuals + touch controls (standalone demo) | show-ui-dev | ✅ reviewed (screenshots in docs/screenshots) |
-| M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | 🟡 running |
+| M2-S2 Wire visuals to the simulation (playable 2-tank game) | show-ui-dev | ✅ reviewed (200 tests total) |
 | M2-Q Determinism golden tests, edge cases, fuzz | qa-tester | ✅ reviewed (6 golden replays, 300-match fuzz; 2 low bugs fixed) |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
 - Non-Gradle export gives minSdk 24 (still covers Android 8+). minSdk 26 / targetSdk 36 get enforced when Gradle builds are enabled (M5, needed for billing).
 - The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
+
+## Polish backlog (noticed in review; M5 unless it blocks earlier)
+- Camera doesn't follow high shells; they leave the top of the screen. Add follow-cam or an off-screen marker.
+- Title subtitle overlaps the sun; move or darken behind text.
+- Settings live only for the session; persist them with saves (M3).
+- Real multi-touch (aim + slider at once) untested; Android emulates touch as mouse.
 
 ## Carry-overs for M3 (from QA)
 - Saves/Firebase: actions parsed from JSON have float fields → add `Simulation.normalize_action()` that int-casts before validation.
