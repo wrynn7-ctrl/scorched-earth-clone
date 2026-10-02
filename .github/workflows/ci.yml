@@ -20,6 +20,8 @@ concurrency:
 env:
   GODOT_VERSION: "4.7.2"
   TOOLS_TAG: tools-godot-4.7.2
+  # Shared runners are slower and noisier than a dev machine: widen wall-clock test budgets.
+  PERF_BUDGET_SCALE: "3"
 
 defaults:
   run:
@@ -27,11 +29,26 @@ defaults:
 
 jobs:
   test:
-    name: Tests (GUT + determinism check)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    name: Tests (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false   # let every leg finish so one run shows all the failures
+      matrix:
+        include:
+          - name: core
+            suites: core
+          - name: qa
+            suites: qa
+          - name: show+ui
+            suites: show,ui
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Static check, needs no Godot: run it first so a rule violation fails in seconds.
+      - name: Determinism check (game/core)
+        if: matrix.name == 'core'
+        run: tools/check_core_determinism.sh
 
       - name: Download Godot ${{ env.GODOT_VERSION }}
         env:
@@ -45,17 +62,33 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
 
-      - name: Determinism check (game/core)
-        run: tools/check_core_determinism.sh
-
       # No cache for game/.godot: the import cache is cheap to rebuild and a stale one can hide script-class errors.
-      - name: Run GUT tests
-        run: tools/run_tests.sh
+      # A new directory under game/tests needs a new matrix leg (the test-coverage job below fails the build otherwise).
+      - name: Run GUT tests (${{ matrix.suites }})
+        run: tools/run_tests.sh --suite "${{ matrix.suites }}"
+
+  # Guard: fail if a test directory exists that no matrix leg runs, so tests can never be silently skipped.
+  test-coverage:
+    name: Every test directory is in the matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Compare game/tests/* with the matrix
+        run: |
+          covered="core qa show ui"
+          for d in game/tests/*/; do
+            n="$(basename "$d")"
+            case " $covered " in
+              *" $n "*) ;;
+              *) echo "::error::game/tests/$n is not run by any CI matrix leg; add it to the test matrix in ci.yml"; exit 1 ;;
+            esac
+          done
 
   android-debug:
     name: Android debug APK
-    needs: test
-    runs-on: ubuntu-latest
+    needs: [test, test-coverage]
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -97,7 +130,7 @@ jobs:
     needs: android-debug
     # Pushes to the dev branch only (never pull requests, never other branches).
     if: github.event_name == 'push' && github.ref == 'refs/heads/claude/artillery-game-android-69i6of'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
