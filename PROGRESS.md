@@ -40,7 +40,7 @@
 | M3-C1 Phases, catalog, economy, shop/move/item actions, shields/chute/repair, saves | core-sim-dev | ✅ reviewed (329 core+qa tests; shot ≤14 ms) |
 | M3-C2 Weapon behaviours (splitter, roller, tunneler, dirt, sludge, fire, seeker, beam, static, well, anchor) | core-sim-dev | ✅ reviewed (617 tests; all weapons < 40 ms) |
 | M3-U1 Match setup, shop screen, weapon/item picker, move/item controls, round summary, autosave/continue, settings | show-ui-dev | ✅ reviewed (save 1.44 MB → 9.9 KB zstd) |
-| M3-U2 HUD panels fade when tanks/action are behind them, off-screen shell marker, 21-weapon playback verification, small UI fixes | show-ui-dev | 🟡 running |
+| M3-U2 HUD panels fade when tanks/action are behind them, off-screen shell marker, 21-weapon playback verification, small UI fixes | show-ui-dev | ✅ reviewed |
 | M3-Q Weapon edge cases, economy invariants, save/load + JSON fuzz, golden replays v2 | qa-tester | 🟡 running |
 
 ## Decisions / notes
@@ -49,9 +49,9 @@
 - The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
 
 ## Polish backlog (noticed in review; M5 unless it blocks earlier)
-- Camera doesn't follow high shells; they leave the top of the screen. Add follow-cam or an off-screen marker.
-- Title subtitle overlaps the sun; move or darken behind text.
-- Settings live only for the session; persist them with saves (M3).
+- ✅ Off-screen shell marker added (M3-U2). Follow-cam still optional for M5.
+- ✅ Title subtitle backing plate (M3-U2).
+- ✅ Settings persisted (M3-U1).
 - Real multi-touch (aim + slider at once) untested; Android emulates touch as mouse.
 
 ## Carry-overs for M3 (from QA)
