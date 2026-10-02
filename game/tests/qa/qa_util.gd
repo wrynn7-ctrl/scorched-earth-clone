@@ -215,7 +215,8 @@ static func _stringify(v: Variant) -> String:
 static func _sha_hex(bytes: PackedByteArray, n: int) -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(bytes)
+	if bytes.size() > 0:  # update() of an empty buffer logs an engine error; the digest is the same
+		ctx.update(bytes)
 	return ctx.finish().hex_encode().substr(0, n)
 
 

@@ -3,13 +3,29 @@
 # Run this ONLY when a simulation change is intentional, then review `git diff` of the
 # fixtures and commit them with the change. Normal test runs never write fixtures.
 #
-# It runs the golden GUT test with QA_REGEN_GOLDEN=1 (the test then records instead of
-# comparing), and afterwards re-runs it normally to prove the new fixtures replay cleanly.
+# It runs the golden GUT tests with QA_REGEN_GOLDEN=1 (the tests then record instead of
+# comparing), and afterwards re-runs them normally to prove the new fixtures replay cleanly.
+#   test_golden_replays  -> the six M2 fixtures (duel_2_tanks.json ... multi_round_3_tanks.json)
+#   test_golden_m3       -> the four M3 shopping-bot fixtures (m3_*.json)
+# Pass "m2" or "m3" to regenerate only that family (default: both).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-echo "regen_golden: recording fixtures..." >&2
-QA_REGEN_GOLDEN=1 "${ROOT}/tools/run_tests.sh" -gselect=test_golden_replays
-echo "regen_golden: verifying fixtures replay cleanly..." >&2
-"${ROOT}/tools/run_tests.sh" -gselect=test_golden_replays
+WHICH="${1:-all}"
+SELECTS=()
+case "${WHICH}" in
+  m2) SELECTS=(test_golden_replays) ;;
+  m3) SELECTS=(test_golden_m3) ;;
+  all) SELECTS=(test_golden_replays test_golden_m3) ;;
+  *) echo "usage: regen_golden.sh [m2|m3|all]" >&2; exit 2 ;;
+esac
+
+for sel in "${SELECTS[@]}"; do
+  echo "regen_golden: recording fixtures (${sel})..." >&2
+  QA_REGEN_GOLDEN=1 "${ROOT}/tools/run_tests.sh" -gselect="${sel}"
+done
+for sel in "${SELECTS[@]}"; do
+  echo "regen_golden: verifying fixtures replay cleanly (${sel})..." >&2
+  "${ROOT}/tools/run_tests.sh" -gselect="${sel}"
+done
 echo "regen_golden: done. Review with: git -C '${ROOT}' diff --stat -- game/tests/qa/fixtures" >&2
