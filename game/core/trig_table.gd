@@ -4,7 +4,8 @@
 class_name TrigTable
 extends RefCounted
 
-const SIN_Q: PackedInt32Array = PackedInt32Array([
+# static var, not const: GDScript rejects PackedInt32Array constructors as constant expressions.
+static var SIN_Q: PackedInt32Array = PackedInt32Array([
 	0, 114, 229, 343, 458, 572, 686, 801, 915, 1029,
 	1144, 1258, 1372, 1487, 1601, 1716, 1830, 1944, 2059, 2173,
 	2287, 2401, 2516, 2630, 2744, 2859, 2973, 3087, 3201, 3316,

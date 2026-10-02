@@ -28,7 +28,8 @@ def main() -> None:
     lines.append("class_name TrigTable")
     lines.append("extends RefCounted")
     lines.append("")
-    lines.append("const SIN_Q: PackedInt32Array = PackedInt32Array([")
+    lines.append("# static var, not const: GDScript rejects PackedInt32Array constructors as constant expressions.")
+    lines.append("static var SIN_Q: PackedInt32Array = PackedInt32Array([")
     for start in range(0, ENTRIES, 10):
         chunk = vals[start:start + 10]
         tail = "," if start + 10 < ENTRIES else ""
