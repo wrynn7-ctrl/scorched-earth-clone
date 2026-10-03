@@ -40,6 +40,8 @@ jobs:
             suites: core
           - name: qa
             suites: qa
+          - name: ai
+            suites: ai
           - name: show+ui
             suites: show,ui
     steps:
@@ -76,7 +78,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Compare game/tests/* with the matrix
         run: |
-          covered="core qa show ui"
+          covered="core qa show ui ai"
           for d in game/tests/*/; do
             n="$(basename "$d")"
             case " $covered " in

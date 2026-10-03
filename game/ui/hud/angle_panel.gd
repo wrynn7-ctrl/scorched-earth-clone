@@ -36,13 +36,13 @@ func _init() -> void:
 	_minus = FineButton.new()
 	_minus.name = "Minus"
 	_minus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_minus.arrow = FineButton.Arrow.DOWN
+	_minus.arrow = FineButton.Arrow.LEFT
 	_minus.stepped.connect(_on_step.bind(-1))
 	_row.add_child(_minus)
 	_plus = FineButton.new()
 	_plus.name = "Plus"
 	_plus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_plus.arrow = FineButton.Arrow.UP
+	_plus.arrow = FineButton.Arrow.RIGHT
 	_plus.stepped.connect(_on_step.bind(1))
 	_row.add_child(_plus)
 

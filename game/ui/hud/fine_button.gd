@@ -6,7 +6,7 @@ extends Button
 signal stepped(multiplier: int)
 
 ## Icon drawn instead of text. NONE keeps the plain text button (power +-1).
-enum Arrow { NONE, UP, DOWN }
+enum Arrow { NONE, UP, DOWN, LEFT, RIGHT }
 
 const HOLD_DELAY: float = 0.4
 const REPEAT_INTERVAL: float = 0.07
@@ -45,24 +45,36 @@ func _draw() -> void:
 	var col: Color = _arrow_color()
 	var c: Vector2 = size * 0.5
 	var h: float = minf(size.y * 0.56, size.x * 0.56)  # total arrow height
-	var dir: float = -1.0 if arrow == Arrow.UP else 1.0  # screen-space y direction of the tip
-	var tip: Vector2 = c + Vector2(0.0, dir * h * 0.5)
-	var tail: Vector2 = c - Vector2(0.0, dir * h * 0.5)
+	var d: Vector2 = _arrow_dir()  # unit vector from tail to tip, in screen space
+	var perp: Vector2 = Vector2(-d.y, d.x)
+	var tip: Vector2 = c + d * h * 0.5
+	var tail: Vector2 = c - d * h * 0.5
 	var head: float = h * 0.46
 	var thick: float = maxf(3.0, h * 0.16)
-	var base: Vector2 = tip - Vector2(0.0, dir * head)
-	var shaft_end: Vector2 = tip - Vector2(0.0, dir * head * 0.6)
-	var tri := PackedVector2Array([tip, base + Vector2(-head * 0.8, 0.0), base + Vector2(head * 0.8, 0.0)])
+	var base: Vector2 = tip - d * head
+	var shaft_end: Vector2 = tip - d * head * 0.6
+	var tri := PackedVector2Array([tip, base - perp * head * 0.8, base + perp * head * 0.8])
 	var glow := PackedVector2Array([
-		tip + Vector2(0.0, dir * thick * 0.9),
-		base + Vector2(-head * 0.8 - thick, -dir * thick * 0.5),
-		base + Vector2(head * 0.8 + thick, -dir * thick * 0.5),
+		tip + d * thick * 0.9,
+		base - perp * (head * 0.8 + thick) - d * thick * 0.5,
+		base + perp * (head * 0.8 + thick) - d * thick * 0.5,
 	])
 	var glow_col := Color(col, col.a * 0.28)
 	draw_line(tail, shaft_end, glow_col, thick * 2.2, true)
 	draw_colored_polygon(glow, glow_col)
 	draw_line(tail, shaft_end, col, thick, true)
 	draw_colored_polygon(tri, col)
+
+
+func _arrow_dir() -> Vector2:
+	match arrow:
+		Arrow.UP:
+			return Vector2.UP
+		Arrow.LEFT:
+			return Vector2.LEFT
+		Arrow.RIGHT:
+			return Vector2.RIGHT
+	return Vector2.DOWN
 
 
 func _arrow_color() -> Color:

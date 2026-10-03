@@ -128,8 +128,8 @@ func test_angle_buttons_show_arrows_and_step_correctly() -> void:
 	await wait_frames(1)
 	var plus: FineButton = p.get_node("Box/Row/Plus")
 	var minus: FineButton = p.get_node("Box/Row/Minus")
-	assert_eq(plus.get_arrow(), FineButton.Arrow.UP, "+0.1 shows up arrow")
-	assert_eq(minus.get_arrow(), FineButton.Arrow.DOWN, "-0.1 shows down arrow")
+	assert_eq(plus.get_arrow(), FineButton.Arrow.RIGHT, "+0.1 shows right arrow")
+	assert_eq(minus.get_arrow(), FineButton.Arrow.LEFT, "-0.1 shows left arrow")
 	assert_eq(plus.text, "", "no text on arrow buttons")
 	assert_eq(minus.text, "")
 	assert_ne(plus.tooltip_text, "")
@@ -147,6 +147,19 @@ func test_angle_buttons_show_arrows_and_step_correctly() -> void:
 	minus.begin_hold()
 	minus.end_hold()
 	assert_eq(p.get_angle_tenths(), 449)
+
+
+func test_all_arrow_directions_draw_without_errors() -> void:
+	for a: int in [FineButton.Arrow.UP, FineButton.Arrow.DOWN, FineButton.Arrow.LEFT, FineButton.Arrow.RIGHT]:
+		var b: FineButton = add_child_autofree(FineButton.new())
+		b.custom_minimum_size = Vector2(120.0, 90.0)
+		b.arrow = a
+		await wait_frames(2)
+		assert_eq(b.get_arrow(), a)
+		assert_eq(b._arrow_dir().length(), 1.0, "unit direction")
+		b.disabled = true
+		await wait_frames(1)
+		assert_true(b.is_inside_tree())
 
 
 func test_power_buttons_keep_text_without_arrow() -> void:
