@@ -25,6 +25,7 @@ var _mark_right: FacingMark = null
 var _left: FineButton = null
 var _right: FineButton = null
 var _row: HBoxContainer = null
+var _read_row: HBoxContainer = null
 
 
 func _init() -> void:
@@ -38,7 +39,8 @@ func _init() -> void:
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_caption.add_theme_color_override("font_color", NeonPalette.TEXT_DIM)
 	box.add_child(_caption)
-	var read_row := HBoxContainer.new()
+	_read_row = HBoxContainer.new()
+	var read_row: HBoxContainer = _read_row
 	read_row.name = "ReadRow"
 	read_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	read_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -88,6 +90,7 @@ func apply_scale() -> void:
 	_caption.add_theme_font_size_override("font_size", UiScale.hud_font(11.0))
 	var font_px: int = UiScale.hud_font(26.0)
 	_readout.add_theme_font_size_override("font_size", font_px)
+	_read_row.add_theme_constant_override("separation", roundi(UiScale.dp(5.0)))
 	_mark_left.fit_to_font(font_px)
 	_mark_right.fit_to_font(font_px)
 	var bs := Vector2(UiScale.dp(64.0), UiScale.touch() * 1.05)
