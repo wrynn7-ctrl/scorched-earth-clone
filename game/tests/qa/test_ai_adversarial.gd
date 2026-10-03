@@ -162,7 +162,8 @@ func test_cpu_at_the_edge_with_an_enemy_next_door() -> void:
 	for lv: int in LEVELS:
 		var s: MatchState = QA_AI.flat([12, 40], [lv, 2])
 		var r: Dictionary = _turn("edge neighbour %s" % NAMES[lv], s)
-		assert_eq((r["last"] as Dictionary)["kind"], "fire")
+		# Next door every blast reaches us: the self-damage rule (M4-Q fix) may pass instead of firing.
+		assert_true((r["last"] as Dictionary)["kind"] in ["fire", "pass"], "fires or passes, level %d" % lv)
 		assert_lt(r["self_dmg"] as int, 100)
 
 
@@ -208,8 +209,7 @@ func test_blast_next_to_a_teammate_is_reported() -> void:
 		if QA_AI.damage_to(r["events"], 1) > 0:
 			hurt += 1
 	gut.p("AIADV  friendly splash: the teammate was hurt in %d of %d shots at an enemy 30 cells from it" % [hurt, cases])
-	_bug(hurt == 0,
-			"splash damage ignores teammates: with a teammate 30 cells from the enemy the CPU still fires area weapons that hurt the teammate in %d of %d levels (no team mode ships yet, teams == ids). Suspected cause: AimSolver.needs_verify/verify only checks the shell's path, not the blast radius, for allies (game/ai/aim_solver.gd needs_verify())" % [hurt, cases])
+	assert_eq(hurt, 0, "the CPU never fires an area weapon whose blast reaches a teammate (%d of %d levels did)" % [hurt, cases])
 
 
 func test_targeting_never_picks_self_a_teammate_or_a_dead_tank() -> void:
@@ -393,9 +393,8 @@ func test_eight_cpus_packed_close_together() -> void:
 		assert_eq(QA_AI.M3.check_state(s), [] as Array[String], "invariants after packed turn %d" % guard)
 	gut.p("AIADV  8 packed CPUs: %d turns, %d damaged themselves, %d suicides, %d passes, phase %s" % [turns, self_hits, suicides, passes, s.phase])
 	assert_gt(turns, 3)
-	assert_eq(passes, 0)
-	_bug(self_hits == 0,
-			"8 CPUs packed 30 cells apart (x = 700 + 30*i, flat ground, levels 1,2,3,4,1,2,3,4, each with 3 Hyperpulse + 1 Nova Core): %d of %d turns damaged the shooter and %d CPUs destroyed themselves, ending the round after %d turns. Expected: the CPU avoids weapons whose blast reaches its own box (it could use Spark Dart, r 14). Suspected cause: no self-damage estimate in game/ai/ai_weapons.gd _plain_by_health()/choose_and_plan()" % [self_hits, turns, suicides, turns])
+	assert_eq(passes, 0, "somebody always has a safe target in the packed crowd")
+	assert_eq(self_hits, 0, "8 CPUs packed 30 cells apart: %d of %d turns damaged the shooter, %d suicides" % [self_hits, turns, suicides])
 
 
 # --- repair -----------------------------------------------------------------------------------------------------
@@ -438,8 +437,7 @@ func test_expert_at_one_hp_does_not_gamble_on_a_kill_it_may_miss() -> void:
 	s.tanks[1].health = 40
 	var r: Dictionary = _turn("1 HP vs 40 HP enemy expert", s)
 	var last: Dictionary = r["last"]
-	_bug(last["kind"] == "use_item",
-			"AiPlayer._prepare (game/ai/ai_player.gd:117-121) lets an Expert with 1 HP and a Nanorepair Kit fire instead of healing whenever an enemy has <= 55 HP, ignoring its own hit chance and the retaliation (input: flat map, Expert at 1 HP with a kit, enemy 40 HP 700 cells away; expected: repair; actual: %s)" % _desc(last))
+	assert_eq(last["kind"], "use_item", "Expert at 1 HP with a kit heals instead of gambling (did: %s)" % _desc(last))
 
 
 # --- movement ---------------------------------------------------------------------------------------------------
@@ -486,12 +484,12 @@ func test_cpu_does_not_nuke_itself_at_point_blank_range() -> void:
 			if (r["self_dmg"] as int) > worst_dmg:
 				worst_dmg = r["self_dmg"] as int
 				worst = "%s at %d cells fired %s and took %d damage (destroyed: %s)" % [NAMES[lv], d, _desc(r["last"]), worst_dmg, str(QA_AI.destroyed(r["events"], 0))]
-	_bug(worst_dmg == 0,
-			"AI has no self-damage check: with a Nova Core in stock Hard/Expert fire it at enemies 26-90 cells away and hurt themselves in %d of %d shots; worst: %s. Input: flat map, tank 0 at x=300, enemy at x=300+d, stock nova_core 5 + hyperpulse 5. Expected: a smaller weapon (Pulse/Hyperpulse/Spark) or no self-damage. Suspected cause: game/ai/ai_weapons.gd:126 _plain_by_health() ladder picks the cheapest weapon that kills without comparing dmg radius to the distance" % [hurt, cases, worst])
+	assert_eq(worst_dmg, 0, "no self-damage at point-blank range (%d of %d shots hurt; worst: %s)" % [hurt, cases, worst])
 
 
-func test_cpu_sealed_in_a_tight_chamber_hurts_itself() -> void:
-	# Every shot explodes on the chamber wall next to the tank; the only harmless option is pass.
+func test_cpu_sealed_in_a_tight_chamber_does_not_hurt_itself() -> void:
+	# Every shot explodes on the chamber wall next to the tank; the only harmless option is pass. (An Easy
+	# tank may take a small self-hit of at most 10; none of the levels does today.)
 	var hurt: int = 0
 	var worst: int = 0
 	var desc: String = ""
@@ -501,13 +499,12 @@ func test_cpu_sealed_in_a_tight_chamber_hurts_itself() -> void:
 		QA_AI.clear_rect(s.terrain, 282, 318, 560, 600)  # 36 wide, 40 tall: 6 cells of room each side
 		var r: Dictionary = _turn("sealed chamber %s" % NAMES[lv], s)
 		assert_gte((r["copy"] as MatchState).tanks[0].health, 1, "survives")
-		if (r["self_dmg"] as int) > 0:
+		if (r["self_dmg"] as int) > (10 if lv == SimConstants.CTRL_EASY else 0):
 			hurt += 1
 			if (r["self_dmg"] as int) > worst:
 				worst = r["self_dmg"] as int
 				desc = "%s: %s took %d" % [NAMES[lv], _desc(r["last"]), worst]
-	_bug(hurt == 0,
-			"CPU in a sealed 36x40 chamber fires a Pulse Missile into the wall and damages itself at %d of 4 levels (%s); passing would be free. Input: flat map, rock block x150..450 y300..600 with a chamber x282..318 y560..600, tank 0 at (300,600) with 20 Pulse Missiles. Suspected cause: no self-hit estimate in game/ai/ai_player.gd finalize()/AiWeapons" % [hurt, desc])
+	assert_eq(hurt, 0, "the CPU in a sealed chamber passes instead of hitting its own wall (%d of 4 levels hurt themselves: %s)" % [hurt, desc])
 
 
 # --- entry points with strange arguments --------------------------------------------------------------------------

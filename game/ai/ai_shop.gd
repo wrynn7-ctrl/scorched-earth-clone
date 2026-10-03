@@ -2,8 +2,8 @@
 class_name AiShop
 extends RefCounted
 ## What the computer opponents buy (docs/ARCHITECTURE.md section 29):
-##   Easy    a few random cheap things (but never goes into battle empty-handed).
-##   Normal  a simple balanced kit: missiles, a shield, a chute.
+##   Easy    40-60% of its money: Pulse Missiles up to a stock of 8-12, then a few random cheap things.
+##   Normal  a simple balanced kit (missiles, a shield, a chute) out of 60-75% of its money.
 ##   Hard    a plan: shield first, strong weapons, chutes, a Seeker, one repair kit.
 ##   Expert  buys only what it needs and keeps a cash reserve; looks at what the opponents own
 ##           and counters it (Static Burst against shields, Photon Lance against repulsors).
@@ -25,7 +25,9 @@ static func actions(state: MatchState, tank_id: int) -> Array[Dictionary]:
 		SimConstants.CTRL_EASY:
 			_easy(sim, out, tank_id, rng)
 		SimConstants.CTRL_NORMAL:
-			_fill(sim, out, tank_id, AiProfile.SHOP_NORMAL, 0)
+			# A balanced kit out of 60-75% of the money; the rest stays in the bank.
+			var money: int = sim.tanks[tank_id].money
+			_fill(sim, out, tank_id, AiProfile.SHOP_NORMAL, money - money * rng.range_int(60, 75) / 100)
 		SimConstants.CTRL_HARD:
 			_fill(sim, out, tank_id, AiProfile.SHOP_HARD, 0)
 		_:
@@ -64,13 +66,31 @@ static func _fill(sim: MatchState, out: Array[Dictionary], tank_id: int, wishes:
 		_try_buy(sim, out, tank_id, id, mini(bundles, affordable))
 
 
+## Easy spends 40-60% of its money, mostly on missiles: Pulse Missiles up to a stock of 8-12, a
+## Hyperpulse bundle if the share allows, then one to three random cheap things out of what is
+## left above a 20% reserve. It never goes into battle empty-handed (>= 3 Pulse Missiles).
 static func _easy(sim: MatchState, out: Array[Dictionary], tank_id: int, rng: Rng) -> void:
 	var t: TankState = sim.tanks[tank_id]
+	var money: int = t.money
+	var ammo_budget: int = money * rng.range_int(40, 60) / 100
+	var want: int = rng.range_int(8, 12)
+	var pulse: Dictionary = Catalog.get_def("pulse_missile")
+	var bundle: int = pulse["bundle"]
+	var bundles: int = (want - t.stock_of("pulse_missile") + bundle - 1) / bundle
+	var affordable: int = ammo_budget / (pulse["price"] as int)
+	if bundles > 0:
+		_try_buy(sim, out, tank_id, "pulse_missile", mini(bundles, affordable))
 	if t.stock_of("pulse_missile") < 3:
 		_try_buy(sim, out, tank_id, "pulse_missile", 1)
+	var left_in_budget: int = ammo_budget - (money - t.money)
+	if t.stock_of("hyperpulse") < 3 and left_in_budget >= (Catalog.get_def("hyperpulse")["price"] as int):
+		_try_buy(sim, out, tank_id, "hyperpulse", 1)
+	var reserve: int = money / 5
 	var pool: PackedStringArray = AiProfile.SHOP_EASY_POOL
 	for _i: int in range(rng.range_int(1, 3)):
-		_try_buy(sim, out, tank_id, pool[rng.range_int(0, pool.size() - 1)], 1)
+		var item: String = pool[rng.range_int(0, pool.size() - 1)]
+		if t.money - (Catalog.get_def(item)["price"] as int) >= reserve:
+			_try_buy(sim, out, tank_id, item, 1)
 
 
 static func _expert(sim: MatchState, out: Array[Dictionary], tank_id: int) -> void:

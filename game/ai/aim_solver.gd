@@ -356,7 +356,9 @@ static func verify(ctx: Ctx, plan: Dictionary, phys_weapon: String, target_id: i
 ## confused by the crater it left behind.
 static func model_x_at_row(flight: AiFlight, sx: int, sy: int, angle: int, power: int, wind: int,
 		y: int, split_dvx: int = 0) -> int:
-	flight.fly_shot(sx, sy, angle, power, wind, MODEL_TICKS, y, split_dvx)
+	# Terrain-free: the old shot hit something at row y; the question is only where the believed
+	# physics would have had it at that height.
+	flight.fly_shot(sx, sy, angle, power, wind, MODEL_TICKS, y, split_dvx, true)
 	model_count += 1
 	return flight.r_x
 

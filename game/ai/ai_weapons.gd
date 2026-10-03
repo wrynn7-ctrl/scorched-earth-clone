@@ -34,15 +34,96 @@ const ALLY_LOB_ANGLE: int = 780
 
 
 static func choose_and_plan(sit: AiSituation) -> Dictionary:
+	# The first weapon (in the level's order of preference) whose aim works out AND whose blast
+	# does not reach the shooter or a teammate wins. If every option hurts us, the best
+	# "enemy damage - 1.5 x own damage" is returned (with self_dmg > 0); the caller decides
+	# whether that is still worth firing.
+	var best: Dictionary = {}
+	var best_score: int = 0
 	for id: String in _candidates(sit):
 		var plan: Dictionary = plan_for(sit, id)
-		if not plan.is_empty() and plan["ok"]:
+		if plan.is_empty() or not plan["ok"]:
+			continue
+		var score: int = _rate(sit, plan, id)
+		if plan["self_dmg"] == 0:
 			return plan
+		if best.is_empty() or score > best_score:
+			best = plan
+			best_score = score
+	if not best.is_empty():
+		return best
 	# Nothing aimed cleanly: shoot the best-effort plain solution with a basic missile.
 	var basic: String = "pulse_missile" if sit.owns("pulse_missile") else "spark_dart"
 	var fallback: Dictionary = _plain_plan(sit, basic, sit.target.x, "pulse_missile", false)
 	fallback["ok"] = false
+	_rate(sit, fallback, basic)
 	return fallback
+
+
+# --- self harm ---------------------------------------------------------------------------------------------
+
+## Fills plan["self_dmg"] (damage to the shooter and its teammates), plan["enemy_dmg"] and
+## returns enemy_dmg - 1.5 x self_dmg. The blast is judged at the planned impact point with the
+## same Damage formula as the simulation, widened by the error this level will add to the shot.
+static func _rate(sit: AiSituation, plan: Dictionary, id: String) -> int:
+	var h: Dictionary = estimate_harm(sit, plan, id)
+	plan["self_dmg"] = h["self"]
+	plan["enemy_dmg"] = h["enemy"]
+	return (h["enemy"] as int) - 3 * (h["self"] as int) / 2
+
+
+static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dictionary:
+	var def: Dictionary = WeaponDefs.get_def(id)
+	var behavior: String = def.get("behavior", "")
+	var out: Dictionary = {"self": 0, "enemy": 0}
+	var radius: int = def.get("r", 0)
+	var dmg: int = def.get("dmg", 0)
+	var spread: int = 0
+	var impact: Vector2i = Vector2i(-1, -1)
+	match behavior:
+		"explode", "seeker", "static":
+			impact = _impact(sit, plan, true)
+		"splitter":
+			impact = _impact(sit, plan, true)
+			spread = 48  # the children fan out around the middle one
+		"roller":
+			impact = _impact(sit, plan, false)
+			spread = 30
+		"tunneler":
+			# The bore comes out beside the target (that is what the plan was searched for).
+			var t: TankState = sit.target
+			impact = Vector2i(t.x - sit.ctx.dir * (SimConstants.TANK_W / 2), t.y - SimConstants.TANK_H / 2)
+		"beam":
+			out["enemy"] = def["dmg"]
+			return out
+		_:
+			out["enemy"] = 1  # dirt, wells, anchors: no blast worth counting
+			return out
+	if impact.x < 0:
+		return out  # the shell flies off the map: nothing explodes
+	var prof: Dictionary = sit.prof
+	var err_pm: int = 2 * ((prof["bias_max"] as int) + 2 * (prof["noise"] as int))
+	var margin: int = absi(impact.x - sit.me.x) * err_pm / 1000 + spread
+	for t: TankState in sit.state.tanks:
+		if not t.alive:
+			continue
+		var d: int = Damage.distance_to_tank(impact.x, impact.y, t)
+		if t.id == sit.me.id or t.team == sit.me.team:
+			out["self"] = (out["self"] as int) + Damage.amount(maxi(0, d - margin), radius, dmg)
+		else:
+			out["enemy"] = (out["enemy"] as int) + Damage.amount(d, radius, dmg)
+	return out
+
+
+## Where the planned shell explodes: its model flight, ending (when `at_target`) as it reaches the
+## top of the target's hit box, like the real shell would. (-1, -1) if it leaves the map.
+static func _impact(sit: AiSituation, plan: Dictionary, at_target: bool) -> Vector2i:
+	var row: int = sit.target.y - SimConstants.TANK_H if at_target else -1
+	sit.flight.fly_shot(sit.me.x, sit.me.y, plan["angle"], plan["power"], sit.ctx.wind, AimSolver.MODEL_TICKS, row)
+	AimSolver.model_count += 1
+	if sit.flight.r_reason != AiFlight.REASON_TERRAIN:
+		return Vector2i(-1, -1)
+	return Vector2i(sit.flight.r_x, sit.flight.r_y)
 
 
 # --- weapon preferences -----------------------------------------------------------------------------
@@ -56,7 +137,8 @@ static func _candidates(sit: AiSituation) -> Array[String]:
 			_normal(sit, out)
 		_:
 			_expert_or_hard(sit, out)
-	out.append("spark_dart")
+	if not out.has("spark_dart"):
+		out.append("spark_dart")  # the small blast: the last resort when the others would hurt us
 	return out
 
 

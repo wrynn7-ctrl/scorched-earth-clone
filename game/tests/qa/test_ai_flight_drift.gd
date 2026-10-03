@@ -144,7 +144,7 @@ func _adversarial_groups() -> void:
 		var power: int = r.range_int(500, 1000)
 		a.append(_cmp_shot(s, 0, angle, power, r.range_int(-100, 100), "pillar 3 wide x 120 tall at x=700 [flat ground y=600, shooter x=300]"))
 	_groups["thin pillar"] = a
-	# B: a wall that reaches the very top of the map (y = 0): the model assumes open sky above SKY_Y.
+	# B: a wall that reaches the very top of the map (y = 0): the model must not assume open sky above some row.
 	var b: Array[Dictionary] = []
 	var s2: MatchState = SimTestUtil.flat_state(2)
 	s2.terrain.flatten(800, 840, 0)
@@ -152,7 +152,7 @@ func _adversarial_groups() -> void:
 		b.append(_cmp_shot(s2, 0, r.range_int(300, 900), r.range_int(300, 1000), r.range_int(-100, 100),
 				"full-height wall x=800..840 [flat ground y=600, shooter x=300]"))
 	_groups["full-height wall"] = b
-	# C: a wall of moderate height that tops out above the model's SKY_Y (150) but not at the top.
+	# C: a wall of moderate height that tops out high above the old fixed sky line (row 150) but not at the top.
 	var c: Array[Dictionary] = []
 	var s3: MatchState = SimTestUtil.flat_state(2)
 	s3.terrain.flatten(800, 840, 100)
@@ -219,12 +219,8 @@ func test_500_random_shots_agree_with_ballistics_within_2_cells() -> void:
 		gut.p("AIDRIFT   REPRO " + w)
 	assert_eq(_generic.size(), SHOTS)
 	var bad: int = _count_bad(_generic)
-	# Ratchet: 3 known disagreements today (thin ridges skipped by the tick-end sampling); more is a regression.
-	assert_lte(bad, 5, "random shots where AiFlight and Ballistics disagree (known baseline 3)")
-	if bad > 0:
-		pending("BUG: AiFlight and Ballistics.trace disagree by more than %d cells (or in end reason) on %d of %d random shots. Worst: %s" % [TOL, bad, _generic.size(), worst[0]])
-	else:
-		assert_eq(bad, 0)
+	# Ratchet: the model checks every sub-step like Ballistics, so no random shot may disagree any more.
+	assert_eq(bad, 0, "random shots where AiFlight and Ballistics disagree by more than %d cells (baseline 0 of %d)%s" % [TOL, _generic.size(), "" if bad == 0 else ": " + worst[0]])
 
 
 func test_the_random_shots_cover_what_they_claim() -> void:
@@ -253,31 +249,19 @@ func test_adversarial_terrain_groups_report() -> void:
 func test_thin_pillar_is_not_skipped_by_the_model() -> void:
 	var list: Array[Dictionary] = _groups["thin pillar"]
 	var bad: int = _count_bad(list)
-	assert_lte(bad, 24, "ratchet (known baseline 18 of 60)")
-	if bad > 0:
-		pending("BUG: AiFlight (game/ai/ai_flight.gd:148, GRAZE=4 at :26) samples only tick-end cells near the ground, so a shell that passes through a thin pillar between two samples is not stopped. %d of %d shots disagree with Ballistics. Repro: %s" % [bad, list.size(), _worst_of(list, 1)[0]])
-	else:
-		assert_eq(bad, 0)
+	assert_eq(bad, 0, "ratchet (baseline 0 of 60)%s" % ("" if bad == 0 else ": " + _worst_of(list, 1)[0]))
 
 
 func test_full_height_wall_stops_the_model_shell() -> void:
 	var list: Array[Dictionary] = _groups["full-height wall"]
 	var bad: int = _count_bad(list)
-	assert_lte(bad, 8, "ratchet (known baseline 6 of 60)")
-	if bad > 0:
-		pending("BUG: AiFlight.SKY_Y = 150 (game/ai/ai_flight.gd:23,148) treats everything above row 150 as open sky, but terrain can reach row 0 (e.g. stacked Landslides, flatten). %d of %d shots disagree with Ballistics. Repro: %s" % [bad, list.size(), _worst_of(list, 1)[0]])
-	else:
-		assert_eq(bad, 0)
+	assert_eq(bad, 0, "ratchet (baseline 0 of 60)%s" % ("" if bad == 0 else ": " + _worst_of(list, 1)[0]))
 
 
 func test_wall_above_the_sky_line_stops_the_model_shell() -> void:
 	var list: Array[Dictionary] = _groups["wall above sky line"]
 	var bad: int = _count_bad(list)
-	assert_lte(bad, 3, "ratchet (known baseline 1 of 60)")
-	if bad > 0:
-		pending("BUG: terrain above row 150 (SKY_Y) is invisible to AiFlight. %d of %d shots disagree with Ballistics. Repro: %s" % [bad, list.size(), _worst_of(list, 1)[0]])
-	else:
-		assert_eq(bad, 0)
+	assert_eq(bad, 0, "ratchet (baseline 0 of 60)%s" % ("" if bad == 0 else ": " + _worst_of(list, 1)[0]))
 
 
 func test_deep_pit_shots_agree() -> void:

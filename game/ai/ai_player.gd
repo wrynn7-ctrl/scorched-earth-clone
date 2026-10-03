@@ -24,9 +24,13 @@ extends RefCounted
 const SHIELDS: Array[String] = ["fortress_field", "ion_shield", "glow_shield"]
 ## Last-shot weapon behaviours whose landing point is a fair reading of the aim error.
 const CORRECTABLE_LAST: PackedStringArray = ["explode", "tunneler", "dirt", "splitter"]
-const MAX_CORRECTION: int = 400
+const MAX_CORRECTION: int = 1000
 ## Model flights a decision may spend judging possible walks (it stops looking after that).
 const MOVE_SEARCH_FLIGHTS: int = 60
+## Largest damage to itself an Easy tank will still accept for a shot that is not worth it.
+const EASY_SELF_HIT: int = 10
+## At or below this health a Hard or Expert tank with a repair kit heals instead of gambling.
+const CRITICAL_HEALTH: int = 20
 
 
 ## One action for the tank whose turn it is. May return a non-turn-ending action
@@ -96,11 +100,48 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	var prep: Dictionary = _prepare(state, me, prof, level, enemies)
 	if not prep.is_empty():
 		return prep
-	var sit: AiSituation = situation(state, me, level, prof, enemies)
-	var walk: Dictionary = _maybe_move(sit)
-	if not walk.is_empty():
-		return walk
-	return finalize(sit, AiWeapons.choose_and_plan(sit))
+	var primary: TankState = AiTargets.pick(state, me, level)
+	var best_plan: Dictionary = {}
+	var best_sit: AiSituation = null
+	var best_score: int = 0
+	for target: TankState in _target_order(me, enemies, primary):
+		var sit: AiSituation = situation(state, me, level, prof, enemies, target)
+		if target == primary:
+			var walk: Dictionary = _maybe_move(sit)
+			if not walk.is_empty():
+				return walk
+		var plan: Dictionary = AiWeapons.choose_and_plan(sit)
+		if plan["self_dmg"] == 0:
+			return finalize(sit, plan)
+		# Every option at this target would hurt us: remember the least bad one and look at
+		# the next target (one farther away may be safe to shoot at).
+		var score: int = (plan["enemy_dmg"] as int) - 3 * (plan["self_dmg"] as int) / 2
+		if best_sit == null or score > best_score:
+			best_plan = plan
+			best_sit = sit
+			best_score = score
+	# Worth the self-inflicted damage? Easy may still take a small hit (<= EASY_SELF_HIT), never a big one.
+	if best_score > 0 or (level == SimConstants.CTRL_EASY and (best_plan["self_dmg"] as int) <= EASY_SELF_HIT
+			and (best_plan["enemy_dmg"] as int) > 0):
+		return finalize(best_sit, best_plan)
+	return {"kind": "pass", "tank": me.id}
+
+
+## The preferred target first, then (at most) the two nearest others: used when every shot at the
+## preferred target would blow up in our own face.
+static func _target_order(me: TankState, enemies: Array[TankState], primary: TankState) -> Array[TankState]:
+	var order: Array[TankState] = [primary]
+	var rest: Array[TankState] = []
+	for e: TankState in enemies:
+		if e.id != primary.id:
+			rest.append(e)
+	rest.sort_custom(func(a: TankState, b: TankState) -> bool:
+		var da: int = absi(a.x - me.x)
+		var db: int = absi(b.x - me.x)
+		return da < db or (da == db and a.id < b.id))
+	for i: int in range(mini(2, rest.size())):
+		order.append(rest[i])
+	return order
 
 
 # --- items ---------------------------------------------------------------------------------------------
@@ -114,11 +155,14 @@ static func _prepare(state: MatchState, me: TankState, prof: Dictionary, level: 
 		enemies: Array[TankState]) -> Dictionary:
 	var repair_below: int = prof["repair_below"]
 	if repair_below > 0 and me.health <= repair_below and me.stock_of("nanorepair_kit") > 0:
-		var can_kill: bool = false
-		if level == SimConstants.CTRL_EXPERT:
+		var skip: bool = false
+		if me.health <= CRITICAL_HEALTH:
+			# Nearly dead: heal, unless one shot is all but certain to end the round.
+			skip = _near_certain_last_kill(state, me, enemies)
+		elif level == SimConstants.CTRL_EXPERT:
 			for e: TankState in enemies:
-				can_kill = can_kill or AiTargets.hp_eff(e) <= 55
-		if not can_kill:
+				skip = skip or AiTargets.hp_eff(e) <= 55
+		if not skip:
 			return _use(me, "nanorepair_kit")
 	if not me.has_shield():
 		var mode: int = prof["shield"]
@@ -134,10 +178,29 @@ static func _prepare(state: MatchState, me: TankState, prof: Dictionary, level: 
 	return {}
 
 
+## True if the one enemy left can be finished by a shot that cannot really miss: a Photon Lance
+## with a clear first hit, or a short-range shot from a bracket that already landed on it.
+static func _near_certain_last_kill(state: MatchState, me: TankState, enemies: Array[TankState]) -> bool:
+	if enemies.size() != 1:
+		return false
+	var e: TankState = enemies[0]
+	var hp: int = AiTargets.hp_eff(e)
+	if hp > AiTargets.best_damage(me):
+		return false
+	var lance: Dictionary = WeaponDefs.get_def("photon_lance")
+	if me.stock_of("photon_lance") > 0 and hp <= (lance["dmg"] as int):
+		var angle: int = AimSolver.beam_angle(me.x, me.y, e.x, e.y - SimConstants.TANK_H / 2)
+		var tr: Dictionary = AimSolver.counted_beam(state, me.id, angle, "photon_lance")
+		if not tr.is_empty() and (tr["hit_tank"] as int) == e.id:
+			return true
+	return absi(e.x - me.x) <= 150 and me.last_fire_weapon >= 0 and me.last_fire_x >= 0 \
+			and absi(me.last_fire_x - e.x) <= 40 and AiTargets.nearest_tank_to_x(state, me, me.last_fire_x) == e.id
+
+
 # --- aiming ----------------------------------------------------------------------------------------------
 
 static func situation(state: MatchState, me: TankState, level: int, prof: Dictionary,
-		enemies: Array[TankState]) -> AiSituation:
+		enemies: Array[TankState], forced_target: TankState = null) -> AiSituation:
 	var sit := AiSituation.new()
 	sit.state = state
 	sit.me = me
@@ -145,7 +208,7 @@ static func situation(state: MatchState, me: TankState, level: int, prof: Dictio
 	sit.prof = prof
 	sit.rng = turn_rng(state, me.id)
 	sit.enemies = enemies
-	sit.target = AiTargets.pick(state, me, level)
+	sit.target = forced_target if forced_target != null else AiTargets.pick(state, me, level)
 	sit.nearest_id = AiTargets.nearest(me, enemies).id
 	sit.dist = absi(sit.target.x - me.x)
 	var dir: int = 1 if sit.target.x >= me.x else -1
@@ -173,7 +236,7 @@ static func others_with_repulsors(state: MatchState, me: TankState) -> Array[Tan
 ## this target, was a weapon whose landing says little, or was lost.
 static func correction_for(sit: AiSituation) -> Dictionary:
 	var me: TankState = sit.me
-	if me.last_fire_weapon < 0 or me.last_fire_x < 0 or me.last_fire_y < 0:
+	if me.last_fire_weapon < 0:
 		return {}
 	var last_def: Dictionary = WeaponDefs.get_def(Catalog.id_at(me.last_fire_weapon))
 	var behavior: String = last_def.get("behavior", "")
@@ -186,12 +249,17 @@ static func correction_for(sit: AiSituation) -> Dictionary:
 	var last_dir: int = 1 if me.last_fire_angle < 900 else -1
 	if me.last_fire_angle != 900 and last_dir != sit.ctx.dir:
 		return {}
+	if me.last_fire_x < 0 or me.last_fire_y < 0:
+		# The shell was lost off the map: no impact to read, but it told us the power was far too
+		# much; correcting towards the exact solution from that power still brackets the target
+		# (otherwise a biased tank would repeat the same lost shot for ever).
+		return {"angle": me.last_fire_angle, "power": me.last_fire_power, "d": 0}
 	if AiTargets.nearest_tank_to_x(sit.state, me, me.last_fire_x) != sit.target.id:
 		return {}
 	var wind_then: int = me.last_fire_wind * (sit.prof["wind_use"] as int) / 1000
 	var model_x: int = AimSolver.model_x_at_row(sit.flight, me.x, me.y, me.last_fire_angle,
 			me.last_fire_power, wind_then, me.last_fire_y, split_dvx)
-	if absi(sit.flight.r_y - me.last_fire_y) > 15:
+	if not sit.flight.r_row_stop:
 		return {}
 	var d: int = me.last_fire_x - model_x
 	if absi(d) > MAX_CORRECTION:

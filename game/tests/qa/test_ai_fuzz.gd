@@ -187,8 +187,8 @@ func test_stalemates_are_reported() -> void:
 
 
 func test_rounds_do_not_drag_on_for_hundreds_of_turns() -> void:
-	# Not a stalemate (every round ends) but a pacing defect: a duel in which both survivors only have the
-	# unlimited Spark Dart (30 damage, blast 14, almost never hits at range) takes 100-290 turns.
+	# Pacing: Easy and Normal spend a real share of their money on missiles (M4-Q fix), so a duel is no longer
+	# a Spark-Dart-only grind of 100-290 turns.
 	var long_rounds: int = 0
 	var worst: int = 0
 	var all_rounds: int = 0
@@ -207,8 +207,7 @@ func test_rounds_do_not_drag_on_for_hundreds_of_turns() -> void:
 			if sample == "":
 				sample = "%s: %s" % [info["tag"], str(info["last40"])]
 	gut.p("AIFUZZ  rounds of >= %d turns: %d of %d (longest %d); survivors were Easy/Normal in %d of them" % [QA_AI.LONG_ROUND, long_rounds, all_rounds, worst, easy_only])
-	_bug(worst <= 150,
-			"%d of %d rounds lasted >= %d turns, the longest %d. The survivors fire only the unlimited Spark Dart (last 40 actions: %s). Cause: Easy's shop buys one bundle of Pulse Missiles plus 1-3 random cheap items per round and leaves the rest of its credits unspent (game/ai/ai_shop.gd:67 _easy(), e.g. 1,000,000 credits and still Spark-only), and Spark Dart duels at range hit almost never. Suggested: a larger Easy/Normal purchase, or a sudden-death rule after N turns" % [long_rounds, all_rounds, QA_AI.LONG_ROUND, worst, sample])
+	assert_lt(worst, 150, "no round may last 150 turns or more (%d of %d rounds lasted >= %d, the longest %d; sample: %s)" % [long_rounds, all_rounds, QA_AI.LONG_ROUND, worst, sample])
 
 
 func test_weapon_and_item_usage_report() -> void:

@@ -19,11 +19,6 @@ const REASON_TERRAIN: int = 1
 const REASON_LOST: int = 2
 const REASON_TIMEOUT: int = 3
 
-## Shells above this row are assumed to be over open sky (generated surfaces are at y >= 270).
-const SKY_Y: int = 150
-## A tick that ends this close above the ground is walked sub-step by sub-step, because a
-## shell skimming a crest can dip into it between two tick-end samples.
-const GRAZE: int = 4
 
 var terrain: Terrain
 var _top: PackedInt32Array = PackedInt32Array()
@@ -39,6 +34,9 @@ var _fx0: int = 0
 var _fx1: int = 0
 var _fy0: int = 0
 var _fy1: int = 0
+# Highest terrain row of the whole map (computed on first use): above it nothing can be hit.
+var _peak_row: int = -1
+var _free: bool = false
 
 ## Results of the last fly_shot(): why it ended, the cell it ended in, and the Q16.16
 ## position/velocity at the end (what Ballistics.trace reports as px, py, vx, vy).
@@ -50,6 +48,8 @@ var r_py: int = 0
 var r_vx: int = 0
 var r_vy: int = 0
 var r_ticks: int = 0
+## True when the last flight stopped at the `stop_y` row in open air rather than at terrain.
+var r_row_stop: bool = false
 ## Q16.16 launch position (set by fly_shot), handy for range estimates.
 var muzzle_px: int = 0
 var muzzle_py: int = 0
@@ -92,6 +92,21 @@ func surface(x: int) -> int:
 	return v
 
 
+## Highest terrain row of the map (the smallest surface y over all columns). Most columns are
+## rejected with one probe: a column only needs a binary search if it is solid above the best
+## row found so far. Columns are visited in a scattered order so the best row settles quickly.
+func peak_row() -> int:
+	if _peak_row < 0:
+		var best: int = terrain.height
+		var w: int = terrain.width
+		for i: int in range(w):
+			var x: int = (i * 37) % w
+			if best > 0 and terrain.is_solid(x, best - 1):
+				best = mini(best, surface(x))
+		_peak_row = best
+	return _peak_row
+
+
 ## Resting y of a tank centred on column cx (the highest surface under its width).
 func rest_y(cx: int) -> int:
 	var best: int = terrain.height
@@ -108,8 +123,10 @@ func rest_y(cx: int) -> int:
 ## crossed the height it landed at, even though its crater has changed the terrain since).
 ## With split_dvx != 0 the shell behaves like the splitter child that starts with that extra
 ## Q16.16 vx at the apex (the first tick where it is no longer rising).
+## With `free` the shell ignores the terrain altogether (only the stop_y row and the map sides
+## end it): where would the believed physics have taken it, had nothing been in the way?
 func fly_shot(tank_x: int, tank_y: int, angle: int, power: int, wind: int, max_ticks: int,
-		stop_y: int = -1, split_dvx: int = 0) -> void:
+		stop_y: int = -1, split_dvx: int = 0, free: bool = false) -> void:
 	var speed: int = power * SimConstants.MAX_SPEED / 1000
 	var cos_a: int = FixedMath.cos10(angle)
 	var sin_a: int = FixedMath.sin10(angle)
@@ -123,6 +140,9 @@ func fly_shot(tank_x: int, tank_y: int, angle: int, power: int, wind: int, max_t
 	var width: int = terrain.width
 	r_reason = REASON_TIMEOUT
 	r_ticks = max_ticks
+	r_row_stop = false
+	_free = free
+	var peak: int = peak_row()
 	var split_pending: bool = split_dvx != 0
 	var charge: PackedInt32Array = _rep_charge.duplicate()
 	var forces: bool = not _wells.is_empty() or not charge.is_empty()
@@ -145,8 +165,19 @@ func fly_shot(tank_x: int, tank_y: int, angle: int, power: int, wind: int, max_t
 		var check: bool = false
 		if cx < 0 or cx >= width:
 			check = true
-		elif cy >= SKY_Y:
-			if cy + GRAZE >= surface(cx) or (stop_y >= 0 and vy > 0 and cy >= stop_y):
+		else:
+			# Can any cell this tick passes through be solid? Only if its lowest row is at or
+			# below the highest ground of the columns it spans (the map's peak row prunes the
+			# open-sky ticks without looking at a single column).
+			var low: int = maxi(oy, py) >> 16
+			if not free and low >= peak:
+				var a: int = clampi(mini(ox >> 16, cx), 0, width - 1)
+				var b: int = clampi(maxi(ox >> 16, cx), 0, width - 1)
+				var top: int = surface(a)
+				for c: int in range(a + 1, b + 1):
+					top = mini(top, surface(c))
+				check = low >= top
+			if not check and stop_y >= 0 and vy > 0 and cy >= stop_y:
 				check = true
 		if check and _resolve_tick(ox, oy, vx, vy, stop_y):
 			r_ticks = tick
@@ -175,8 +206,12 @@ func _resolve_tick(ox: int, oy: int, vx: int, vy: int, stop_y: int) -> bool:
 		var reason: int = REASON_NONE
 		if cx < 0 or cx >= terrain.width:
 			reason = REASON_LOST
-		elif terrain.is_solid(cx, cy) or (stop_y >= 0 and vy > 0 and cy >= stop_y):
+		elif not _free and terrain.is_solid(cx, cy):
 			reason = REASON_TERRAIN
+			r_row_stop = false
+		elif stop_y >= 0 and vy > 0 and cy >= stop_y:
+			reason = REASON_TERRAIN
+			r_row_stop = true
 		if reason != REASON_NONE:
 			r_reason = reason
 			r_x = cx
