@@ -9,7 +9,7 @@ uniform float horizon : hint_range(0.3, 0.9) = 0.6;
 uniform vec2 sun_pos = vec2(0.6, 0.40); // uv
 uniform float sun_radius = 0.14;        // in height units
 uniform float moon_mix : hint_range(0.0, 1.0) = 0.0;  // legacy switch: 1 = moon
-uniform int sun_style = 0;              // 0 synthwave sun, 1 moon, 2 chrome sun
+uniform int sun_style = 0;              // 0 synthwave sun, 1 moon, 2 chrome sun, 3 heart sun (Love Edition)
 uniform float scroll_speed = 0.35;      // grid rows per second toward the viewer (0 = still)
 uniform vec2 parallax = vec2(0.0);      // camera offset in uv-ish units (set by sky.gd)
 uniform vec4 sky_top : source_color = vec4(0.027, 0.008, 0.10, 1.0);
@@ -75,6 +75,15 @@ float moon_shade(vec2 q) {
 	return shade * (1.0 - 0.18 * smoothstep(0.55, 1.0, r2));
 }
 
+// Implicit heart curve on q (-1..1 across the sun's box): negative inside. The box is stretched
+// to 1.25 so the heart fills it.
+float heart_f(vec2 q) {
+	float x = q.x * 1.25;
+	float y = -q.y * 1.25 + 0.1;
+	float a = x * x + y * y - 1.0;
+	return a * a * a - x * x * y * y * y;
+}
+
 float stars(vec2 uv, float cells, float size, float t) {
 	vec2 g = uv * vec2(aspect, 1.0) * cells;
 	vec2 id = floor(g);
@@ -126,6 +135,14 @@ void fragment() {
 			vec3 base_col = moon_mix > 0.5 ? vec3(0.85, 0.93, 1.0) : sun_col_a.rgb;
 			body = base_col * moon_shade(sp / sun_radius);
 			if (moon_mix > 0.5) { halo_c = vec3(0.4, 0.7, 1.0); }
+		} else if (style == 3) {
+			// A heart-shaped sun: peach-white at the top fading to pink, with the synthwave slits low down.
+			float hf = heart_f(sp / sun_radius);
+			float hw = max(fwidth(hf) * 1.5, 0.003);
+			vis = 1.0 - smoothstep(-hw, hw, hf);
+			body = mix(sun_col_a.rgb, sun_col_b.rgb, smoothstep(0.1, 0.95, vy));
+			float slit_h = step(0.15, sp.y) * step(fract(sp.y * 24.0), 0.08 + 0.4 * vy * vy);
+			vis *= 1.0 - slit_h;
 		} else if (style == 2) {
 			// Chrome: bright sky reflection on top, a dark band, a hot horizon line, magenta below.
 			vec3 top_c = sun_col_a.rgb * (1.0 - 0.35 * vy);

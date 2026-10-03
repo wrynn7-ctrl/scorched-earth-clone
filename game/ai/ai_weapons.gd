@@ -264,7 +264,7 @@ static func plan_for(sit: AiSituation, id: String) -> Dictionary:
 	var def: Dictionary = WeaponDefs.get_def(id)
 	var behavior: String = def.get("behavior", "")
 	match behavior:
-		"explode", "splitter", "dirt":
+		"explode", "splitter", "dirt", "love":
 			return _plain_plan(sit, id, sit.target.x, "pulse_missile", true)
 		"static":
 			return _plain_plan(sit, id, sit.target.x, "pulse_missile", false)

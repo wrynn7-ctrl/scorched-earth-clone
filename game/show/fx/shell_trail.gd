@@ -10,6 +10,10 @@ signal finished
 const TAIL_POINTS: int = 28
 ## How many path samples the visible tail spans.
 const TAIL_SPAN: float = 36.0
+const SPARKLE_COUNT: int = 8
+## Heart head: world-unit size and the spin per path sample (radians).
+const HEART_HEAD_SCALE: float = 0.3
+const HEART_SPIN: float = 0.03
 
 var samples_per_second: float = 120.0
 
@@ -21,6 +25,9 @@ var _wake: Line2D = null
 var _wake_grad: Gradient = null
 var _head: Sprite2D = null
 var _fade: Tween = null
+## Love Edition: the shell is a slowly spinning glowing heart with a twinkling sparkle trail.
+var _heart_style: bool = false
+var _sparkles: Array[Sprite2D] = []
 
 
 func _ready() -> void:
@@ -48,8 +55,18 @@ func _ready() -> void:
 	_head.scale = Vector2(0.5, 0.5)
 	_head.modulate = NeonPalette.HOT
 	add_child(_head)
+	for i: int in range(SPARKLE_COUNT):
+		var sp := Sprite2D.new()
+		sp.name = "Sparkle%d" % i
+		sp.texture = FxTextures.sparkle()
+		sp.material = FxTextures.additive()
+		sp.visible = false
+		add_child(sp)
+		_sparkles.append(sp)
 	visible = false
 	set_process(false)
+	if _heart_style:
+		set_heart_style(true)  # asked for before the node was in the tree
 
 
 ## A faint line along the part of the path already flown, so bent flights (Seeker, wells,
@@ -67,6 +84,30 @@ func _build_wake() -> void:
 	_wake_grad.offsets = PackedFloat32Array([0.0, 0.01, 0.02, 1.0])
 	_wake.gradient = _wake_grad
 	add_child(_wake)
+
+
+## The Love Edition's look (a heart shell) on or off. Takes effect at once; the trail pool reuses
+## nodes, so the controller sets it for every shell it starts.
+func set_heart_style(on: bool) -> void:
+	_heart_style = on
+	if _head == null:
+		return
+	_head.texture = FxTextures.heart() if on else FxTextures.glow()
+	_head.scale = Vector2.ONE * (HEART_HEAD_SCALE if on else 0.5)
+	_head.modulate = Color(1.0, 0.62, 0.8) if on else NeonPalette.HOT
+	_head.rotation = 0.0
+	_line.width = 5.0 if on else 6.0
+	var grad: Gradient = _line.gradient
+	grad.colors = PackedColorArray([Color(1.0, 0.9, 0.95), Color(1.0, 0.4, 0.7), Color(1.0, 0.6, 0.8, 0.0)]) if on \
+			else PackedColorArray([NeonPalette.HOT, NeonPalette.SUNSET, Color(NeonPalette.MAGENTA, 0.0)])
+	var wake_c: Color = Color(1.0, 0.55, 0.78) if on else NeonPalette.MAGENTA.lerp(Color.WHITE, 0.3)
+	_wake_grad.colors = PackedColorArray([Color(wake_c, 0.0), Color(wake_c, 0.4), Color(wake_c, 0.0), Color(wake_c, 0.0)])
+	for sp: Sprite2D in _sparkles:
+		sp.visible = on
+
+
+func is_heart_style() -> bool:
+	return _heart_style
 
 
 func _update_wake() -> void:
@@ -99,6 +140,8 @@ func play(path: PackedVector2Array, sps: float = 120.0) -> void:
 	modulate = Color.WHITE
 	visible = true
 	_head.visible = true
+	for sp: Sprite2D in _sparkles:
+		sp.visible = _heart_style
 	_update_visual()
 	set_process(true)
 
@@ -151,6 +194,28 @@ func _update_visual() -> void:
 	for i: int in range(TAIL_POINTS):
 		_line.set_point_position(i, _sample(maxf(0.0, _pos - float(i) * step)))
 	_head.position = _line.get_point_position(0)
+	if _heart_style:
+		_update_heart()
+
+
+## Spin and sparkles are functions of the path position, so there is nothing to allocate or store.
+func _update_heart() -> void:
+	_head.rotation = _pos * HEART_SPIN
+	var step: float = TAIL_SPAN / float(SPARKLE_COUNT + 1)
+	for i: int in range(SPARKLE_COUNT):
+		var k: float = float(i + 1) / float(SPARKLE_COUNT + 1)
+		var idx: float = maxf(0.0, _pos - float(i + 1) * step)
+		var p: Vector2 = _sample(idx)
+		var ahead: Vector2 = _sample(idx + 1.0)
+		var dir: Vector2 = (ahead - p).normalized() if ahead != p else Vector2.RIGHT
+		var side: Vector2 = Vector2(-dir.y, dir.x)
+		var wobble: float = sin(_pos * 0.09 + float(i) * 2.1) * (3.0 + 9.0 * k)
+		var tw: float = 0.6 + 0.4 * sin(_pos * 0.35 + float(i) * 1.9)
+		var sp: Sprite2D = _sparkles[i]
+		sp.position = p + side * wobble
+		sp.rotation = float(i) * 0.7 + _pos * 0.02
+		sp.scale = Vector2.ONE * (0.4 - 0.22 * k) * tw
+		sp.modulate = Color(1.0, 0.82 - 0.2 * k, 0.9, 1.0 - 0.75 * k)
 
 
 func _sample(idx: float) -> Vector2:

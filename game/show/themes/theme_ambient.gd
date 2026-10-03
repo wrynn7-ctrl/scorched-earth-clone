@@ -7,6 +7,7 @@ extends Node2D
 
 const EMBER_COUNT: int = 36
 const SPORE_COUNT: int = 28
+const HEART_COUNT: int = 14
 
 var _particles: CPUParticles2D = null
 var _style: String = ThemeDefs.AMBIENT_NONE
@@ -60,7 +61,25 @@ func _restyle() -> void:
 	if not on:
 		return
 	var ramp := Gradient.new()
-	if _style == ThemeDefs.AMBIENT_EMBERS:
+	_particles.texture = FxTextures.heart() if _style == ThemeDefs.AMBIENT_HEARTS else FxTextures.glow()
+	if _style == ThemeDefs.AMBIENT_HEARTS:
+		# A few tiny hearts drifting up the picture, faint and slow.
+		_particles.amount = HEART_COUNT
+		_particles.lifetime = 11.0
+		_particles.position = Vector2(_area.x * 0.5, _area.y * 0.7)
+		_particles.emission_rect_extents = Vector2(_area.x * 0.5, 30.0)
+		_particles.direction = Vector2(0.1, -1.0)
+		_particles.spread = 20.0
+		_particles.gravity = Vector2(2.0, -3.0)
+		_particles.initial_velocity_min = 14.0
+		_particles.initial_velocity_max = 30.0
+		_particles.scale_amount_min = 0.1
+		_particles.scale_amount_max = 0.22
+		_particles.angle_min = -18.0
+		_particles.angle_max = 18.0
+		ramp.colors = PackedColorArray([Color(_color, 0.0), Color(_color, 0.42), Color(_color, 0.0)])
+		ramp.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
+	elif _style == ThemeDefs.AMBIENT_EMBERS:
 		_particles.amount = EMBER_COUNT
 		_particles.lifetime = 7.0
 		_particles.position = Vector2(_area.x * 0.5, _area.y * 0.62)

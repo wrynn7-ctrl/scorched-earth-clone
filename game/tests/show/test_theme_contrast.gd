@@ -6,6 +6,7 @@ extends GutTest
 ##  B. the tank's dark HULL FILL against the bright glow accents it stands on (rim colours and
 ##     the horizon band), so the silhouette reads where outline-vs-glow cannot: >= 3:1.
 ## Thin accents (stars, windows, grid lines) are excluded. Numbers are printed per theme.
+## The Love Edition theme is covered too (all_ids() adds it to the five selectable ones).
 
 const MIN_RATIO: float = 3.0
 
@@ -42,14 +43,14 @@ func _worst_hull(def: Dictionary) -> Dictionary:
 
 
 func test_outline_contrast_per_theme() -> void:
-	for id: String in ThemeDefs.ids():
+	for id: String in ThemeDefs.all_ids():
 		var res: Dictionary = _worst_outline(ThemeDefs.get_def(id))
 		print("contrast A (outline vs backdrop) %-16s min %.2f:1 (tank %d)" % [id, res["ratio"], res["tank"]])
 		assert_gte(res["ratio"] as float, MIN_RATIO, "%s: tank %d outline vs backdrop" % [id, res["tank"]])
 
 
 func test_hull_fill_contrast_against_glow_per_theme() -> void:
-	for id: String in ThemeDefs.ids():
+	for id: String in ThemeDefs.all_ids():
 		var res: Dictionary = _worst_hull(ThemeDefs.get_def(id))
 		print("contrast B (hull fill vs glow)    %-16s min %.2f:1 (tank %d)" % [id, res["ratio"], res["tank"]])
 		assert_gte(res["ratio"] as float, MIN_RATIO, "%s: tank %d hull vs glow" % [id, res["tank"]])
@@ -63,6 +64,6 @@ func test_contrast_math_is_wcag() -> void:
 
 func test_themes_never_change_tank_colours() -> void:
 	# Identity colours come from NeonPalette only: a theme definition has no tank colour key.
-	for id: String in ThemeDefs.ids():
+	for id: String in ThemeDefs.all_ids():
 		for key: String in ThemeDefs.get_def(id).keys():
 			assert_false(key.contains("tank"), "%s defines %s" % [id, key])

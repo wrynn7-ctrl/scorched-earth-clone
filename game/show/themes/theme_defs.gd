@@ -20,6 +20,9 @@ const TOXIC_MARSH: String = "toxic_marsh"
 const MIDNIGHT_CHROME: String = "midnight_chrome"
 const RANDOM: String = "random"
 const DEFAULT_ID: String = SUNSET_GRID
+## The Love Edition's rose and peach look (ARCHITECTURE section 37). It is not in IDS: the setup picker,
+## "Random" and every saved choice never see it, only a love match asks for it by id.
+const LOVE_THEME: String = "love_theme"
 
 ## Display / definition order (setup picker, tests).
 const IDS: PackedStringArray = [SUNSET_GRID, ICE_CIRCUIT, MAGMA_CITY, TOXIC_MARSH, MIDNIGHT_CHROME]
@@ -31,11 +34,13 @@ const TIER_FULL: String = "full"
 const SUN_SYNTH: int = 0
 const SUN_MOON: int = 1
 const SUN_CHROME: int = 2
+const SUN_HEART: int = 3
 
 ## Ambient particle styles (ThemeAmbient).
 const AMBIENT_NONE: String = "none"
 const AMBIENT_EMBERS: String = "embers"
 const AMBIENT_SPORES: String = "spores"
+const AMBIENT_HEARTS: String = "hearts"
 
 const STRATA_COUNT: int = 15
 ## Extra brightness the aurora may add to the sky (also the shader's `aurora_peak`).
@@ -73,6 +78,17 @@ static func ids() -> PackedStringArray:
 
 static func has_theme(id: String) -> bool:
 	return IDS.has(id)
+
+
+## Every definition including the love theme (the contrast and definition tests walk this list).
+static func all_ids() -> PackedStringArray:
+	var out: PackedStringArray = IDS.duplicate()
+	out.append(LOVE_THEME)
+	return out
+
+
+static func is_love(id: String) -> bool:
+	return id == LOVE_THEME
 
 
 ## `id` normalised: a known theme id or RANDOM, otherwise the default.
@@ -191,6 +207,7 @@ static func _build() -> void:
 		MAGMA_CITY: _magma_city(),
 		TOXIC_MARSH: _toxic_marsh(),
 		MIDNIGHT_CHROME: _midnight_chrome(),
+		LOVE_THEME: _love_theme(),
 	}
 
 
@@ -324,4 +341,31 @@ static func _midnight_chrome() -> Dictionary:
 		"tint_core": Color(1.0, 1.0, 1.0), "tint_ring": Color(0.88, 0.88, 1.0),
 		"tint_mid": Color(0.88, 0.3, 0.85), "tint_end": Color(0.45, 0.0, 0.45),
 		"ambient": AMBIENT_NONE, "ambient_color": Color(1.0, 1.0, 1.0),
+	}
+
+
+## Love Edition: a rose, pink and peach dusk under a heart-shaped sun, with a few tiny hearts drifting up.
+## The body colours stay dark enough for every tank colour (the contrast test walks this theme too);
+## the pink and peach brightness lives in the horizon band, the rim glow and the grid.
+static func _love_theme() -> Dictionary:
+	return {
+		"id": LOVE_THEME, "name_key": "LOVE_BUTTON", "tier": TIER_FREE,
+		"sky_top": Color(0.10, 0.02, 0.13), "sky_mid": Color(0.40, 0.10, 0.25), "sky_low": Color(1.0, 0.62, 0.55),
+		"ground_far": Color(0.09, 0.02, 0.10), "ground_near": Color(0.34, 0.08, 0.23),
+		"sun_style": SUN_HEART, "sun_a": Color(1.0, 0.86, 0.76), "sun_b": Color(1.0, 0.24, 0.50),
+		"sun_pos": Vector2(0.58, 0.36), "sun_radius": 0.15, "halo": Color(1.0, 0.45, 0.62),
+		"grid_a": Color(1.0, 0.45, 0.72), "grid_b": Color(1.0, 0.76, 0.62),
+		"stars": 0.26, "star_tint": Color(1.0, 0.86, 0.92),
+		"aurora": 0.0, "aurora_a": Color(1.0, 0.6, 0.8), "aurora_b": Color(1.0, 0.8, 0.6),
+		"city": 0.0, "city_glow": Color(1.0, 0.5, 0.6),
+		"strata": _colors([
+			[0.44, 0.15, 0.26], [0.40, 0.17, 0.23], [0.42, 0.14, 0.28], [0.38, 0.18, 0.21],
+			[0.40, 0.13, 0.25], [0.36, 0.16, 0.24], [0.38, 0.12, 0.26], [0.34, 0.15, 0.22],
+			[0.32, 0.11, 0.23], [0.30, 0.13, 0.20], [0.28, 0.10, 0.22], [0.26, 0.11, 0.19],
+			[0.22, 0.09, 0.19], [0.19, 0.08, 0.17], [0.15, 0.06, 0.14],
+		]),
+		"edge_a": Color(1.0, 0.55, 0.76), "edge_b": Color(1.0, 0.80, 0.66), "glow": 1.15,
+		"tint_core": Color(1.0, 0.95, 0.9), "tint_ring": Color(1.0, 0.62, 0.8),
+		"tint_mid": Color(1.0, 0.4, 0.62), "tint_end": Color(0.8, 0.15, 0.42),
+		"ambient": AMBIENT_HEARTS, "ambient_color": Color(1.0, 0.6, 0.78),
 	}

@@ -50,13 +50,16 @@ const BEST_EFFORT_ANGLES: Array[int] = [300, 450, 600, 750]
 ## (fire, pass, use_item repair) always comes within 3 calls.
 static func next_action(state: MatchState, tank_id: int) -> Dictionary:
 	AimSolver.reset_budget()
-	var fallback: Dictionary = _spark_fire(state, tank_id)
+	var love: bool = state.settings.mode == SimConstants.MODE_LOVE
+	# Love mode (section 37): the only legal fallback is a pass (hearts are the only weapon, so a
+	# Spark Dart would be bad_mode).
+	var fallback: Dictionary = {"kind": "pass", "tank": tank_id} if love else _spark_fire(state, tank_id)
 	if state.phase != SimConstants.PHASE_AIM or tank_id < 0 or tank_id >= state.tanks.size():
 		return fallback
 	var me: TankState = state.tanks[tank_id]
 	if not me.alive or state.current_tank != tank_id:
 		return fallback
-	var action: Dictionary = _decide(state, me)
+	var action: Dictionary = _decide_love(state, me) if love else _decide(state, me)
 	if action.is_empty() or Simulation.validate_action(state, action) != "":
 		return fallback
 	return action
@@ -65,6 +68,8 @@ static func next_action(state: MatchState, tank_id: int) -> Dictionary:
 ## Buys, then `ready`, for a tank in the shop phase. Every action is legal when applied in
 ## order. Empty if the tank is already ready.
 static func shop_actions(state: MatchState, tank_id: int) -> Array[Dictionary]:
+	if state.settings.mode == SimConstants.MODE_LOVE:
+		return []  # love mode has no shop (section 37)
 	return AiShop.actions(state, tank_id)
 
 
@@ -147,6 +152,27 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	return {"kind": "pass", "tank": me.id}
 
 
+# --- love mode ------------------------------------------------------------------------------------------
+
+## Love mode (docs/ARCHITECTURE.md section 37): always a heart at the opponent. The aim, bias, noise and
+## bracketing are the level's usual ones; the heart is modelled as an explode weapon (it flies the ordinary
+## arc and "bursts" at the impact). No items, no walking (not even when nothing reaches: the best-effort
+## shot is sent instead) and no self-harm guard, since a heart cannot hurt anybody.
+static func _decide_love(state: MatchState, me: TankState) -> Dictionary:
+	var level: int = AiProfile.level_of(state, me.id)
+	var prof: Dictionary = AiProfile.for_level(level)
+	var enemies: Array[TankState] = AiTargets.enemies_of(state, me)
+	if enemies.is_empty():
+		return {"kind": "pass", "tank": me.id}
+	var sit: AiSituation = situation(state, me, level, prof, enemies)
+	var plan: Dictionary = AiWeapons.plan_for(sit, Catalog.HEART)
+	if plan.is_empty():
+		return {"kind": "pass", "tank": me.id}
+	if is_hopeless(sit, plan):
+		return _best_effort_shot(sit, Catalog.HEART)
+	return finalize(sit, plan)
+
+
 # --- nothing reaches ----------------------------------------------------------------------------------------
 
 ## True when nothing reaches this target from here: the plan found no hit and the best the solver managed
@@ -157,7 +183,7 @@ static func is_hopeless(sit: AiSituation, plan: Dictionary) -> bool:
 	if not plan["ok"]:
 		return is_out_of_range(sit) or sit.spent_short
 	# A plan that looks fine on paper but whose kind of shot already fell short at full power.
-	return sit.spent_short and ["explode", "splitter", "dirt"].has(WeaponDefs.get_def(plan["weapon"]).get("behavior", ""))
+	return sit.spent_short and ["explode", "splitter", "dirt", "love"].has(WeaponDefs.get_def(plan["weapon"]).get("behavior", ""))
 
 
 static func is_out_of_range(sit: AiSituation) -> bool:
@@ -170,7 +196,7 @@ static func is_out_of_range(sit: AiSituation) -> bool:
 ## and for an Easy tank that believes there is no wind.
 static func spent_short(sit: AiSituation) -> bool:
 	var me: TankState = sit.me
-	if me.last_fire_weapon < 0 or me.last_fire_x < 0 or me.last_fire_power < FULL_POWER:
+	if me.last_fire_weapon == -1 or me.last_fire_x < 0 or me.last_fire_power < FULL_POWER:
 		return false
 	var last_dir: int = 1 if me.last_fire_angle < 900 else -1
 	if me.last_fire_angle != 900 and last_dir != sit.ctx.dir:
@@ -192,13 +218,13 @@ static func _out_of_reach(me: TankState, far: Array[AiSituation]) -> Dictionary:
 	var walk: Dictionary = _approach(near)
 	if not walk.is_empty():
 		return walk
-	return _best_effort_shot(closest)
+	return _best_effort_shot(closest, "spark_dart")
 
 
 ## The shot that lands closest to the target: the solver's best plan (at full power when the target is
-## out of range), also trying a few more angles at full power. Spark Dart because it is always owned and the
-## shot is not going to hurt anybody anyway.
-static func _best_effort_shot(sit: AiSituation) -> Dictionary:
+## out of range), also trying a few more angles at full power. `weapon` is Spark Dart in a standard match (always
+## owned, and the shot is not going to hurt anybody anyway) and the heart in love mode.
+static func _best_effort_shot(sit: AiSituation, weapon: String) -> Dictionary:
 	var best_angle: int = sit.direct["angle"]
 	var best_power: int = sit.direct["power"]
 	var best_err: int = absi(sit.direct["err"] as int)
@@ -212,7 +238,7 @@ static func _best_effort_shot(sit: AiSituation) -> Dictionary:
 				best_err = err
 				best_angle = angle
 	return {"kind": "fire", "tank": sit.me.id, "angle": best_angle, "power": best_power,
-			"weapon": "spark_dart"}
+			"weapon": weapon}
 
 
 static func _model_land(sit: AiSituation, angle: int) -> int:
@@ -350,10 +376,12 @@ static func others_with_repulsors(state: MatchState, me: TankState) -> Array[Tan
 ## this target, was a weapon whose landing says little, or was lost.
 static func correction_for(sit: AiSituation) -> Dictionary:
 	var me: TankState = sit.me
-	if me.last_fire_weapon < 0:
+	if me.last_fire_weapon == -1:
 		return {}
-	var last_def: Dictionary = WeaponDefs.get_def(Catalog.id_at(me.last_fire_weapon))
-	var behavior: String = last_def.get("behavior", "")
+	# The heart (HEART_INDEX, not a catalog index) flies the ordinary arc and bursts on impact: read it like "explode".
+	var heart: bool = me.last_fire_weapon == Catalog.HEART_INDEX
+	var last_def: Dictionary = {} if heart else WeaponDefs.get_def(Catalog.id_at(me.last_fire_weapon))
+	var behavior: String = "explode" if heart else (last_def.get("behavior", "") as String)
 	if not CORRECTABLE_LAST.has(behavior):
 		return {}
 	# A splitter reports where its first child landed; the model flies that child.

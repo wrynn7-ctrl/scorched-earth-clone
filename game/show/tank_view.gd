@@ -28,6 +28,15 @@ const REPULSOR_R: float = float(SimConstants.REPULSOR_RADIUS) / VISUAL_SCALE
 const COMPACT_MARKER_Y: float = -33.0
 const CHUTE_SHOW_SECONDS: float = 1.0
 const HIT_FLASH_SECONDS: float = 0.7
+## Love Edition (ARCHITECTURE section 37): the meter replaces the health bar. The heart sits next to the
+## emblem, the small bar under them where the health bar was.
+const LOVE_PINK: Color = Color(1.0, 0.38, 0.62)
+const LOVE_HEART_SIZE: float = 7.5
+const LOVE_HEART_POS: Vector2 = Vector2(4.0, -47.0)
+const LOVE_EMBLEM_POS: Vector2 = Vector2(-13.0, -47.0)
+const LOVE_PULSE_SECONDS: float = 0.8
+## How fast the displayed fill follows the real value (fraction of the meter per second).
+const LOVE_FILL_SPEED: float = 1.1
 
 var _angle_tenths: int = 900
 var _color_index: int = 0
@@ -60,6 +69,12 @@ var skin_ppu: int = SkinBaker.DEFAULT_PPU
 
 var _glow: Node2D = null
 var _skin_glow: Node2D = null
+var _love_layer: Node2D = null
+var _love_glow: Node2D = null
+var _love_mode: bool = false
+var _love: int = 0
+var _love_shown: float = 0.0
+var _love_pulse: float = 0.0
 var _body: Node2D = null
 var _turret: Node2D = null
 var _turret_glow: Node2D = null
@@ -78,6 +93,10 @@ func _ready() -> void:
 	_turret.add_child(_turret_glow)
 	_aura = _make_layer("Aura", true)
 	_aura.draw.connect(_draw_aura)
+	_love_layer = _make_layer("Love", false)
+	_love_layer.draw.connect(_draw_love)
+	_love_glow = _make_layer("LoveGlow", true)
+	_love_glow.draw.connect(_draw_love_glow)
 	_build_sparkle()
 	set_process(false)
 	_glow.draw.connect(_draw_glow)
@@ -249,7 +268,7 @@ func is_hit_flashing() -> bool:
 
 func _update_processing() -> void:
 	var run: bool = _shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _flicker > 0.0 \
-			or _hit_t > 0.0
+			or _hit_t > 0.0 or _love_animating()
 	set_process(run and is_inside_tree())
 	if _aura != null:
 		_aura.queue_redraw()
@@ -265,7 +284,11 @@ func _process(delta: float) -> void:
 	_chute_left = maxf(0.0, _chute_left - delta)
 	_hit_t = maxf(0.0, _hit_t - delta)
 	_aura.queue_redraw()
-	if not (_shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _hit_t > 0.0):
+	if _love_animating():
+		_love_pulse = maxf(0.0, _love_pulse - delta / LOVE_PULSE_SECONDS)
+		_love_shown = move_toward(_love_shown, _love_target(), LOVE_FILL_SPEED * delta)
+		_redraw_love()
+	if not (_shield_hp > 0 or _break_t >= 0.0 or _repulsor or _chute_left > 0.0 or _hit_t > 0.0 or _love_animating()):
 		set_process(false)
 
 
@@ -294,6 +317,90 @@ func _build_sparkle() -> void:
 	ramp.offsets = PackedFloat32Array([0.0, 0.25, 1.0])
 	_sparkle.color_ramp = ramp
 	add_child(_sparkle)
+
+
+# --- love meter (Love Edition) --------------------------------------------------------------
+
+## Love mode swaps the health bar for the love meter.
+func set_love_mode(on: bool) -> void:
+	_love_mode = on
+	_redraw_all()
+	_redraw_love()
+
+
+func is_love_mode() -> bool:
+	return _love_mode
+
+
+## The real love value 0..100. `animate` lets the heart fill up smoothly (a `love` event); without
+## it (a rebuild, reduced motion) the fill snaps.
+func set_love(value: int, animate: bool = false) -> void:
+	_love = clampi(value, 0, SimConstants.LOVE_MAX)
+	if not animate or ShowSettings.reduce_motion:
+		_love_shown = _love_target()
+	_redraw_love()
+	_update_processing()
+
+
+func get_love() -> int:
+	return _love
+
+
+## The fill the meter currently shows, 0..1 (it follows get_love() / 100 over about half a second).
+func get_love_shown() -> float:
+	return _love_shown
+
+
+## A gentle pulse of the heart (a `love` event). Skipped with reduced motion.
+func pulse_love() -> void:
+	if ShowSettings.reduce_motion:
+		return
+	_love_pulse = 1.0
+	_update_processing()
+
+
+func is_love_pulsing() -> bool:
+	return _love_pulse > 0.0
+
+
+func _love_target() -> float:
+	return float(_love) / float(SimConstants.LOVE_MAX)
+
+
+func _love_animating() -> bool:
+	return _love_mode and (_love_pulse > 0.0 or not is_equal_approx(_love_shown, _love_target()))
+
+
+func _redraw_love() -> void:
+	if _love_layer != null:
+		_love_layer.queue_redraw()
+		_love_glow.queue_redraw()
+
+
+func _love_scale() -> float:
+	return 1.0 + 0.3 * sin(clampf(_love_pulse, 0.0, 1.0) * PI)
+
+
+func _draw_love() -> void:
+	if not _love_mode or _dead or _compact:
+		return
+	var k: float = _love_shown
+	HeartShape.draw(_love_layer, LOVE_HEART_POS, LOVE_HEART_SIZE * _love_scale(), LOVE_PINK, k, false)
+	var bx: float = -BAR_W * 0.5
+	_love_layer.draw_rect(Rect2(bx - 1.0, -37.5 - 1.0, BAR_W + 2.0, BAR_H + 2.0), Color(NeonPalette.BG_DEEP, 0.85))
+	if k > 0.0:
+		_love_layer.draw_rect(Rect2(bx, -37.5, BAR_W * k, BAR_H), LOVE_PINK)
+	# Half-way tick: the bar reads without colour.
+	_love_layer.draw_line(Vector2(0.0, -37.5), Vector2(0.0, -37.5 + BAR_H), Color(NeonPalette.BG_DEEP, 0.9), 0.8)
+
+
+func _draw_love_glow() -> void:
+	if not _love_mode or _dead or _compact:
+		return
+	var a: float = 0.16 + 0.12 * _love_shown + 0.3 * sin(clampf(_love_pulse, 0.0, 1.0) * PI) * (0.5 if ShowSettings.reduce_flashing else 1.0)
+	var r: float = LOVE_HEART_SIZE * 2.1 * _love_scale()
+	_love_glow.draw_texture_rect(FxTextures.heart(), Rect2(LOVE_HEART_POS - Vector2.ONE * r, Vector2.ONE * r * 2.0),
+			false, Color(LOVE_PINK, a))
 
 
 func set_health(h: int, max_h: int) -> void:
@@ -351,6 +458,7 @@ func _redraw_all() -> void:
 	_body.queue_redraw()
 	_turret.queue_redraw()
 	_turret_glow.queue_redraw()
+	_redraw_love()
 
 
 func _col() -> Color:
@@ -415,6 +523,9 @@ func _draw_body() -> void:
 	if _compact:
 		NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), Vector2(0, COMPACT_MARKER_Y), 5.5, c)
 		return
+	if _love_mode:
+		NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), LOVE_EMBLEM_POS, 5.0, c)
+		return  # the love meter (Love layer) takes the health bar's place
 	NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), Vector2(0, -45), 5.5, c)
 	var frac: float = float(_health) / float(_max_health)
 	var bx: float = -BAR_W * 0.5
