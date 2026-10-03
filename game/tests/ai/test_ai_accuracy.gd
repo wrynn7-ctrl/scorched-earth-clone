@@ -9,7 +9,8 @@ const SHOTS: int = 5
 
 ## Runs N duels at `level`; returns {hits: Array[int] (hits within k shots, index 0..SHOTS),
 ## first_miss: Array[int] (distance of each first shot's impact to the target box),
-## later_miss: misses of shots 2..4 that landed, lost / fired: shell counts}.
+## later_miss: misses of shots 2..4 that landed, lost / fired: shell counts, max_lost_run: most
+## lost shells in a row in one scenario}.
 func _batch(level: int, tag: int, shots: int, wind_override: int = -999) -> Dictionary:
 	var hits: Array[int] = []
 	for _k: int in range(shots + 1):
@@ -18,6 +19,7 @@ func _batch(level: int, tag: int, shots: int, wind_override: int = -999) -> Dict
 	var later_miss: Array[int] = []  # impact distance of shots 2..4 that landed (lost shells excluded)
 	var lost: int = 0
 	var fired: int = 0
+	var max_lost_run: int = 0
 	for i: int in range(N):
 		var p: Vector2i = AiTestUtil.params(i, tag)
 		var wind: int = p.y if wind_override == -999 else wind_override
@@ -29,13 +31,17 @@ func _batch(level: int, tag: int, shots: int, wind_override: int = -999) -> Dict
 				hits[k] += 1
 		var misses: Array[int] = res["misses"]
 		first_miss.append(misses[0])
+		var run: int = 0
 		for k: int in range(misses.size()):
 			fired += 1
+			run = run + 1 if misses[k] >= 100000 else 0
+			max_lost_run = maxi(max_lost_run, run)
 			if misses[k] >= 100000:
 				lost += 1
 			elif k >= 1 and k <= 3 and misses[k] > 0:
 				later_miss.append(misses[k])
-	return {"hits": hits, "first_miss": first_miss, "later_miss": later_miss, "lost": lost, "fired": fired}
+	return {"hits": hits, "first_miss": first_miss, "later_miss": later_miss, "lost": lost, "fired": fired,
+			"max_lost_run": max_lost_run}
 
 
 func _pct(count: int) -> String:
@@ -77,14 +83,102 @@ func test_normal_first_shot_and_improvement() -> void:
 	assert_gte(h[3], h[1], "never gets worse")
 
 
-func test_easy_first_shot_misses_by_a_believable_distance() -> void:
-	var r: Dictionary = _batch(SimConstants.CTRL_EASY, 1, 1)
+## M4-T: Easy is a beginner who improves slowly and unevenly (owner: "dialing in way too quickly").
+## Measured over 200 scenarios, 6 shots each. Bounds on both sides so it cannot drift back.
+func test_easy_improves_slowly_and_unevenly() -> void:
+	var r: Dictionary = _batch(SimConstants.CTRL_EASY, 1, 6)
 	var h: Array[int] = r["hits"]
-	var median: int = AiTestUtil.median(r["first_miss"])
-	gut.p("EASY     first shot misses: %s  (hits %s)  median miss %d cells" % [
-			_pct(N - h[1]), _pct(h[1]), median])
-	assert_gte((N - h[1]) * 100, 85 * N, "Easy's first shot misses in >= 85%%")
-	assert_between(median, 40, 250, "believable median miss (cells)")
+	var later: Array[int] = r["later_miss"]
+	var median_first: int = AiTestUtil.median(r["first_miss"])
+	var median_later: int = AiTestUtil.median(later)
+	var plausible: int = later.filter(func(v: int) -> bool: return v >= 40 and v <= 300).size()
+	gut.p("EASY     hit within 1: %s  3: %s  6: %s | median miss first %d, shots 2-4 %d, %d/%d of those in 40..300 | lost shells %d/%d, longest lost run %d" % [
+			_pct(h[1]), _pct(h[3]), _pct(h[6]), median_first, median_later, plausible, later.size(),
+			r["lost"], r["fired"], r["max_lost_run"]])
+	assert_between(h[1] * 100, 1 * N, 8 * N, "Easy's first shot hits in 1..8%%, got %s" % _pct(h[1]))
+	assert_between(h[3] * 100, 5 * N, 20 * N, "Easy hits within 3 shots in 5..20%%, got %s" % _pct(h[3]))
+	assert_between(h[6] * 100, 20 * N, 40 * N, "Easy hits within 6 shots in 20..40%%, got %s" % _pct(h[6]))
+	assert_gt(h[6], h[3], "it does improve, slowly")
+	assert_gte(median_later, 60, "the median miss on shots 2-4 stays large (cells)")
+	assert_lte(median_later, 300, "but believable")
+	assert_between(median_first, 40, 250, "believable median first miss (cells)")
+	assert_gte(plausible * 100, 60 * later.size(), "most later misses are in the plausible 40..300 cell range")
+	assert_lte(r["max_lost_run"], 3, "no endless repeats of a lost shot")
+
+
+func test_normal_is_clearly_better_than_easy_within_three_shots() -> void:
+	var easy: Array[int] = (_batch(SimConstants.CTRL_EASY, 1, 3))["hits"]
+	var normal: Array[int] = (_batch(SimConstants.CTRL_NORMAL, 1, 3))["hits"]
+	gut.p("GAP      hit within 3 shots: easy %s vs normal %s" % [_pct(easy[3]), _pct(normal[3])])
+	assert_gte((normal[3] - easy[3]) * 100, 20 * N, "Normal is at least 20 points ahead of Easy within 3 shots")
+	assert_between(normal[3] * 100, 55 * N, 80 * N, "Normal within 3 shots stays in 55..80%%, got %s" % _pct(normal[3]))
+
+
+## The correction dice: Easy mostly corrects 80..150 per-mille of the miss, about 25% of the time it
+## over-corrects past the target, about 15% it barely corrects; the higher levels never roll.
+func test_easy_correction_factors_follow_the_profile() -> void:
+	var prof: Dictionary = AiProfile.for_level(SimConstants.CTRL_EASY)
+	var rng: Rng = Rng.derive(5, 6)
+	var weak: int = 0
+	var over: int = 0
+	var ignored: int = 0
+	var draws: int = 2000
+	for _i: int in range(draws):
+		var f: int = AiPlayer.correction_factor(prof, rng, false)
+		if f >= 1000:
+			over += 1
+			assert_between(f, prof["overshoot_min"], prof["overshoot_max"])
+		elif f <= prof["ignore_max"]:
+			ignored += 1
+		else:
+			weak += 1
+			assert_between(f, prof["corr_min"], prof["corr_max"])
+	gut.p("EASY     correction factors over %d draws: weak %d, over-correct %d (%.1f%%), barely %d (%.1f%%)" % [
+			draws, weak, over, 100.0 * over / draws, ignored, 100.0 * ignored / draws])
+	assert_between(over * 100, 20 * draws, 30 * draws, "about 25%% over-correct")
+	assert_between(ignored * 100, 10 * draws, 20 * draws, "about 15%% barely correct")
+	assert_gt(weak * 100, 50 * draws, "most corrections are weak")
+	var normal: Dictionary = AiProfile.for_level(SimConstants.CTRL_NORMAL)
+	var before: PackedInt64Array = rng.get_state()
+	assert_eq(AiPlayer.correction_factor(normal, rng, false), 500, "Normal's correction is a fixed 50%")
+	assert_eq(AiPlayer.correction_factor(normal, rng, true), 500, "also after a lost shell")
+	assert_eq(rng.get_state(), before, "and rolls no dice (its stream is unchanged)")
+
+
+## After a lost shell Easy makes a big but crude adjustment (not an exact bracket), and the lost
+## shots do not repeat: starting from a lost full-power shell, the shells land within a few shots.
+func test_easy_reacts_to_a_lost_shell_crudely_and_does_not_repeat_it() -> void:
+	var lands_after: Array[int] = []
+	var next_hit: int = 0
+	var cut: Array[int] = []
+	for i: int in range(100):
+		var p: Vector2i = AiTestUtil.params(i, 9)
+		var state: MatchState = AiTestUtil.duel(7000 + i, SimConstants.CTRL_EASY, p.x, 0)
+		var me: TankState = state.tanks[AiTestUtil.SHOOTER]
+		me.last_fire_weapon = Catalog.index_of("pulse_missile")
+		me.last_fire_x = -1
+		me.last_fire_y = -1
+		me.last_fire_angle = 450 if state.tanks[AiTestUtil.TARGET].x > me.x else 1350
+		me.last_fire_power = 1000
+		me.last_fire_turn = 0
+		state.turn_number = 1
+		var sit: AiSituation = AiPlayer.situation(state, me, SimConstants.CTRL_EASY,
+				AiProfile.for_level(SimConstants.CTRL_EASY), AiTargets.enemies_of(state, me))
+		var action: Dictionary = AiPlayer.finalize(sit, AiWeapons.choose_and_plan(sit))
+		cut.append(1000 - (action["power"] as int))
+		var res: Dictionary = AiTestUtil.shoot_until_hit(state, 6)
+		var misses: Array[int] = res["misses"]
+		var first_landed: int = 0
+		while first_landed < misses.size() and misses[first_landed] >= 100000:
+			first_landed += 1
+		lands_after.append(first_landed)
+		if res["first_hit"] == 1:
+			next_hit += 1
+	gut.p("EASY     after a lost full-power shell: lost shots before one lands: median %d, p95 %d, max %d; hit on the very next shot %d/100" % [
+			AiTestUtil.median(lands_after), AiTestUtil.percentile(lands_after, 95), lands_after.max(), next_hit])
+	assert_lte(lands_after.max(), 3, "a lost shot is never repeated more than 3 times in a row")
+	assert_lte(next_hit, 15, "the reaction is crude: it rarely lands a hit straight away")
+	assert_gt(AiTestUtil.median(cut), 50, "but it does cut the power by a clear amount")
 
 
 func test_easy_misses_more_in_strong_wind_but_still_misses_without_wind() -> void:
@@ -147,16 +241,3 @@ func test_round_bias_is_constant_within_a_round_and_has_the_profiled_size() -> v
 			seen_neg = seen_neg or b < 0
 		assert_true(seen_pos and seen_neg, "the sign is seeded: both occur across seeds")
 
-
-func test_probe_easy() -> void:
-	var r: Dictionary = _batch(SimConstants.CTRL_EASY, 1, 6)
-	var h: Array[int] = r["hits"]
-	var lm: Array[int] = r["later_miss"]
-	gut.p("PROBE easy 1..6: %s %s %s %s %s %s  later median %d p10 %d p90 %d  in40-300 %d/%d lost %d/%d" % [
-			_pct(h[1]), _pct(h[2]), _pct(h[3]), _pct(h[4]), _pct(h[5]), _pct(h[6]),
-			AiTestUtil.median(lm), AiTestUtil.percentile(lm, 10), AiTestUtil.percentile(lm, 90),
-			lm.filter(func(v: int) -> bool: return v >= 40 and v <= 300).size(), lm.size(), r["lost"], r["fired"]])
-	var n: Dictionary = _batch(SimConstants.CTRL_NORMAL, 1, 6)
-	var nh: Array[int] = n["hits"]
-	gut.p("PROBE normal 1..6: %s %s %s %s %s %s" % [_pct(nh[1]), _pct(nh[2]), _pct(nh[3]), _pct(nh[4]), _pct(nh[5]), _pct(nh[6])])
-	assert_true(true)

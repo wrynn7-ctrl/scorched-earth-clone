@@ -253,7 +253,7 @@ static func correction_for(sit: AiSituation) -> Dictionary:
 		# The shell was lost off the map: no impact to read, but it told us the power was far too
 		# much; correcting towards the exact solution from that power still brackets the target
 		# (otherwise a biased tank would repeat the same lost shot for ever).
-		return {"angle": me.last_fire_angle, "power": me.last_fire_power, "d": 0}
+		return {"angle": me.last_fire_angle, "power": me.last_fire_power, "d": 0, "lost": true}
 	if AiTargets.nearest_tank_to_x(sit.state, me, me.last_fire_x) != sit.target.id:
 		return {}
 	var wind_then: int = me.last_fire_wind * (sit.prof["wind_use"] as int) / 1000
