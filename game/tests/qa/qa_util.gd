@@ -123,6 +123,7 @@ static func flat_state(xs: Array[int], ground_y: int = 600, rounds: int = 3) -> 
 	var s := MatchState.new()
 	s.settings.seed = 1
 	s.settings.num_tanks = xs.size()
+	s.settings.controllers.resize(xs.size())
 	s.settings.rounds = rounds
 	s.seed = 1
 	s.round_index = 0

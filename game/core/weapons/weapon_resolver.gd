@@ -41,14 +41,14 @@ static func resolve(state: MatchState, tank_id: int, action: Dictionary, events:
 		was_alive.append(t.alive)
 	var tick: int = _dispatch(state, tank_id, action, def, events)
 	Simulation.emit_destroyed(state, was_alive, tick, events)
-	_record_impact(tank, events, first_event)
+	record_impact(tank, events, first_event)
 	return tick
 
 
 ## Sets tank.last_fire_x/y from the events this shot emitted (events[from..]); conventions are
 ## documented in TankState. Reading the timeline keeps every behaviour's own impact logic the
 ## single source of truth.
-static func _record_impact(tank: TankState, events: Array[Dictionary], from: int) -> void:
+static func record_impact(tank: TankState, events: Array[Dictionary], from: int) -> void:
 	tank.last_fire_x = -1
 	tank.last_fire_y = -1
 	for i: int in range(from, events.size()):

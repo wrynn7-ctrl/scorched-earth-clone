@@ -31,6 +31,7 @@ static func flat_state(num_tanks: int = 2) -> MatchState:
 	var s := MatchState.new()
 	s.settings.seed = 1
 	s.settings.num_tanks = num_tanks
+	s.settings.controllers.resize(num_tanks)
 	s.settings.rounds = 3
 	s.seed = 1
 	s.round_index = 0
