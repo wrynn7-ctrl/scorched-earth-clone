@@ -140,6 +140,9 @@ func _event_table() -> Array:
 		[{"type": "explosion", "radius": 90}, "explosion_large"],
 		[{"type": "explosion", "radius": 160}, "explosion_nuke"],
 		[{"type": "terrain_carve", "radius": 20}, ""],
+		# Love mode (docs/ARCHITECTURE.md section 37): silent until the Love Edition sound effects exist.
+		[{"type": "heart_burst", "radius": 30}, ""],
+		[{"type": "love", "tank": 1, "amount": 34}, ""],
 		[{"type": "terrain_settle", "falls": [{"x": 3, "from": 10, "to": 14}]}, "terrain_crumble"],
 		[{"type": "terrain_settle", "falls": []}, ""],
 		[{"type": "tunnel"}, "terrain_crumble"],

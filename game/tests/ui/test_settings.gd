@@ -253,6 +253,8 @@ func test_damaged_camera_and_hand_values_are_ignored() -> void:
 
 
 func test_settings_screen_has_camera_and_left_handed_toggles() -> void:
+	UiScale.dpi_override = 500.0
+	UiScale.window_px_override = Vector2(2340, 1080)
 	var o := SettingsOverlay.new()
 	add_child_autofree(o)
 	o.open()
