@@ -536,3 +536,15 @@ hidden.
   device.
 - Never uploaded. Never shown to other devices.
 - The player identity colour (outline, name tag, emblem) is always drawn on top, from NeonPalette.
+
+## 36. Easy AI retune (owner feedback, binding; supersedes the Easy column of §29/§30)
+- Profile: noise 55‰, per-round bias ±120–190‰, nominal correction 115‰.
+- Correction "dice" per shot:
+  - ~60% correct 80–150‰ of the miss;
+  - ~25% over-correct (1700–2300‰), landing past the target;
+  - ~15% barely correct (0–30‰).
+- After a lost shell (off the map), the next shot cuts power by 150–400‰. It's a crude reaction, not exact bracketing.
+- Veteran phase: after about 8 own turns in a round (estimated as turn_number / tank_count), correction becomes
+  250–450‰ and noise drops to 35‰, so all-Easy rounds still end. Set `veteran_shots = 0` to disable it.
+- Bands (200 seeded scenarios): first shot 1–8%, within 3 shots 5–20%, within 6 shots 20–40%. Median miss on shots
+  2–4 is 60–300 cells. Normal stays at least 20 points better within 3 shots.

@@ -205,7 +205,8 @@ static func play_match(settings: MatchSettings, det_stride: int, mut_stride: int
 				long_list.append(info)
 				res["long"] = long_list
 			if state.phase != SimConstants.PHASE_AIM:
-				if round_turns >= LONG_ROUND:
+				# A record exists only if the round was still running at LONG_ROUND turns.
+				if round_turns > LONG_ROUND and res.has("long"):
 					((res["long"] as Array).back() as Dictionary)["final_turns"] = round_turns
 				(res["turns_per_round"] as Array[int]).append(round_turns)
 				res["rounds_played"] = (res["rounds_played"] as int) + 1
