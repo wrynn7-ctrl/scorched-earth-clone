@@ -75,7 +75,7 @@
 | M5-E Entitlement service, free/full gating UI, Unlock screen, Play Billing setup guide | show-ui-dev | ✅ reviewed (real purchases need Play Console setup) |
 | M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ✅ reviewed (Android picker untested on device) |
 | M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | ✅ reviewed (504 show+ui tests) |
-| M5-AI CPU stalemate fix: move closer / best-effort shot when nothing can reach; buy fuel | ai-dev | 🟡 running |
+| M5-AI CPU stalemate fix: move closer / best-effort shot when nothing can reach; buy fuel | ai-dev | ✅ reviewed (134 ai tests; max round 152) |
 | LOVE-C Secret Love Edition — core mode (hearts fill the opponent's love meter; winner = shooter) | core-sim-dev | 🟡 running |
 | LOVE-A Love Edition — CPU fires hearts | ai-dev | ⬜ after M5-AI |
 | LOVE-U Love Edition — secret unlock (tap logo 7×), love theme, meters, heart/flower FX, smiley win, sfx | show-ui-dev | 🟡 running |
