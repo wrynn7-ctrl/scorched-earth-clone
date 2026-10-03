@@ -287,21 +287,31 @@ static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 		angle = clampi(angle + err, 0, SimConstants.MAX_ANGLE)
 	else:
 		var factor: int = -1
+		var lost: bool = sit.corr.get("lost", false)
 		if plan["corrected"]:
-			factor = correction_factor(prof, sit.rng, sit.corr.get("lost", false))
-		power = clampi(_with_error(plan, prof, bias, noise, factor), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+			factor = correction_factor(prof, sit.rng, lost)
+		power = clampi(_with_error(plan, prof, bias, noise, factor, crude_lost(prof, lost)),
+				SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 	return {"kind": "fire", "tank": me.id, "angle": angle, "power": power, "weapon": plan["weapon"]}
+
+
+## True if the next shot follows a lost shell and this level reacts to that crudely (see
+## correction_factor) instead of bracketing.
+static func crude_lost(prof: Dictionary, lost: bool) -> bool:
+	return lost and (prof["lost_cut_max"] as int) > 0
 
 
 ## How far (per-mille) one correction moves the power from the last shot's towards the exact solution.
 ## 1000 is a full fix. Hard and Expert always use their fixed value (no random draw, so their streams
 ## are unchanged). Easy is a beginner: usually a weak, varying fraction, sometimes it overshoots
 ## to the other side of the target ("over-corrects"), sometimes it barely moves ("didn't notice").
-## After a LOST shell it makes a big but crude move instead. `nominal` skips the dice (safety checks).
+## After a LOST shell (crude_lost) the number is instead how much of the lost shot's power is cut:
+## big, but blind to where the target is. `nominal` skips the dice (used for safety checks).
 static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: bool = false) -> int:
-	if lost and (prof["lost_max"] as int) > 0:
-		return (((prof["lost_min"] as int) + (prof["lost_max"] as int)) / 2) if nominal \
-				else rng.range_int(prof["lost_min"], prof["lost_max"])
+	if crude_lost(prof, lost):
+		if nominal:
+			return ((prof["lost_cut_min"] as int) + (prof["lost_cut_max"] as int)) / 2
+		return rng.range_int(prof["lost_cut_min"], prof["lost_cut_max"])
 	var over: int = prof["overshoot"]
 	var ignore: int = prof["ignore"]
 	if nominal or (over == 0 and ignore == 0 and prof["corr_min"] == prof["corr_max"]):
@@ -317,10 +327,14 @@ static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: b
 ## The power the AI will really send for `plan`: the exact solution with the round's bias and
 ## `noise` (per-mille) added, or, after an earlier shot at the same target, moved from that
 ## shot's power by `factor` (see correction_factor; -1 = the level's nominal correction).
-static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: int, factor: int = -1) -> int:
+## `cut` is true after a lost shell on a level with a crude reaction: `factor` is then a power cut.
+static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: int, factor: int = -1,
+		cut: bool = false) -> int:
 	var power: int = plan["power"]
 	if plan["corrected"]:
 		var prev: int = plan["prev_power"]
+		if cut:
+			return prev * (1000 - factor) / 1000 * (1000 + noise) / 1000
 		var f: int = factor if factor >= 0 else (prof["correction"] as int)
 		power = prev + (power - prev) * f / 1000
 		return power * (1000 + noise) / 1000
@@ -331,9 +345,11 @@ static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: in
 static func expected_power(sit: AiSituation, plan: Dictionary) -> int:
 	var bias: int = round_bias(sit.state, sit.me.id, sit.prof)
 	var factor: int = -1
+	var lost: bool = sit.corr.get("lost", false)
 	if plan["corrected"]:
-		factor = correction_factor(sit.prof, null, sit.corr.get("lost", false), true)
-	return clampi(_with_error(plan, sit.prof, bias, 0, factor), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+		factor = correction_factor(sit.prof, null, lost, true)
+	return clampi(_with_error(plan, sit.prof, bias, 0, factor, crude_lost(sit.prof, lost)),
+			SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 
 
 # --- moving ----------------------------------------------------------------------------------------------
