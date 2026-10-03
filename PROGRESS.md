@@ -82,6 +82,7 @@
 | M5-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
+- **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
 - **S26 Ultra HUD edge bug — root cause confirmed** from the owner's in-battle diagnostics: the BattleHud root (a Control under a CanvasLayer) was left at a stale rect when the battle laid out before the Android window settled. LayoutGuard corrected it once ("layout corrections: HUD 1") and the HUD is 1950×900 afterwards. Keep LayoutGuard + diagnostics as a permanent safety net.
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
 - Gradle builds since M5: minSdk 26 (Android 8), targetSdk 36. Test APK is arm64-only (79 MB); the Play AAB includes arm64 + armv7.
