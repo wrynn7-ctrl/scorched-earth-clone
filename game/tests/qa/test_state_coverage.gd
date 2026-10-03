@@ -136,6 +136,7 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 	state.settings.start_money = 1_000_000
 	state.settings.wind_max = 100
 	state.settings.full_unlocked = false
+	state.settings.controllers = PackedInt32Array([4, 0, 3])
 	state.seed = 9223372036854775807
 	state.round_index = 2
 	state.wind = -100
@@ -162,6 +163,13 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 		t.shield_type = [-1, 27, 22][t.id]
 		t.shield_hp = [0, 100, 1][t.id]
 		t.repulsor_charge = 100 * t.id
+		t.last_fire_angle = [1800, 0, 901][t.id]
+		t.last_fire_power = [1000, 1, 333][t.id]
+		t.last_fire_weapon = [Catalog.count() - 1, 0, 7][t.id]
+		t.last_fire_x = [1599, -1, 800][t.id]
+		t.last_fire_y = [899, 0, -1][t.id]
+		t.last_fire_wind = [-100, 100, 0][t.id]
+		t.last_fire_turn = [2000000000, 0, 17][t.id]
 		for i: int in range(Catalog.count()):
 			t.inventory[i] = (i * 7 + t.id * 11) % 100
 	# These values fill the binary format to its limits, which is more than the simulation can ever produce
