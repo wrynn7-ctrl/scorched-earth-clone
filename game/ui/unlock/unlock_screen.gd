@@ -71,6 +71,8 @@ var _celebrated: bool = false
 var _was_full: bool = false
 var _hub: Entitlement.Hub = null
 var _fit_generation: int = 0
+## True while a match is running behind this screen: a purchase then applies from the next match.
+var _in_match: bool = false
 
 
 func _init() -> void:
@@ -217,6 +219,12 @@ func close() -> void:
 	closed.emit()
 
 
+## The host says a match is running (shop, pause menu), so the screen can tell the player that the
+## new features start with the next match.
+func set_in_match(on: bool) -> void:
+	_in_match = on
+
+
 func get_kind() -> String:
 	return _kind
 
@@ -335,6 +343,8 @@ func _refresh_state() -> void:
 	var color: Color = NeonPalette.TEXT
 	if full:
 		text = tr("UNLOCK_THANKS") if _celebrated else tr("UNLOCK_ALREADY")
+		if _in_match:
+			text = tr("UNLOCK_NEXT_MATCH")
 		color = NeonPalette.GOOD
 	elif busy:
 		text = tr("UNLOCK_WAITING")

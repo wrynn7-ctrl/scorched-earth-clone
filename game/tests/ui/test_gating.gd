@@ -328,7 +328,7 @@ func test_shop_locks_every_full_tier_entry_and_keeps_it_visible() -> void:
 	assert_not_null(f.get_screen().get_card("riptide_anchor"))
 
 
-func test_tapping_a_locked_shop_entry_opens_unlock_and_buying_it_unlocks_live() -> void:
+func test_tapping_a_locked_shop_entry_opens_unlock_and_a_purchase_applies_from_the_next_match() -> void:
 	Entitlement.reset_for_tests(false, CACHE)
 	_shop_state(false)
 	var f: ShopFlow = _flow()
@@ -341,15 +341,16 @@ func test_tapping_a_locked_shop_entry_opens_unlock_and_buying_it_unlocks_live() 
 	assert_eq(_state.tanks[0].stock_of("singularity_seed"), 0)
 	f.get_unlock_screen().get_buy_button().pressed.emit()
 	assert_true(Entitlement.is_full())
-	assert_true(_state.settings.full_unlocked, "the running match is upgraded")
-	assert_false(screen.get_card("singularity_seed").is_locked_badge_visible(), "locks vanish without a restart")
-	assert_eq(screen.buy_error("singularity_seed"), "")
+	assert_eq(f.get_unlock_screen().get_status_text(), "Full game unlocked! New features apply from your next match.")
+	assert_false(_state.settings.full_unlocked, "the running match keeps its own tier")
+	assert_true(screen.get_card("singularity_seed").is_locked_badge_visible(), "so the shop locks stay for this match")
 	f.get_unlock_screen().close()
+	assert_eq(f.get_toast().get_text(), "Full game unlocked! New features apply from your next match.")
 	screen.get_detail().get_buy_button().pressed.emit()
-	assert_eq(_state.tanks[0].stock_of("singularity_seed"), 1, "and it can be bought now")
+	assert_eq(_state.tanks[0].stock_of("singularity_seed"), 0, "still not buyable in this match")
 
 
-func test_a_free_match_is_never_upgraded_by_a_failed_purchase() -> void:
+func test_a_failed_purchase_changes_nothing() -> void:
 	Entitlement.reset_for_tests(false, CACHE)
 	_shop_state(false)
 	var f: ShopFlow = _flow()
@@ -373,14 +374,31 @@ func test_a_quick_battle_carries_the_entitlement() -> void:
 		assert_eq(c.state.settings.full_unlocked, full)
 
 
-func test_a_purchase_during_a_battle_upgrades_the_running_match() -> void:
+func test_a_purchase_during_a_match_never_touches_it_and_the_next_match_is_full() -> void:
 	Entitlement.reset_for_tests(false, CACHE)
 	var c: BattleController = (load(BATTLE) as PackedScene).instantiate()
 	c.configure(1, 5, true, 2)
 	add_child_autofree(c)
-	assert_false(c.state.settings.full_unlocked)
+	var start: MatchSettings = c.state.settings.duplicate_settings()
+	assert_eq(c.session.submit({"kind": "buy", "tank": 0, "item": "pulse_missile", "qty": 1})["err"], "")
+	var before: String = Simulation.fingerprint(c.state)
 	Entitlement.purchase_full()
-	assert_true(c.state.settings.full_unlocked)
+	assert_true(Entitlement.is_full())
+	# (a) the running match keeps its tier and its fingerprint.
+	assert_false(c.state.settings.full_unlocked)
+	assert_eq(Simulation.validate_action(c.state, {"kind": "buy", "tank": 0, "item": "supernova", "qty": 1}), "locked_item")
+	assert_eq(Simulation.fingerprint(c.state), before, "no fingerprint change without an action")
+	# (b) the action log replayed from the starting settings reproduces the current state.
+	var replay: MatchState = Simulation.new_match(start)
+	for a: Dictionary in c.session.actions:
+		assert_eq(Simulation.validate_action(replay, a), "", "replay accepts %s" % str(a))
+		Simulation.apply_action(replay, a)
+	assert_eq(Simulation.fingerprint(replay), Simulation.fingerprint(c.state))
+	# (c) a match created afterwards is full.
+	var next: BattleController = (load(BATTLE) as PackedScene).instantiate()
+	next.configure(1, 6, true, 2)
+	add_child_autofree(next)
+	assert_true(next.state.settings.full_unlocked)
 
 
 # --- autosave made with the full game, opened on a device that is free now -------------------------

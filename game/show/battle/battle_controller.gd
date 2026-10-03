@@ -239,7 +239,6 @@ func _ready() -> void:
 	_hud.item_pressed.connect(func(id: String) -> void: use_item(id))
 	_hud.move_pressed.connect(func(dir: int) -> void: move_current(dir))
 	_hud.set_speed(_speed)
-	Entitlement.hub().changed.connect(_on_entitlement_changed)
 	LayoutWatch.attach(self, _frame_camera)
 	_frame_camera()
 	_start_match(resume)
@@ -339,6 +338,7 @@ func _build_support_nodes() -> void:
 	_settings_overlay = SettingsOverlay.new()
 	_settings_overlay.closed.connect(_on_settings_closed)
 	_overlay_layer.add_child(_settings_overlay)
+	_settings_overlay.get_unlock_screen().set_in_match(true)
 	_diag = DiagnosticsOverlay.new()
 	_diag.closed.connect(_on_diag_closed)
 	_overlay_layer.add_child(_diag)
@@ -449,14 +449,6 @@ func _new_settings() -> MatchSettings:
 		settings.full_unlocked = true  # bought since the setup screen (a restart picks it up)
 	settings.seed = _seed if _seed != 0 else (settings.seed if settings.seed != 0 else int(randi()))
 	return settings
-
-
-## The player bought the full game during this match (from the shop's lock or Settings): the match
-## is upgraded so the locked weapons open up at once. It is an entitlement, not a game outcome, so
-## the show layer may flip it; it only ever upgrades.
-func _on_entitlement_changed() -> void:
-	if state != null and Entitlement.is_full() and not state.settings.full_unlocked:
-		state.settings.full_unlocked = true
 
 
 ## Debug hook (--give=id:n): a screenshot/test aid that fills inventories without a shop visit.
