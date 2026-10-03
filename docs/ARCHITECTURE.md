@@ -548,3 +548,40 @@ hidden.
   250–450‰ and noise drops to 35‰, so all-Easy rounds still end. Set `veteran_shots = 0` to disable it.
 - Bands (200 seeded scenarios): first shot 1–8%, within 3 shots 5–20%, within 6 shots 20–40%. Median miss on shots
   2–4 is 60–300 cells. Normal stays at least 20 points better within 3 shots.
+
+---
+
+# Secret: Love Edition (owner request)
+
+## 37. Love mode (binding)
+- **How it's unlocked:** tap the title logo 7 times within ~3 s. A heart sparkle plays, and a hidden "LOVE EDITION"
+  button appears on the title. The discovery is stored in SettingsStore (`love_found=true`), so the button stays from
+  then on. It's available in free and full; CPU Hard/Expert follow the normal §32 gating.
+- **Core:** `MatchSettings.mode: int` (`SimConstants.MODE_STANDARD = 0`, `MODE_LOVE = 1`). It is fingerprinted,
+  saved, validated and clamped. Love mode forces num_tanks = 2, rounds = 1, wind_max ≤ 30 and start_money = 0.
+  - `new_match` in love mode skips the shop and starts round 0 directly (phase "aim").
+  - `TankState.love: int` (0..100, starts at 0). It is fingerprinted, saved and validated; always 0 in standard mode.
+  - The weapon id `heart` lives in `WeaponDefs` but is **not** in the shop Catalog (inventories and old saves are
+    unchanged). Behaviour `love`: r 30, amount 34 (so about 3 good hits fill a meter).
+    - It is valid only in love mode, where it's unlimited and the only legal weapon.
+    - `last_fire_weapon` records `Catalog.HEART_INDEX = -2`.
+  - Love resolution: the flight is normal (gravity, wind; tanks block). On impact there's **no terrain change and no
+    damage**. Every alive tank *other than the shooter* within r gains love with the same falloff as §11 damage
+    (amount × (r − d) / r, minimum 1), capped at 100. A hit on yourself does nothing.
+  - Events:
+    - `heart_burst {x, y, radius}`
+    - `love {tank, amount, love, from}`
+    - when a meter reaches 100: `round_end {winner = the shooter}` and phase "match_over"
+  - In love mode, `move`, `use_item`, `buy`, `sell` and `ready` are invalid (`bad_mode`); `fire` (heart only) and
+    `pass` are allowed.
+- **AI:** in love mode, AiPlayer always fires `heart` at the opponent using the usual aim/error model for its level.
+  There's no shop, items or move, and no self-damage guard (a self-hit is just wasted).
+- **Show/UI:**
+  - a rose/pink love theme
+  - love meters (pink hearts) instead of health bars
+  - heart projectiles with a sparkle trail
+  - sparkle burst plus persistent glowing flowers sprouting on the terrain surface at the impact (visual only, kept for
+    the match)
+  - a win overlay with a smiling face floating up over the winning tank, heart confetti, and REMATCH / TITLE
+  - the HUD hides money, items and move
+  - new sfx: heart fire (soft chime), heart burst (sparkle), love win jingle
