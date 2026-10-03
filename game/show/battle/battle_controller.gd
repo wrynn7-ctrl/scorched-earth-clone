@@ -518,6 +518,13 @@ func _apply_theme() -> void:
 				def["tint_end"] as Color)
 
 
+## Test/automation: choose the theme before the first round (a ThemeDefs id or "random").
+func set_theme_choice(choice: String) -> void:
+	_theme_choice = ThemeDefs.sanitize(choice)
+	if state != null and state.terrain != null:
+		_apply_theme()
+
+
 func get_theme_id() -> String:
 	return _theme_id
 

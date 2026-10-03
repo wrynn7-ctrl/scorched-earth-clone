@@ -6,13 +6,26 @@ func after_each() -> void:
 
 
 func test_angle_formatting() -> void:
-	assert_eq(HudFormat.angle(452), "45.2°")
-	assert_eq(HudFormat.angle(0), "0.0°")
-	assert_eq(HudFormat.angle(1800), "180.0°")
-	assert_eq(HudFormat.angle(5), "0.5°")
-	assert_eq(HudFormat.angle(2500), "180.0°", "clamped")
+	assert_eq(HudFormat.format_angle(452), "45.2°")
+	assert_eq(HudFormat.format_angle(0), "0.0°")
+	assert_eq(HudFormat.format_angle(900), "90.0°")
+	assert_eq(HudFormat.format_angle(1800), "0.0°", "facing left, flat")
+	assert_eq(HudFormat.format_angle(5), "0.5°")
+	assert_eq(HudFormat.format_angle(1795), "0.5°")
+	assert_eq(HudFormat.format_angle(1350), "45.0°")
+	assert_eq(HudFormat.format_angle(1351), "44.9°")
+	assert_eq(HudFormat.format_angle(2500), "0.0°", "clamped")
 	assert_eq(HudFormat.power(1200), "1000")
 	assert_eq(HudFormat.wind(-37), "37")
+
+
+func test_facing_of() -> void:
+	assert_eq(HudFormat.facing_of(0), HudFormat.FACING_RIGHT)
+	assert_eq(HudFormat.facing_of(450), HudFormat.FACING_RIGHT)
+	assert_eq(HudFormat.facing_of(899), HudFormat.FACING_RIGHT)
+	assert_eq(HudFormat.facing_of(900), HudFormat.FACING_UP)
+	assert_eq(HudFormat.facing_of(901), HudFormat.FACING_LEFT)
+	assert_eq(HudFormat.facing_of(1800), HudFormat.FACING_LEFT)
 
 
 func test_power_slider_clamps_and_emits() -> void:
@@ -107,46 +120,132 @@ func test_fine_button_press_and_repeat() -> void:
 	assert_signal_emit_count(b, "stepped", 5, "released: no more steps")
 
 
-func test_angle_panel_fine_buttons_clamp_and_emit() -> void:
+func _angle_panel() -> AnglePanel:
 	var p: AnglePanel = add_child_autofree(AnglePanel.new())
 	await wait_frames(1)
+	return p
+
+
+func _tap(b: FineButton) -> void:
+	b.begin_hold()
+	b.end_hold()
+
+
+func _shown(p: AnglePanel) -> String:
+	return (p.get_node("Box/ReadRow/Readout") as Label).text
+
+
+func _marks(p: AnglePanel) -> Array[bool]:
+	return [(p.get_node("Box/ReadRow/MarkLeft") as FacingMark).lit,
+			(p.get_node("Box/ReadRow/MarkRight") as FacingMark).lit]
+
+
+func test_angle_buttons_are_screen_relative_facing_right() -> void:
+	var p: AnglePanel = await _angle_panel()
+	var left: FineButton = p.get_node("Box/Row/Left")
+	var right: FineButton = p.get_node("Box/Row/Right")
+	p.set_angle_tenths(450)
+	assert_eq(_shown(p), "45.0°")
+	_tap(left)
+	assert_eq(p.get_angle_tenths(), 451, "left turns the barrel toward screen-left: raw +1")
+	assert_eq(_shown(p), "45.1°")
+	_tap(right)
+	_tap(right)
+	assert_eq(p.get_angle_tenths(), 449)
+	assert_eq(_shown(p), "44.9°")
+	assert_eq(_marks(p), [false, true], "chevron on the right side while facing right")
+
+
+func test_angle_buttons_are_screen_relative_facing_left() -> void:
+	var p: AnglePanel = await _angle_panel()
+	var left: FineButton = p.get_node("Box/Row/Left")
+	var right: FineButton = p.get_node("Box/Row/Right")
+	p.set_angle_tenths(1350)
+	assert_eq(_shown(p), "45.0°")
+	_tap(left)
+	assert_eq(p.get_angle_tenths(), 1351)
+	assert_eq(_shown(p), "44.9°", "facing left, the left button lowers the number")
+	_tap(right)
+	_tap(right)
+	assert_eq(p.get_angle_tenths(), 1349)
+	assert_eq(_shown(p), "45.1°")
+	assert_eq(_marks(p), [true, false], "chevron on the left side while facing left")
+
+
+func test_angle_buttons_clamp_and_emit() -> void:
+	var p: AnglePanel = await _angle_panel()
+	var left: FineButton = p.get_node("Box/Row/Left")
+	var right: FineButton = p.get_node("Box/Row/Right")
 	watch_signals(p)
 	p.set_angle_tenths(1799)
 	assert_signal_not_emitted(p, "angle_changed")
-	(p.get_node("Box/Row/Plus") as FineButton).begin_hold()
+	_tap(left)
 	assert_eq(p.get_angle_tenths(), 1800)
 	assert_signal_emitted_with_parameters(p, "angle_changed", [1800])
-	(p.get_node("Box/Row/Plus") as FineButton).end_hold()
-	p.set_angle_tenths(0)
-	(p.get_node("Box/Row/Minus") as FineButton).begin_hold()
+	_tap(left)
+	assert_eq(p.get_angle_tenths(), 1800, "clamped at 1800")
+	assert_signal_emit_count(p, "angle_changed", 1, "no emit when clamped")
+	p.set_angle_tenths(1)
+	_tap(right)
+	assert_eq(p.get_angle_tenths(), 0)
+	_tap(right)
 	assert_eq(p.get_angle_tenths(), 0, "clamped at 0")
-	(p.get_node("Box/Row/Minus") as FineButton).end_hold()
+	assert_signal_emit_count(p, "angle_changed", 2)
 
 
-func test_angle_buttons_show_arrows_and_step_correctly() -> void:
-	var p: AnglePanel = add_child_autofree(AnglePanel.new())
+func test_holding_left_across_vertical_flips_the_facing() -> void:
+	var p: AnglePanel = await _angle_panel()
+	var left: FineButton = p.get_node("Box/Row/Left")
+	p.set_angle_tenths(899)
+	assert_eq(_shown(p), "89.9°")
+	assert_eq(_marks(p), [false, true])
+	_tap(left)
+	assert_eq(p.get_angle_tenths(), 900)
+	assert_eq(_shown(p), "90.0°")
+	assert_eq(HudFormat.facing_of(p.get_angle_tenths()), HudFormat.FACING_UP)
+	assert_eq(_marks(p), [false, false], "straight up: no chevron")
+	_tap(left)
+	assert_eq(p.get_angle_tenths(), 901)
+	assert_eq(_shown(p), "89.9°", "89.9 -> 90.0 -> 89.9")
+	assert_eq(_marks(p), [true, false], "facing flipped to the left")
+
+
+func test_readout_and_buttons_agree_after_a_drag() -> void:
+	var hud: BattleHud = add_child_autofree(BattleHud.new())
 	await wait_frames(1)
-	var plus: FineButton = p.get_node("Box/Row/Plus")
-	var minus: FineButton = p.get_node("Box/Row/Minus")
-	assert_eq(plus.get_arrow(), FineButton.Arrow.RIGHT, "+0.1 shows right arrow")
-	assert_eq(minus.get_arrow(), FineButton.Arrow.LEFT, "-0.1 shows left arrow")
-	assert_eq(plus.text, "", "no text on arrow buttons")
-	assert_eq(minus.text, "")
-	assert_ne(plus.tooltip_text, "")
-	assert_ne(minus.tooltip_text, "")
-	assert_ne(plus.tooltip_text, minus.tooltip_text)
-	assert_ne(plus.tooltip_text, "HUD_ANGLE_UP", "key is translated")
-	assert_eq(plus.accessibility_name, plus.tooltip_text)
-	assert_true(plus.size.y >= UiScale.touch() and minus.size.y >= UiScale.touch(), "touch target")
+	var aim: AimInput = hud.get_aim_input()
+	aim.set_pivot(Vector2(400, 500))
+	# Finger up-left of the tank: raw 1350, shown 45.0 facing left.
+	aim.angle_changed.emit(AimInput.angle_from_drag(Vector2(400, 500), Vector2(300, 400)))
+	assert_eq(hud.get_angle_tenths(), 1350)
+	var panel: AnglePanel = hud.get_angle_panel()
+	assert_eq(_shown(panel), "45.0°")
+	_tap(panel.get_node("Box/Row/Left"))
+	assert_eq(hud.get_angle_tenths(), 1351, "the buttons continue from the dragged angle")
+	assert_eq(aim.get_angle_tenths(), 1351, "and the drag surface follows")
+
+
+func test_angle_buttons_show_arrows_and_tooltips() -> void:
+	var p: AnglePanel = await _angle_panel()
+	var left: FineButton = p.get_node("Box/Row/Left")
+	var right: FineButton = p.get_node("Box/Row/Right")
+	assert_eq(left.get_arrow(), FineButton.Arrow.LEFT)
+	assert_eq(right.get_arrow(), FineButton.Arrow.RIGHT)
+	assert_eq(left.text, "", "no text on arrow buttons")
+	assert_eq(right.text, "")
+	assert_eq(left.tooltip_text, "Turn barrel left 0.1°")
+	assert_eq(right.tooltip_text, "Turn barrel right 0.1°")
+	assert_eq(left.accessibility_name, left.tooltip_text)
+	assert_eq(right.accessibility_name, right.tooltip_text)
+	assert_true(left.size.y >= UiScale.touch() and right.size.y >= UiScale.touch(), "touch target")
+	assert_true(left.size.x >= UiScale.touch() and right.size.x >= UiScale.touch(), "touch target")
+	p.set_angle_tenths(1350)
+	var readout: Label = p.get_node("Box/ReadRow/Readout")
+	assert_eq(readout.accessibility_name, "45.0° facing left")
 	p.set_angle_tenths(450)
-	plus.begin_hold()
-	plus.end_hold()
-	assert_eq(p.get_angle_tenths(), 451)
-	minus.begin_hold()
-	minus.end_hold()
-	minus.begin_hold()
-	minus.end_hold()
-	assert_eq(p.get_angle_tenths(), 449)
+	assert_eq(readout.accessibility_name, "45.0° facing right")
+	p.set_angle_tenths(900)
+	assert_eq(readout.accessibility_name, "90.0° straight up")
 
 
 func test_all_arrow_directions_draw_without_errors() -> void:

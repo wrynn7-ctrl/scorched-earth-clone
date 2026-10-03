@@ -46,6 +46,8 @@ then **Play Protect > Settings (the gear) > Scan apps with Play Protect** and sw
    again. Saved test data is lost in that case, which does not matter for test builds.
 
 ## Good to know
-- These are **debug** builds for testing: they are a bit slower and bigger than the final game will be.
+- These are **debug** builds for testing: they are a bit slower and bigger than the final game will be (the file is about 160 MB;
+  the download takes a minute on Wi-Fi). Since milestone M5 they are made with a Gradle build so that in-app purchases can work
+  later; installing them works exactly as before. See `docs/BUILD.md`.
 - The app is called **Craterline** and has a placeholder icon for now.
 - Deleting the downloaded APK file after installing is fine; the app stays.

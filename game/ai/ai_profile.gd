@@ -12,7 +12,13 @@ extends RefCounted
 ##               random sign, and then stays the same for every shot of that round. That is
 ##               what makes Easy "always a bit short" instead of random.
 ##   noise       extra shot-to-shot jitter of the power (per-mille, roughly a standard deviation).
-##   correction  how much of the last miss on the same target is corrected on the next shot.
+##   correction  how much of the last miss on the same target is corrected on the next shot (the
+##               nominal value; corr_min..corr_max is what a single shot draws from).
+##   overshoot / ignore  per-mille chance that a correction goes the wrong way: past the target by
+##               about the size of the miss (factor overshoot_min..max), or hardly at all
+##               (factor 0..ignore_max, "didn't notice"). Only Easy has them.
+##   lost_min/max  how much of the way to the exact power a shot after a LOST shell (off the map)
+##               moves, per-mille. 0 means "use the ordinary correction" (the M4-F bracketing).
 ## Levels are the SimConstants.CTRL_* values (1 easy .. 4 expert). A human slot (0) that is
 ## handed to the AI anyway plays as Normal.
 
@@ -36,9 +42,12 @@ const PROFILES: Dictionary = {
 	SimConstants.CTRL_EASY: {
 		"name": "easy",
 		"wind_use": 0,
-		"bias_min": 80, "bias_max": 150,
-		"noise": 40,
-		"correction": 250,
+		"bias_min": 120, "bias_max": 190,
+		"noise": 55,
+		"correction": 115, "corr_min": 80, "corr_max": 150,
+		"overshoot": 250, "overshoot_min": 1700, "overshoot_max": 2300,
+		"ignore": 150, "ignore_max": 30,
+		"lost_min": 600, "lost_max": 1150,
 		"target": TARGET_NEAREST,
 		"shield": SHIELD_NEVER, "shield_below": 0,
 		"repulsor": false,
@@ -51,7 +60,10 @@ const PROFILES: Dictionary = {
 		"wind_use": 500,
 		"bias_min": 40, "bias_max": 80,
 		"noise": 25,
-		"correction": 500,
+		"correction": 500, "corr_min": 500, "corr_max": 500,
+		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
+		"ignore": 0, "ignore_max": 0,
+		"lost_min": 0, "lost_max": 0,
 		"target": TARGET_REVENGE,
 		"shield": SHIELD_WHEN_HURT, "shield_below": 50,
 		"repulsor": false,
@@ -64,7 +76,10 @@ const PROFILES: Dictionary = {
 		"wind_use": 900,
 		"bias_min": 20, "bias_max": 36,
 		"noise": 14,
-		"correction": 800,
+		"correction": 800, "corr_min": 800, "corr_max": 800,
+		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
+		"ignore": 0, "ignore_max": 0,
+		"lost_min": 0, "lost_max": 0,
 		"target": TARGET_WEAKEST,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
 		"repulsor": false,
@@ -77,7 +92,10 @@ const PROFILES: Dictionary = {
 		"wind_use": 950,
 		"bias_min": 12, "bias_max": 24,
 		"noise": 12,
-		"correction": 1000,
+		"correction": 1000, "corr_min": 1000, "corr_max": 1000,
+		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
+		"ignore": 0, "ignore_max": 0,
+		"lost_min": 0, "lost_max": 0,
 		"target": TARGET_VALUE,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
 		"repulsor": true,

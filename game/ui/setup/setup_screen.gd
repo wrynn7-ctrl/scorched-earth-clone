@@ -159,7 +159,7 @@ func _build() -> void:
 	_picker.chosen.connect(_on_kind_chosen)
 	add_child(_picker)
 	_theme_picker = ThemePicker.new()
-	_theme_picker.chosen.connect(set_theme)
+	_theme_picker.chosen.connect(choose_theme)
 	_theme_picker.locked_chosen.connect(_on_theme_locked)
 	add_child(_theme_picker)
 
@@ -545,7 +545,7 @@ func get_theme_choice() -> String:
 
 ## Chooses the terrain theme (a ThemeDefs id or "random"). A theme that needs the full game is
 ## refused (returns false, shows the lock hint and emits locked_tapped).
-func set_theme(id: String) -> bool:
+func choose_theme(id: String) -> bool:
 	var clean: String = ThemeDefs.sanitize(id)
 	if clean != id:
 		return false

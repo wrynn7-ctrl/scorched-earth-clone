@@ -8,12 +8,16 @@ const SHOTS: int = 5
 
 
 ## Runs N duels at `level`; returns {hits: Array[int] (hits within k shots, index 0..SHOTS),
-## first_miss: Array[int] (distance of each first shot's impact to the target box)}.
+## first_miss: Array[int] (distance of each first shot's impact to the target box),
+## later_miss: misses of shots 2..4 that landed, lost / fired: shell counts}.
 func _batch(level: int, tag: int, shots: int, wind_override: int = -999) -> Dictionary:
 	var hits: Array[int] = []
 	for _k: int in range(shots + 1):
 		hits.append(0)
 	var first_miss: Array[int] = []
+	var later_miss: Array[int] = []  # impact distance of shots 2..4 that landed (lost shells excluded)
+	var lost: int = 0
+	var fired: int = 0
 	for i: int in range(N):
 		var p: Vector2i = AiTestUtil.params(i, tag)
 		var wind: int = p.y if wind_override == -999 else wind_override
@@ -25,7 +29,13 @@ func _batch(level: int, tag: int, shots: int, wind_override: int = -999) -> Dict
 				hits[k] += 1
 		var misses: Array[int] = res["misses"]
 		first_miss.append(misses[0])
-	return {"hits": hits, "first_miss": first_miss}
+		for k: int in range(misses.size()):
+			fired += 1
+			if misses[k] >= 100000:
+				lost += 1
+			elif k >= 1 and k <= 3 and misses[k] > 0:
+				later_miss.append(misses[k])
+	return {"hits": hits, "first_miss": first_miss, "later_miss": later_miss, "lost": lost, "fired": fired}
 
 
 func _pct(count: int) -> String:
@@ -136,3 +146,17 @@ func test_round_bias_is_constant_within_a_round_and_has_the_profiled_size() -> v
 			seen_pos = seen_pos or b > 0
 			seen_neg = seen_neg or b < 0
 		assert_true(seen_pos and seen_neg, "the sign is seeded: both occur across seeds")
+
+
+func test_probe_easy() -> void:
+	var r: Dictionary = _batch(SimConstants.CTRL_EASY, 1, 6)
+	var h: Array[int] = r["hits"]
+	var lm: Array[int] = r["later_miss"]
+	gut.p("PROBE easy 1..6: %s %s %s %s %s %s  later median %d p10 %d p90 %d  in40-300 %d/%d lost %d/%d" % [
+			_pct(h[1]), _pct(h[2]), _pct(h[3]), _pct(h[4]), _pct(h[5]), _pct(h[6]),
+			AiTestUtil.median(lm), AiTestUtil.percentile(lm, 10), AiTestUtil.percentile(lm, 90),
+			lm.filter(func(v: int) -> bool: return v >= 40 and v <= 300).size(), lm.size(), r["lost"], r["fired"]])
+	var n: Dictionary = _batch(SimConstants.CTRL_NORMAL, 1, 6)
+	var nh: Array[int] = n["hits"]
+	gut.p("PROBE normal 1..6: %s %s %s %s %s %s" % [_pct(nh[1]), _pct(nh[2]), _pct(nh[3]), _pct(nh[4]), _pct(nh[5]), _pct(nh[6])])
+	assert_true(true)

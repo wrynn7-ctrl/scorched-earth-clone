@@ -286,18 +286,43 @@ static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 			err = -absi(err) if angle < 900 else absi(err)
 		angle = clampi(angle + err, 0, SimConstants.MAX_ANGLE)
 	else:
-		power = clampi(_with_error(plan, prof, bias, noise), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+		var factor: int = -1
+		if plan["corrected"]:
+			factor = correction_factor(prof, sit.rng, sit.corr.get("lost", false))
+		power = clampi(_with_error(plan, prof, bias, noise, factor), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 	return {"kind": "fire", "tank": me.id, "angle": angle, "power": power, "weapon": plan["weapon"]}
+
+
+## How far (per-mille) one correction moves the power from the last shot's towards the exact solution.
+## 1000 is a full fix. Hard and Expert always use their fixed value (no random draw, so their streams
+## are unchanged). Easy is a beginner: usually a weak, varying fraction, sometimes it overshoots
+## to the other side of the target ("over-corrects"), sometimes it barely moves ("didn't notice").
+## After a LOST shell it makes a big but crude move instead. `nominal` skips the dice (safety checks).
+static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: bool = false) -> int:
+	if lost and (prof["lost_max"] as int) > 0:
+		return (((prof["lost_min"] as int) + (prof["lost_max"] as int)) / 2) if nominal \
+				else rng.range_int(prof["lost_min"], prof["lost_max"])
+	var over: int = prof["overshoot"]
+	var ignore: int = prof["ignore"]
+	if nominal or (over == 0 and ignore == 0 and prof["corr_min"] == prof["corr_max"]):
+		return prof["correction"]
+	var roll: int = rng.range_int(0, 999)
+	if roll < over:
+		return rng.range_int(prof["overshoot_min"], prof["overshoot_max"])
+	if roll < over + ignore:
+		return rng.range_int(0, prof["ignore_max"])
+	return rng.range_int(prof["corr_min"], prof["corr_max"])
 
 
 ## The power the AI will really send for `plan`: the exact solution with the round's bias and
 ## `noise` (per-mille) added, or, after an earlier shot at the same target, moved from that
-## shot's power by the level's correction.
-static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: int) -> int:
+## shot's power by `factor` (see correction_factor; -1 = the level's nominal correction).
+static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: int, factor: int = -1) -> int:
 	var power: int = plan["power"]
 	if plan["corrected"]:
 		var prev: int = plan["prev_power"]
-		power = prev + (power - prev) * (prof["correction"] as int) / 1000
+		var f: int = factor if factor >= 0 else (prof["correction"] as int)
+		power = prev + (power - prev) * f / 1000
 		return power * (1000 + noise) / 1000
 	return power * (1000 + bias + noise) / 1000
 
@@ -305,7 +330,10 @@ static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: in
 ## The power finalize() sends before the random jitter (what the shot is "centred" on).
 static func expected_power(sit: AiSituation, plan: Dictionary) -> int:
 	var bias: int = round_bias(sit.state, sit.me.id, sit.prof)
-	return clampi(_with_error(plan, sit.prof, bias, 0), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+	var factor: int = -1
+	if plan["corrected"]:
+		factor = correction_factor(sit.prof, null, sit.corr.get("lost", false), true)
+	return clampi(_with_error(plan, sit.prof, bias, 0, factor), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 
 
 # --- moving ----------------------------------------------------------------------------------------------

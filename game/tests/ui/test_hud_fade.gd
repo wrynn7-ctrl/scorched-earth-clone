@@ -84,16 +84,16 @@ func test_faded_panels_still_take_touches() -> void:
 	hud.get_fade().step(1.0)
 	assert_almost_eq(panel.modulate.a, 0.3, 0.001)
 	assert_eq(panel.mouse_filter, Control.MOUSE_FILTER_STOP, "a faded panel is still a hit target")
-	var plus: FineButton = panel.get_node("Box/Row/Plus")
-	assert_false(plus.disabled)
+	var left: FineButton = panel.get_node("Box/Row/Left")
+	assert_false(left.disabled)
 	var before: int = hud.get_angle_tenths()
 	# Opacity never affects hit-testing: the button is a live target and answers a press.
-	assert_ne(plus.mouse_filter, Control.MOUSE_FILTER_IGNORE)
-	assert_true(plus.is_visible_in_tree())
+	assert_ne(left.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_true(left.is_visible_in_tree())
 	assert_ne(panel.process_mode, Node.PROCESS_MODE_DISABLED)
-	plus.button_down.emit()
-	plus.button_up.emit()
-	assert_eq(hud.get_angle_tenths(), before + 1, "the + button worked through the faded panel")
+	left.button_down.emit()
+	left.button_up.emit()
+	assert_eq(hud.get_angle_tenths(), before + 1, "the left button worked through the faded panel")
 
 
 func test_a_touch_on_a_faded_panel_brings_it_to_full_at_once_and_keeps_it() -> void:

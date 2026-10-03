@@ -232,3 +232,8 @@ THEME_TOXIC_MARSH,Toxic Marsh
 THEME_MIDNIGHT_CHROME,Midnight Chrome
 THEME_RANDOM,Random
 SET_CAMERA_FOLLOW,Camera follows shots
+HUD_ANGLE_LEFT,Turn barrel left 0.1°
+HUD_ANGLE_RIGHT,Turn barrel right 0.1°
+HUD_FACING_RIGHT,facing right
+HUD_FACING_LEFT,facing left
+HUD_FACING_UP,straight up

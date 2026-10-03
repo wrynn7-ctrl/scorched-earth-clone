@@ -74,9 +74,13 @@ if (( REBUILD == 1 )); then
   for f in bin/debug/GodotGooglePlayBilling-debug.aar bin/release/GodotGooglePlayBilling-release.aar plugin.cfg export_plugin.gd BillingClient.gd LICENSE; do
     [[ -f "${SRC_ADDON}/${f}" ]] || die "build did not produce ${f}"
   done
+  # Godot writes a .uid file next to every script and the repo commits them; keep them across the rebuild.
+  mkdir -p "${TMP}/uids"
+  (cd "${ADDON}" 2>/dev/null && find . -maxdepth 1 -name '*.uid' -exec cp {} "${TMP}/uids/" \;) || true
   rm -rf "${ADDON}"
   mkdir -p "${ADDON_PARENT}"
   cp -r "${SRC_ADDON}" "${ADDON}"
+  cp "${TMP}/uids/"* "${ADDON}/" 2>/dev/null || true
   log "rebuilt into ${ADDON}"
   rm -rf "${TMP}"; trap - EXIT
 fi
