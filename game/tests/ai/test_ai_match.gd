@@ -59,6 +59,10 @@ func test_expert_wins_the_most_rounds_over_many_matches() -> void:
 	for i: int in range(4):
 		best = maxi(best, wins[i])
 	assert_eq(wins[3], best, "Expert has the most round wins")
+	var total_rounds: int = MATCHES * ROUNDS
+	assert_between(wins[3] * 100, 55 * total_rounds, 75 * total_rounds,
+			"Expert wins roughly 55..75%% of the rounds, not (nearly) all: %d of %d" % [wins[3], total_rounds])
+	assert_gt(kills[2] * 2, kills[1] * 3, "Hard ends clearly ahead of Normal on kills (%d vs %d)" % [kills[2], kills[1]])
 	assert_gt(wins[3], wins[0], "and clearly beats Easy")
 	assert_gt(wins[3], wins[1])
 	assert_gte(wins[2], wins[0], "Hard at least matches Easy")

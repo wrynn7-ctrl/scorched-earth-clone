@@ -62,8 +62,8 @@ const PROFILES: Dictionary = {
 	SimConstants.CTRL_HARD: {
 		"name": "hard",
 		"wind_use": 900,
-		"bias_min": 15, "bias_max": 30,
-		"noise": 10,
+		"bias_min": 20, "bias_max": 36,
+		"noise": 14,
 		"correction": 800,
 		"target": TARGET_WEAKEST,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
@@ -75,8 +75,8 @@ const PROFILES: Dictionary = {
 	SimConstants.CTRL_EXPERT: {
 		"name": "expert",
 		"wind_use": 950,
-		"bias_min": 0, "bias_max": 0,
-		"noise": 28,
+		"bias_min": 12, "bias_max": 24,
+		"noise": 12,
 		"correction": 1000,
 		"target": TARGET_VALUE,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,

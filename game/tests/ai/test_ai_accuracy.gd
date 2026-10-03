@@ -38,7 +38,10 @@ func test_expert_hits_within_two_shots() -> void:
 	gut.p("EXPERT   hit within 1: %s  within 2: %s  within 3: %s  median first miss %d cells" % [
 			_pct(h[1]), _pct(h[2]), _pct(h[3]), AiTestUtil.median(r["first_miss"])])
 	assert_gte(h[2] * 100, 90 * N, "Expert must hit within 2 shots in >= 90%%, got %s" % _pct(h[2]))
-	assert_gte(h[1] * 100, 80 * N, "an Expert usually hits with the first shot too")
+	assert_gte(h[3] * 100, 97 * N, "and within 3 in >= 97%%, got %s" % _pct(h[3]))
+	# Not inhuman: even the Expert misses its first shot a quarter to 40% of the time.
+	assert_between(h[1] * 100, 60 * N, 75 * N, "Expert's first shot hits in 60..75%%, got %s" % _pct(h[1]))
+	assert_lt(h[2], N, "it does not hit every second shot either")
 
 
 func test_hard_hits_within_three_shots() -> void:
@@ -47,7 +50,11 @@ func test_hard_hits_within_three_shots() -> void:
 	gut.p("HARD     hit within 1: %s  within 2: %s  within 3: %s  within 4: %s  median first miss %d" % [
 			_pct(h[1]), _pct(h[2]), _pct(h[3]), _pct(h[4]), AiTestUtil.median(r["first_miss"])])
 	assert_gte(h[3] * 100, 80 * N, "Hard must hit within 3 shots in >= 80%%, got %s" % _pct(h[3]))
+	assert_between(h[1] * 100, 35 * N, 55 * N, "Hard's first shot hits in 35..55%%, got %s" % _pct(h[1]))
 	assert_gt(h[3], h[1], "Hard improves from shot to shot")
+	var expert: Dictionary = _batch(SimConstants.CTRL_EXPERT, 4, 1)
+	var e1: int = (expert["hits"] as Array[int])[1]
+	assert_gt(e1 - h[1], N / 10, "Hard is clearly below Expert on first-shot rate (%s vs %s)" % [_pct(h[1]), _pct(e1)])
 
 
 func test_normal_first_shot_and_improvement() -> void:
@@ -87,18 +94,11 @@ func test_easy_misses_more_in_strong_wind_but_still_misses_without_wind() -> voi
 func test_levels_are_ordered_by_skill() -> void:
 	var rates: Array[int] = []
 	for level: int in [SimConstants.CTRL_EASY, SimConstants.CTRL_NORMAL, SimConstants.CTRL_HARD, SimConstants.CTRL_EXPERT]:
-		var count: int = 0
-		for i: int in range(60):
-			var p: Vector2i = AiTestUtil.params(i, 77)
-			var state: MatchState = AiTestUtil.duel(2000 + i, level, p.x, p.y)
-			if AiTestUtil.shoot_until_hit(state, 2)["first_hit"] > 0:
-				count += 1
-		rates.append(count)
-	gut.p("SKILL    hit within 2 shots (of 60): easy %d  normal %d  hard %d  expert %d" % [
-			rates[0], rates[1], rates[2], rates[3]])
+		rates.append((_batch(level, 77, 1)["hits"] as Array[int])[1])
+	gut.p("SKILL    first-shot hits (of %d): easy %d  normal %d  hard %d  expert %d" % [N, rates[0], rates[1], rates[2], rates[3]])
 	assert_lt(rates[0], rates[1])
 	assert_lt(rates[1], rates[2])
-	assert_lte(rates[2], rates[3])
+	assert_lt(rates[2], rates[3])
 
 
 ## Misses are consistent, not random: with no wind, an Easy tank's shots fall short when the
@@ -135,5 +135,4 @@ func test_round_bias_is_constant_within_a_round_and_has_the_profiled_size() -> v
 			assert_between(absi(b), prof["bias_min"], prof["bias_max"], "bias magnitude")
 			seen_pos = seen_pos or b > 0
 			seen_neg = seen_neg or b < 0
-		if level != SimConstants.CTRL_EXPERT:
-			assert_true(seen_pos and seen_neg, "the sign is seeded: both occur across seeds")
+		assert_true(seen_pos and seen_neg, "the sign is seeded: both occur across seeds")
