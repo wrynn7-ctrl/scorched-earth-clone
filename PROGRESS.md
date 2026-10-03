@@ -4,8 +4,8 @@
 |---|---|
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
-| M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; HUD edge bug on S26 Ultra being fixed) |
-| M4 — AI opponents | ⬜ Not started |
+| M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; edge + scrollbar fixes confirmed on device) |
+| M4 — AI opponents | 🟡 In progress |
 | M5 — Polish, sound, effects | ⬜ Not started |
 | M6 — Local pass-and-play | ⬜ Not started |
 | M7 — Online multiplayer | ⬜ Not started |
@@ -45,8 +45,18 @@
 | M3-F Hardening: move dx overflow, save range validation, chute only when it saves HP | core-sim-dev | ✅ reviewed |
 | M3-CI Split CI tests into parallel jobs, runner suite selection, timeout, pin Ubuntu 24.04 | release-eng | ✅ reviewed (CI 4 min, 759 tests) |
 | M3-UI-EDGE Owner bug: on the S26 Ultra the HUD is laid out in a smaller rect (gaps right/left/bottom); re-layout on resize, canvas-unit safe area, diagnostics overlay | show-ui-dev | ⚠️ not fixed on device (diagnostics: display reports are sane; only the battle HUD is wrong) |
-| M3-UI-EDGE-2 Battle HUD forced to the visible rect every layout pass + in-battle diagnostics (long-press pause) | show-ui-dev | ✅ reviewed (awaiting owner device check) |
+| M3-UI-EDGE-2 Battle HUD forced to the visible rect every layout pass + in-battle diagnostics (long-press pause) | show-ui-dev | ✅ confirmed working on owner's S26 Ultra |
 | M3-UI-SCROLL Owner feedback: shop scrollbar too thin → ≥ 20 dp touch scrollbars everywhere + swipe-to-scroll | show-ui-dev | ✅ reviewed |
+
+## M4 tasks
+| Task | Agent | Status |
+|---|---|---|
+| M3-UI-ARROWS-2 Owner feedback: angle buttons show ◀ (−0.1°) and ▶ (+0.1°) | show-ui-dev | 🟡 running |
+| M4 contract (ARCHITECTURE §27–§30) | lead | ✅ written |
+| M4-C Controllers in settings + `last_fire_*` AI memory in TankState | core-sim-dev | 🟡 running |
+| M4-A AiPlayer: aim solver, error model, weapon/item/shop/target choice, 4 levels + statistical tests | ai-dev | 🟡 running |
+| M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CI `ai` leg | show-ui-dev | ⬜ after C + A |
+| M4-Q AI fuzz, determinism across save/load, balance table | qa-tester | ⬜ after U |
 
 ## Decisions / notes
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
