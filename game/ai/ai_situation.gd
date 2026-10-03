@@ -1,0 +1,31 @@
+class_name AiSituation
+extends RefCounted
+## Everything the AI works out once per decision and then hands around: the state, the
+## shooter, the chosen target, the aiming context and the plain (spark/pulse-style) solution
+## for hitting the target from here. Built by AiPlayer, read by AiWeapons.
+
+var state: MatchState
+var me: TankState
+var level: int = 2
+var prof: Dictionary = {}
+var rng: Rng
+var target: TankState
+var enemies: Array[TankState] = []
+var ctx: AimSolver.Ctx
+var flight: AiFlight
+## Preferred launch angle, tenths of a degree from the horizontal towards the target.
+var a0: int = 450
+## Model-only solution aimed at the target's x (see AimSolver.solve_direct). ok = false means
+## "blocked or out of range".
+var direct: Dictionary = {}
+## Correction from the last shot at this target, or {} (see AiPlayer.correction_for).
+var corr: Dictionary = {}
+var dist: int = 0
+## Id of the enemy closest to this tank (a Seeker locks on to that one).
+var nearest_id: int = -1
+
+
+func owns(weapon_id: String) -> bool:
+	if WeaponDefs.get_def(weapon_id).get("unlimited", false):
+		return true
+	return me.stock_of(weapon_id) > 0
