@@ -42,6 +42,10 @@ func clamped() -> MatchSettings:
 	s.rounds = clampi(rounds, SimConstants.MIN_ROUNDS, SimConstants.MAX_ROUNDS)
 	s.wind_max = clampi(wind_max, 0, SimConstants.WIND_MAX)
 	s.start_money = clampi(start_money, 0, SimConstants.MAX_START_MONEY)
+	# Free version: at most 4 tanks and 5 rounds (section 32). Applied before the controller resize.
+	if not s.full_unlocked:
+		s.num_tanks = mini(s.num_tanks, SimConstants.FREE_MAX_TANKS)
+		s.rounds = mini(s.rounds, SimConstants.FREE_MAX_ROUNDS)
 	# Hard/Expert are full-version only (section 27).
 	var top: int = SimConstants.CTRL_MAX if s.full_unlocked else SimConstants.CTRL_FREE_MAX
 	var c := PackedInt32Array()

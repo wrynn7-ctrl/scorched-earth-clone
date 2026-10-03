@@ -259,6 +259,11 @@ static func _validate_header(state: MatchState) -> String:
 		return "settings.num_tanks %d" % st.num_tanks
 	if st.rounds < SimConstants.MIN_ROUNDS or st.rounds > SimConstants.MAX_ROUNDS:
 		return "settings.rounds %d" % st.rounds
+	if not st.full_unlocked:
+		if st.num_tanks > SimConstants.FREE_MAX_TANKS:
+			return "settings.num_tanks %d in the free version" % st.num_tanks
+		if st.rounds > SimConstants.FREE_MAX_ROUNDS:
+			return "settings.rounds %d in the free version" % st.rounds
 	if st.wind_max < 0 or st.wind_max > SimConstants.WIND_MAX:
 		return "settings.wind_max %d" % st.wind_max
 	if st.start_money < 0 or st.start_money > SimConstants.MAX_START_MONEY:

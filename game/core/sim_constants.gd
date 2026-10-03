@@ -50,6 +50,9 @@ const MIN_ROUNDS: int = 1
 const MAX_ROUNDS: int = 20
 const MAX_START_MONEY: int = 1_000_000
 const DEFAULT_START_MONEY: int = 10000
+## Free-version caps (section 32), enforced while `full_unlocked` is false.
+const FREE_MAX_TANKS: int = 4
+const FREE_MAX_ROUNDS: int = 5
 
 ## Controllers (section 27): who plays a tank. Hard and Expert are full-version only.
 const CTRL_HUMAN: int = 0
