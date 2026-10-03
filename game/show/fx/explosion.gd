@@ -20,6 +20,11 @@ var _sparks: CPUParticles2D = null
 var _tween: Tween = null
 var _active: bool = false
 var _radius: float = 0.0
+## Blast colours (a theme's tint): flash/spark core, shockwave ring, spark mid and fade-out.
+var _tint_core: Color = NeonPalette.HOT
+var _tint_ring: Color = NeonPalette.CYAN
+var _tint_mid: Color = NeonPalette.SUNSET
+var _tint_end: Color = NeonPalette.MAGENTA
 
 
 func _ready() -> void:
@@ -60,6 +65,14 @@ func _ready() -> void:
 	_ring.visible = false
 
 
+## Recolours the normal blast (Static Burst keeps its own cold look). Takes effect on the next play().
+func set_tint(core: Color, ring: Color, mid: Color, end: Color) -> void:
+	_tint_core = core
+	_tint_ring = ring
+	_tint_mid = mid
+	_tint_end = end
+
+
 func is_playing() -> bool:
 	return _active
 
@@ -79,11 +92,11 @@ func play(at: Vector2, radius: float, style: int = STYLE_BLAST) -> void:
 	_active = true
 	_radius = radius
 	var cold: bool = style == STYLE_STATIC
-	_flash.modulate = Color(0.7, 0.95, 1.0) if cold else NeonPalette.HOT
-	_ring.modulate = Color.WHITE if cold else NeonPalette.CYAN
+	_flash.modulate = Color(0.7, 0.95, 1.0) if cold else _tint_core
+	_ring.modulate = Color.WHITE if cold else _tint_ring
 	var ramp := _sparks.color_ramp
 	ramp.colors = PackedColorArray([Color.WHITE, NeonPalette.CYAN, Color(NeonPalette.CYAN, 0.0)]) if cold \
-			else PackedColorArray([NeonPalette.HOT, NeonPalette.SUNSET, Color(NeonPalette.MAGENTA, 0.0)])
+			else PackedColorArray([_tint_core, _tint_mid, Color(_tint_end, 0.0)])
 	if _tween != null:
 		_tween.kill()
 	var r: float = maxf(4.0, radius)

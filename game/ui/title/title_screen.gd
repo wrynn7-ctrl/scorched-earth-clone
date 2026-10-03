@@ -6,6 +6,8 @@ extends Control
 const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
 const SETUP_SCENE: String = "res://ui/setup/setup_screen.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
+## Grid scroll speed on the title (the battle's sky uses the shader default, 0.35).
+const TITLE_GRID_SPEED: float = 0.16
 const LOGO_SHADER: Shader = preload("res://ui/title/logo_gradient.gdshader")
 
 var _sky: NeonSky = null
@@ -22,6 +24,8 @@ var _row: HBoxContainer = null
 var _settings_overlay: SettingsOverlay = null
 var _confirm: ConfirmOverlay = null
 var _pulse: Tween = null
+var _pulse_b: Tween = null
+var _drift_t: float = 0.0
 
 
 func _init() -> void:
@@ -38,6 +42,7 @@ func _ready() -> void:
 	LayoutWatch.attach(self, apply_scale)
 	refresh_continue()
 	_start_pulse()
+	_start_drift()
 	ShotHook.attach(self)
 	if ShotArgs.open_settings or ShotArgs.open_diag:
 		open_settings()
@@ -149,6 +154,7 @@ func apply_scale() -> void:
 	_glow_a.add_theme_constant_override("outline_size", roundi(UiScale.dp(16.0)))
 	_glow_b.add_theme_constant_override("outline_size", roundi(UiScale.dp(6.0)))
 	(_logo.material as ShaderMaterial).set_shader_parameter("height", text_size.y)
+	(_logo.material as ShaderMaterial).set_shader_parameter("width", text_size.x)
 	_subtitle.add_theme_font_size_override("font_size", UiScale.font(15.0))
 	_box.add_theme_constant_override("separation", roundi(UiScale.dp(14.0)))
 	_row.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
@@ -159,12 +165,33 @@ func apply_scale() -> void:
 		b.add_theme_font_size_override("font_size", UiScale.font(15.0))
 
 
+## A gentle logo glow: the wide magenta halo and the tight cyan one breathe out of step, and a
+## faint highlight sweeps over the letters. Two looping tweens and one shader uniform: cheap.
+## With reduce motion everything stays still.
 func _start_pulse() -> void:
-	if ShowSettings.reduce_motion:
+	var still: bool = ShowSettings.reduce_motion
+	(_logo.material as ShaderMaterial).set_shader_parameter("shimmer", 0.0 if still else 1.0)
+	if still:
 		return
 	_pulse = create_tween().set_loops()
 	_pulse.tween_property(_glow_a, "modulate:a", 0.55, 1.6).set_trans(Tween.TRANS_SINE)
 	_pulse.tween_property(_glow_a, "modulate:a", 1.0, 1.6).set_trans(Tween.TRANS_SINE)
+	_glow_b.modulate.a = 0.6
+	_pulse_b = create_tween().set_loops()
+	_pulse_b.tween_property(_glow_b, "modulate:a", 1.0, 2.3).set_trans(Tween.TRANS_SINE)
+	_pulse_b.tween_property(_glow_b, "modulate:a", 0.6, 2.3).set_trans(Tween.TRANS_SINE)
+
+
+## The horizon grid scrolls slowly toward the viewer and sways a little sideways.
+func _start_drift() -> void:
+	var still: bool = ShowSettings.reduce_motion
+	_sky.set_scroll_speed(0.0 if still else TITLE_GRID_SPEED)
+	set_process(not still)
+
+
+func _process(delta: float) -> void:
+	_drift_t += delta
+	_sky.set_parallax(Vector2(sin(_drift_t * 0.07) * 320.0, 0.0))
 
 
 ## Shows CONTINUE only when a valid autosave exists.
@@ -213,11 +240,11 @@ func start_game() -> void:
 
 
 func _go_to_setup() -> void:
-	get_tree().change_scene_to_file(SETUP_SCENE)
+	Transition.go(get_tree(), SETUP_SCENE)
 
 
 ## CONTINUE: the battle restores the autosave (mid-turn or mid-shop).
 func continue_game() -> void:
 	BattleConfig.resume = true
 	BattleConfig.settings = null
-	get_tree().change_scene_to_file(BATTLE_SCENE)
+	Transition.go(get_tree(), BATTLE_SCENE)

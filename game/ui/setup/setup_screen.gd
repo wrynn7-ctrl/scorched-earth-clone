@@ -14,6 +14,10 @@ const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
 const TITLE_SCENE: String = "res://ui/title/title_screen.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 
+## Reported when a theme that needs the full game is tapped without it (a later task opens the
+## Unlock screen from here).
+signal locked_tapped(kind: String, id: String)
+
 const ROUND_CHOICES: Array[int] = [1, 3, 5, 10, 20]
 ## Starting money levels: Low / Normal / High.
 const MONEY_CHOICES: Array[int] = [5000, 10000, 25000]
@@ -38,8 +42,10 @@ var _emblems: PackedInt32Array = PackedInt32Array()
 ## player count keeps the choices).
 var _controllers: PackedInt32Array = PackedInt32Array()
 var _watch: bool = false
-## False locks CPU Hard and Expert behind the full game (this build: unlocked).
+## False locks CPU Hard and Expert and the full-game themes (follows Entitlement once it exists).
 var _full_unlocked: bool = true
+## Terrain theme: a ThemeDefs id or "random" (visual only, applied in the battle).
+var _theme: String = ThemeDefs.DEFAULT_ID
 
 var _sky: NeonSky = null
 var _margin: MarginContainer = null
@@ -68,6 +74,8 @@ var _kind_buttons: Array[Button] = []
 var _chips: Array[PanelContainer] = []
 var _chip_labels: Array[Label] = []
 var _picker: KindPicker = null
+var _theme_button: Button = null
+var _theme_picker: ThemePicker = null
 var _header: HBoxContainer = null
 var _watch_box: Button = null
 var _hint: Label = null
@@ -87,6 +95,7 @@ func _init() -> void:
 		_emblems.append(i)
 	_controllers.resize(SimConstants.MAX_TANKS)
 	_controllers.fill(SimConstants.CTRL_HUMAN)
+	_full_unlocked = ThemeDefs.is_full_game()
 	_load_prefs()
 	if ShotArgs.players >= SimConstants.MIN_TANKS:
 		_players = clampi(ShotArgs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
@@ -107,7 +116,9 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if _picker != null and _picker.visible:
+		if _theme_picker != null and _theme_picker.visible:
+			_theme_picker.close()
+		elif _picker != null and _picker.visible:
 			_picker.close()  # Android back closes the picker first
 		else:
 			go_back()
@@ -122,6 +133,7 @@ func _load_prefs() -> void:
 	_money_level = clampi(SetupPrefs.money_level, 0, MONEY_CHOICES.size() - 1)
 	_wind_level = clampi(SetupPrefs.wind_level, 0, WIND_CHOICES.size() - 1)
 	_watch = SetupPrefs.watch
+	_theme = SetupPrefs.theme if _theme_allowed(SetupPrefs.theme) else ThemeDefs.DEFAULT_ID
 	for i: int in range(SimConstants.MAX_TANKS):
 		_controllers[i] = _allowed_level(SetupPrefs.controllers[i] if i < SetupPrefs.controllers.size() else 0)
 	_enforce_human_rule()
@@ -146,6 +158,10 @@ func _build() -> void:
 	_picker = KindPicker.new()
 	_picker.chosen.connect(_on_kind_chosen)
 	add_child(_picker)
+	_theme_picker = ThemePicker.new()
+	_theme_picker.chosen.connect(set_theme)
+	_theme_picker.locked_chosen.connect(_on_theme_locked)
+	add_child(_theme_picker)
 
 
 func _panel(panel_name: String) -> Array:
@@ -208,6 +224,18 @@ func _build_options() -> void:
 		b.pressed.connect(set_wind_level.bind(i))
 		row.add_child(b)
 		_wind_buttons.append(b)
+
+	row = _option_row("ThemeRow", tr("SETUP_THEME"))
+	_theme_button = Button.new()
+	_theme_button.name = "Theme"
+	_theme_button.focus_mode = Control.FOCUS_NONE
+	_theme_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_theme_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_theme_button.expand_icon = true
+	_theme_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_theme_button.clip_text = true
+	_theme_button.pressed.connect(open_theme_picker)
+	row.add_child(_theme_button)
 
 
 func _option_row(row_name: String, caption: String) -> HBoxContainer:
@@ -400,6 +428,9 @@ func apply_scale() -> void:
 	for b: Button in _wind_buttons:
 		b.custom_minimum_size = Vector2(UiScale.dp(66.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+	_theme_button.custom_minimum_size = Vector2(UiScale.dp(200.0), touch)
+	_theme_button.add_theme_font_size_override("font_size", UiScale.hud_font(13.0))
+	_theme_button.add_theme_constant_override("icon_max_width", roundi(UiScale.dp(44.0)))
 	for l: Label in _player_labels:
 		l.custom_minimum_size.x = UiScale.dp(30.0)
 		l.add_theme_font_size_override("font_size", UiScale.hud_font(14.0))
@@ -503,7 +534,50 @@ func set_full_unlocked(unlocked: bool) -> void:
 	_full_unlocked = unlocked
 	for i: int in range(_controllers.size()):
 		_controllers[i] = _allowed_level(_controllers[i])
+	if not _theme_allowed(_theme):
+		_theme = ThemeDefs.DEFAULT_ID
 	_refresh()
+
+
+func get_theme_choice() -> String:
+	return _theme
+
+
+## Chooses the terrain theme (a ThemeDefs id or "random"). A theme that needs the full game is
+## refused (returns false, shows the lock hint and emits locked_tapped).
+func set_theme(id: String) -> bool:
+	var clean: String = ThemeDefs.sanitize(id)
+	if clean != id:
+		return false
+	if not _theme_allowed(clean):
+		_on_theme_locked(clean)
+		return false
+	_hint.text = ""
+	_theme = clean
+	_refresh()
+	return true
+
+
+func _theme_allowed(id: String) -> bool:
+	return ThemeDefs.sanitize(id) == id and not ThemeDefs.is_locked(id, _full_unlocked)
+
+
+func _on_theme_locked(id: String) -> void:
+	_hint.text = tr("SETUP_THEME_LOCKED")
+	_refresh()
+	locked_tapped.emit("theme", id)
+
+
+func open_theme_picker() -> void:
+	_theme_picker.open_for(_theme, _full_unlocked)
+
+
+func get_theme_button() -> Button:
+	return _theme_button
+
+
+func get_theme_picker() -> ThemePicker:
+	return _theme_picker
 
 
 ## Next colour for player i. If another player has it they swap, so colours stay unique.
@@ -561,6 +635,10 @@ func _refresh() -> void:
 		_emblem_buttons[i].set_art(col, _emblems[i])
 		_emblem_buttons[i].tooltip_text = tr(NeonPalette.EMBLEM_NAME_KEYS[_emblems[i]])
 		_refresh_kind(i)
+	_theme_button.text = "%s ▾" % tr(ThemeDefs.name_key(_theme))
+	_theme_button.icon = ThemeSwatch.texture(_theme)
+	_theme_button.tooltip_text = tr(ThemeDefs.name_key(_theme))
+	_sky.apply_theme(ThemeDefs.DEFAULT_ID if _theme == ThemeDefs.RANDOM else _theme)  # live preview
 	_watch_box.set_pressed_no_signal(_watch)
 	_watch_box.text = "%s: %s" % [tr("SETUP_WATCH"), tr("SET_ON") if _watch else tr("SET_OFF")]
 	_hint.visible = _hint.text != ""
@@ -613,7 +691,7 @@ func build_settings() -> MatchSettings:
 
 ## Remembers the current choices in SetupPrefs and writes settings.cfg.
 func save_prefs() -> void:
-	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch)
+	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch, _theme)
 	SettingsStore.save()
 
 
@@ -622,15 +700,16 @@ func start_match() -> void:
 	BattleConfig.settings = build_settings()
 	BattleConfig.resume = false
 	BattleConfig.seed_value = 0
+	BattleConfig.theme = _theme
 	PlayerLooks.set_looks(_colors.slice(0, _players), _emblems.slice(0, _players))
 	# A new match replaces any autosave (the title asked for confirmation already).
 	SaveStore.delete(BattleConfig.autosave_path)
-	get_tree().change_scene_to_file(BATTLE_SCENE)
+	Transition.go(get_tree(), BATTLE_SCENE)
 
 
 func go_back() -> void:
 	save_prefs()
-	get_tree().change_scene_to_file(TITLE_SCENE)
+	Transition.go(get_tree(), TITLE_SCENE)
 
 
 # --- accessors (tests, tools) ---

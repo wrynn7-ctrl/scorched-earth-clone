@@ -19,6 +19,16 @@ var _version_btn: Button = null
 var _diag: DiagnosticsOverlay = null
 var _version_taps: int = 0
 var _last_tap_ms: int = 0
+## "Sfx" / "Music" -> the volume slider, its value label and its ON/OFF button.
+var _sliders: Dictionary = {}
+var _slider_values: Dictionary = {}
+var _slider_toggles: Dictionary = {}
+var _ui_sounds_btn: Button = null
+var _thumb_px: int = 0
+var _dragging: bool = false
+var _thumb_normal: Texture2D = null
+var _thumb_hot: Texture2D = null
+var _thumb_off: Texture2D = null
 
 ## Taps on the version number that open the hidden diagnostics (each within TAP_WINDOW_MS of the last).
 const DIAG_TAPS: int = 5
@@ -66,6 +76,10 @@ func _init() -> void:
 	_size_value.name = "TextSizeValue"
 	_cpu_btn = add_cycle(tr("SET_CPU_SPEED"), "", _on_cpu_speed)
 	_cpu_btn.name = "CpuSpeed"
+	_add_volume("Sfx", tr("SET_SFX"), ShowSettings.sfx_volume, ShowSettings.sfx_on, _on_sfx_volume, _on_sfx_on)
+	_add_volume("Music", tr("SET_MUSIC"), ShowSettings.music_volume, ShowSettings.music_on, _on_music_volume, _on_music_on)
+	_ui_sounds_btn = add_toggle(tr("SET_UI_SOUNDS"), ShowSettings.ui_sounds, _on_ui_sounds)
+	_ui_sounds_btn.name = "UiSounds"
 	end_container()
 	# BACK and the (hidden-diagnostics) version number share a row to keep the panel short.
 	begin_row()
@@ -98,6 +112,7 @@ func apply_scale() -> void:
 	if _scroll == null:
 		return
 	# Two columns when they fit the screen, one long (scrolling) column when text is very large.
+	_style_sliders()
 	var grid: GridContainer = _scroll.get_child(0)
 	grid.columns = 2
 	var frame: float = _panel.get_theme_stylebox("panel").get_minimum_size().x + UiScale.dp(32.0 + TouchScroll.BAR_DP + TouchScroll.GAP_DP)
@@ -166,6 +181,10 @@ func _sync() -> void:
 		b.text = tr("SET_ON") if b.button_pressed else tr("SET_OFF")
 	_preview_btn.set_pressed_no_signal(ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF)
 	_speed_btn.set_pressed_no_signal(ShowSettings.playback_speed >= 1.5)
+	_set_volume_controls("Sfx", ShowSettings.sfx_volume, ShowSettings.sfx_on)
+	_set_volume_controls("Music", ShowSettings.music_volume, ShowSettings.music_on)
+	_ui_sounds_btn.set_pressed_no_signal(ShowSettings.ui_sounds)
+	_ui_sounds_btn.text = tr("SET_ON") if ShowSettings.ui_sounds else tr("SET_OFF")
 	_refresh_texts()
 
 
@@ -208,6 +227,172 @@ func _on_text_step(direction: int) -> void:
 
 func _save() -> void:
 	SettingsStore.save()
+
+
+# --- sound --------------------------------------------------------------------------------
+
+## A "Caption  [slider] 80%  [ON]" row in the settings grid: volume 0-100 plus a switch.
+func _add_volume(key: String, caption: String, volume: int, on: bool, on_volume: Callable, on_toggle: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_target.add_child(row)
+	var label := Label.new()
+	label.text = caption
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_font_dp[label] = 15.0
+	_labels.append(label)
+	row.add_child(label)
+	var slider := HSlider.new()
+	slider.name = key + "Volume"
+	slider.min_value = 0.0
+	slider.max_value = 100.0
+	slider.step = 1.0
+	slider.value = volume
+	slider.focus_mode = Control.FOCUS_NONE
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.value_changed.connect(func(v: float) -> void:
+		_set_value_text(key, int(v))
+		on_volume.call(int(v))
+		if not _dragging:
+			_save())  # dragging saves once, when the finger lifts
+	slider.drag_started.connect(func() -> void: _dragging = true)
+	slider.drag_ended.connect(func(_changed: bool) -> void:
+		_dragging = false
+		_save()
+		if key == "Sfx":
+			AudioDirector.play_sfx("money_gain"))  # let the new level be heard
+	row.add_child(slider)
+	var value := Label.new()
+	value.name = key + "Value"
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_font_dp[value] = 14.0
+	_labels.append(value)
+	row.add_child(value)
+	var b := Button.new()
+	b.name = key + "Switch"
+	b.toggle_mode = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.button_pressed = on
+	b.toggled.connect(func(pressed: bool) -> void:
+		b.text = tr("SET_ON") if pressed else tr("SET_OFF")
+		slider.editable = pressed
+		on_toggle.call(pressed))
+	_btn_dp[b] = [84.0, 14.0]
+	_buttons.append(b)
+	row.add_child(b)
+	_sliders[key] = slider
+	_slider_values[key] = value
+	_slider_toggles[key] = b
+	_set_volume_controls(key, volume, on)
+
+
+func _set_volume_controls(key: String, volume: int, on: bool) -> void:
+	var slider: HSlider = _sliders[key]
+	slider.set_value_no_signal(volume)
+	slider.editable = on
+	var b: Button = _slider_toggles[key]
+	b.set_pressed_no_signal(on)
+	b.text = tr("SET_ON") if on else tr("SET_OFF")
+	_set_value_text(key, volume)
+
+
+func _set_value_text(key: String, volume: int) -> void:
+	(_slider_values[key] as Label).text = "%d%%" % volume
+
+
+func _on_sfx_volume(v: int) -> void:
+	ShowSettings.sfx_volume = v
+	AudioDirector.apply_settings()
+
+
+func _on_sfx_on(on: bool) -> void:
+	ShowSettings.sfx_on = on
+	AudioDirector.apply_settings()
+	_save()
+
+
+func _on_music_volume(v: int) -> void:
+	ShowSettings.music_volume = v
+	AudioDirector.apply_settings()
+
+
+func _on_music_on(on: bool) -> void:
+	ShowSettings.music_on = on
+	AudioDirector.apply_settings()
+	_save()
+
+
+func _on_ui_sounds(on: bool) -> void:
+	ShowSettings.ui_sounds = on
+	AudioDirector.apply_settings()
+	_save()
+
+
+## Touch-sized sliders: the thumb is TOUCH dp (48) across and the whole row is at least that tall; the value
+## sits next to the slider as text so the level never depends on the thumb position alone.
+func _style_sliders() -> void:
+	if _sliders.is_empty():
+		return
+	var px: int = roundi(maxf(UiScale.touch(), UiScale.dp(UiScale.MIN_TOUCH_DP)))
+	if px != _thumb_px:
+		_thumb_px = px
+		_build_thumbs(px)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(NeonPalette.CYAN, 0.18)
+	track.set_corner_radius_all(roundi(UiScale.dp(4.0)))
+	track.content_margin_top = UiScale.dp(4.0)
+	track.content_margin_bottom = UiScale.dp(4.0)
+	var fill: StyleBoxFlat = track.duplicate()
+	fill.bg_color = Color(NeonPalette.CYAN, 0.75)
+	for key: String in _sliders:
+		var s: HSlider = _sliders[key]
+		s.custom_minimum_size = Vector2(UiScale.dp(110.0), float(px))
+		s.add_theme_stylebox_override("slider", track)
+		s.add_theme_stylebox_override("grabber_area", fill)
+		s.add_theme_stylebox_override("grabber_area_highlight", fill)
+		s.add_theme_icon_override("grabber", _thumb_normal)
+		s.add_theme_icon_override("grabber_highlight", _thumb_hot)
+		s.add_theme_icon_override("grabber_disabled", _thumb_off)
+		(_slider_values[key] as Label).custom_minimum_size.x = UiScale.dp(46.0)
+
+
+func _build_thumbs(px: int) -> void:
+	_thumb_normal = _thumb(px, NeonPalette.CYAN)
+	_thumb_hot = _thumb(px, Color(0.85, 1.0, 1.0))
+	_thumb_off = _thumb(px, Color(NeonPalette.TEXT_DIM, 0.6))
+
+
+## A round glowing disc, `px` across (a radial gradient: bright core, solid body, soft edge).
+static func _thumb(px: int, color: Color) -> Texture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.3, 0.78, 0.9, 1.0])
+	g.colors = PackedColorArray([Color.WHITE, color, color, Color(color, 0.0), Color(color, 0.0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = px
+	t.height = px
+	return t
+
+
+func get_slider(key: String) -> HSlider:
+	return _sliders[key] as HSlider
+
+
+func get_slider_switch(key: String) -> Button:
+	return _slider_toggles[key] as Button
+
+
+func get_slider_value_text(key: String) -> String:
+	return (_slider_values[key] as Label).text
+
+
+func get_ui_sounds_button() -> Button:
+	return _ui_sounds_btn
 
 
 func get_toggle(key: String) -> Button:

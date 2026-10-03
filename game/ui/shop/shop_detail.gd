@@ -67,8 +67,10 @@ func _init() -> void:
 	_box.add_child(buttons)
 	_buy = _button(buttons, "Buy")
 	_buy.pressed.connect(func() -> void: buy_pressed.emit(item_id))
+	_buy.set_meta("ui_sound", "none")  # ShopScreen plays purchase / locked itself
 	_sell = _button(buttons, "Sell")
 	_sell.pressed.connect(func() -> void: sell_pressed.emit(item_id))
+	_sell.set_meta("ui_sound", "none")
 	_close = Button.new()
 	_close.name = "Close"
 	_close.text = tr("SHOP_CLOSE")

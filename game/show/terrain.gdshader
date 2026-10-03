@@ -10,14 +10,8 @@ uniform vec4 edge_b : source_color = vec4(1.0, 0.18, 0.62, 1.0);
 uniform float grid_strength : hint_range(0.0, 0.3) = 0.07;
 uniform float glow_strength : hint_range(0.0, 2.0) = 1.0;
 
-// Subtle strata colours for materials 0..15 (0 = air, unused).
-const vec3 STRATA[16] = vec3[16](
-	vec3(0.0),
-	vec3(0.30, 0.12, 0.45), vec3(0.24, 0.12, 0.50), vec3(0.18, 0.14, 0.52), vec3(0.13, 0.18, 0.52),
-	vec3(0.10, 0.24, 0.50), vec3(0.08, 0.30, 0.48), vec3(0.08, 0.34, 0.44), vec3(0.10, 0.36, 0.38),
-	vec3(0.30, 0.16, 0.40), vec3(0.36, 0.12, 0.34), vec3(0.40, 0.10, 0.28), vec3(0.28, 0.10, 0.26),
-	vec3(0.20, 0.10, 0.30), vec3(0.14, 0.09, 0.28), vec3(0.10, 0.08, 0.24)
-);
+// Strata colours for materials 1..15 (0 = air), a 16x1 texture the theme fills (TerrainView).
+uniform sampler2D strata_tex : filter_nearest, repeat_disable;
 
 // 12 neighbour taps: axis at r=1, diagonals at r=2, axis at r=3, with falloff weights.
 const ivec2 OFFS[12] = ivec2[12](
@@ -56,7 +50,7 @@ void fragment() {
 		float depth = clamp(wp.y / float(world_size.y), 0.0, 1.0);
 		// Opaque dirt: bright enough near the surface to clearly read as a solid mass in front of
 		// the sky's ground plane (it was too close to that plane's dark purple).
-		vec3 base = STRATA[clamp(m, 0, 15)] * mix(1.0, 0.42, depth);
+		vec3 base = texelFetch(strata_tex, ivec2(clamp(m, 0, 15), 0), 0).rgb * mix(1.0, 0.42, depth);
 		// Faint grid + scanline texture inside the dirt.
 		float hl = step(0.86, fract(wp.y / 6.0));
 		float vl = step(0.94, fract(wp.x / 24.0));

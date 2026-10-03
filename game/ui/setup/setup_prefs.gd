@@ -17,6 +17,8 @@ static var wind_level: int = 2
 static var controllers: PackedInt32Array = _human_slots()
 ## "Watch CPUs play": allows a match with no human at all.
 static var watch: bool = false
+## Terrain theme (a ThemeDefs id or "random"). Visual only.
+static var theme: String = ThemeDefs.DEFAULT_ID
 
 
 static func _human_slots() -> PackedInt32Array:
@@ -34,11 +36,12 @@ static func reset() -> void:
 	wind_level = 2
 	controllers = _human_slots()
 	watch = false
+	theme = ThemeDefs.DEFAULT_ID
 
 
 ## Stores the setup screen's choices (called on START).
 static func remember(p_players: int, p_rounds: int, p_money_level: int, p_wind_level: int,
-		p_controllers: PackedInt32Array, p_watch: bool) -> void:
+		p_controllers: PackedInt32Array, p_watch: bool, p_theme: String = "") -> void:
 	has_saved = true
 	players = p_players
 	rounds = p_rounds
@@ -47,6 +50,8 @@ static func remember(p_players: int, p_rounds: int, p_money_level: int, p_wind_l
 	controllers = p_controllers.duplicate()
 	controllers.resize(SLOTS)
 	watch = p_watch
+	if p_theme != "":
+		theme = ThemeDefs.sanitize(p_theme)
 
 
 ## Controllers as a plain Array (ConfigFile-friendly).

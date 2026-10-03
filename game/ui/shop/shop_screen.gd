@@ -439,7 +439,9 @@ func _on_buy(id: String) -> void:
 		err = _submit.call(_buy_action(id))
 	if err != "":
 		message.emit(ErrorText.message(err))
+		AudioDirector.play_ui("locked")
 		return
+	AudioDirector.play_ui("purchase")
 	refresh()
 
 
@@ -449,7 +451,9 @@ func _on_sell(id: String) -> void:
 		err = _submit.call(_sell_action(id))
 	if err != "":
 		message.emit(ErrorText.message(err))
+		AudioDirector.play_ui("locked")
 		return
+	AudioDirector.play_ui("purchase")
 	refresh()
 
 

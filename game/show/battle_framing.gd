@@ -24,3 +24,16 @@ static func frame(visible_size: Vector2) -> Dictionary:
 	if vis_w > WORLD_W:
 		center.x = WORLD_W * 0.5
 	return {"zoom": zoom, "center": center}
+
+
+## Smallest zoom the follow camera may reach: the whole world width just fits. (The rest
+## framing is never below it, so on most screens it equals the rest zoom and the follow
+## camera pans instead of zooming.)
+static func min_zoom(visible_size: Vector2) -> float:
+	return minf(visible_size.x / WORLD_W, float(frame(visible_size)["zoom"]))
+
+
+## The world rectangle a Camera2D with this zoom and centre shows.
+static func visible_rect(visible_size: Vector2, zoom: float, center: Vector2) -> Rect2:
+	var size: Vector2 = visible_size / maxf(zoom, 0.0001)
+	return Rect2(center - size * 0.5, size)

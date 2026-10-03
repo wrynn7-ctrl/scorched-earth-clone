@@ -43,6 +43,8 @@ extends RefCounted
 ##   --freeze-shot=<n>   with --freeze-tick: which shot (1 = the first fire action), default 1
 ##   --freeze-hold=<s>   with --freeze-tick: real seconds to wait after the freeze (effects
 ##                       keep animating in real time), default 0.25
+##   --theme=<id>        battle: terrain theme (sunset_grid, ice_circuit, magma_city, toxic_marsh,
+##                       midnight_chrome, or random)
 ##   --place=<i>:<x>     battle: move tank i to column x (0-based tank, simulation x) right after
 ##                       the round starts; the tank rests on the ground there (screenshots)
 
@@ -76,6 +78,7 @@ static var freeze_tick: int = -1
 static var freeze_hold: float = 0.25
 static var freeze_shot: int = 1
 static var places: Array[String] = []
+static var theme: String = ""
 static var resize_to: Vector2i = Vector2i.ZERO
 static var resize_after: float = 0.6
 ## --resize-seq=WxH@seconds,WxH@seconds,...: several window resizes (Android reports the size in steps).
@@ -172,5 +175,7 @@ static func parse() -> void:
 			freeze_shot = a.substr(14).to_int()
 		elif a.begins_with("--freeze-hold="):
 			freeze_hold = a.substr(14).to_float()
+		elif a.begins_with("--theme="):
+			theme = a.substr(8)
 		elif a.begins_with("--place="):
 			places.append(a.substr(8))

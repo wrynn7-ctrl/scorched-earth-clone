@@ -1,6 +1,7 @@
-# Continuous integration: unit tests, then a debug-signed Android APK.
+# Continuous integration: unit tests, then a debug-signed Android APK (Gradle build, with the Google Play Billing plugin).
 # On pushes to the dev branch the APK is also published to the rolling pre-release `dev-latest`
-# (one fixed page to download from on a phone).
+# (one fixed page to download from on a phone), and a release-style AAB is built and kept as a workflow artifact only.
+# The AAB is signed with the public debug key (NOT a Play upload key) until real signing arrives in M8.
 name: CI
 
 on:
@@ -112,9 +113,22 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
 
+      # Gradle downloads (Gradle itself, the Android Gradle Plugin, Play Billing, ...) are cached. The key changes when the
+      # Godot version, the billing pin or the export presets change; an older cache still seeds the next one.
+      - name: Cache Gradle downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: gradle-${{ runner.os }}-apk-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-apk-
+
       # Installs the export templates and the pinned Android SDK pieces if the runner image lacks them,
-      # writes the Godot editor settings, exports and verifies the signature.
-      - name: Build debug APK
+      # writes the Godot editor settings, installs the Gradle build template (game/android, generated), exports,
+      # then verifies the signature and that the billing plugin is inside the APK.
+      - name: Build debug APK (Gradle)
         env:
           GH_TOKEN: ${{ github.token }}
         run: tools/build_android_debug.sh
@@ -124,6 +138,59 @@ jobs:
         with:
           name: craterline-debug-apk
           path: build/craterline-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  # Release-style AAB: proves the release pipeline (release templates, shrinking, billing plugin, bundle format).
+  # Dev branch pushes only, runs in parallel with the APK job, and is kept as an artifact only (never published).
+  # Signed with the PUBLIC DEBUG KEY: Play Console would reject it. Real signing: milestone M8.
+  android-release-aab:
+    name: Android release AAB (debug-signed, not for Play)
+    needs: [test, test-coverage]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/artillery-game-android-69i6of'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TOOLS_TAG" --repo "${{ github.repository }}" \
+            --pattern "godot-${GODOT_VERSION}-linux.x86_64.zip" --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/godot-dl"
+          (cd "$RUNNER_TEMP/godot-dl" && grep " godot-${GODOT_VERSION}-linux.x86_64.zip\$" SHA256SUMS.txt | sha256sum -c -)
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot-dl/godot-${GODOT_VERSION}-linux.x86_64.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Cache Gradle downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: gradle-${{ runner.os }}-aab-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg', 'tools/android/fetch_bundletool.sh') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-aab-
+
+      # Exports the AAB, checks the layout, the (debug) signature, the billing classes and runs `bundletool validate`.
+      - name: Build release AAB (Gradle)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/build_android_release.sh
+
+      - name: Upload AAB artifact (not published anywhere)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: craterline-release-aab-debug-signed
+          path: build/craterline-release.aab
           if-no-files-found: error
           retention-days: 14
 

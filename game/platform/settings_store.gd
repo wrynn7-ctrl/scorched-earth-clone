@@ -54,7 +54,13 @@ static func load_into(file_path: String = "") -> bool:
 	var cpu: Variant = cfg.get_value(SECTION, "cpu_turn_speed", ShowSettings.cpu_turn_speed)
 	if typeof(cpu) == TYPE_INT or typeof(cpu) == TYPE_FLOAT:
 		ShowSettings.cpu_turn_speed = clampi(int(cpu), ShowSettings.CPU_SPEED_NORMAL, ShowSettings.CPU_SPEED_INSTANT)
+	ShowSettings.sfx_volume = _volume(cfg, "sfx_volume", ShowSettings.sfx_volume)
+	ShowSettings.sfx_on = _bool(cfg, "sfx_on", ShowSettings.sfx_on)
+	ShowSettings.music_volume = _volume(cfg, "music_volume", ShowSettings.music_volume)
+	ShowSettings.music_on = _bool(cfg, "music_on", ShowSettings.music_on)
+	ShowSettings.ui_sounds = _bool(cfg, "ui_sounds", ShowSettings.ui_sounds)
 	_load_setup(cfg)
+	_apply_audio()
 	return true
 
 
@@ -69,6 +75,11 @@ static func save(file_path: String = "") -> bool:
 	cfg.set_value(SECTION, "playback_speed", ShowSettings.playback_speed)
 	cfg.set_value(SECTION, "text_size", ShowSettings.text_size)
 	cfg.set_value(SECTION, "cpu_turn_speed", ShowSettings.cpu_turn_speed)
+	cfg.set_value(SECTION, "sfx_volume", ShowSettings.sfx_volume)
+	cfg.set_value(SECTION, "sfx_on", ShowSettings.sfx_on)
+	cfg.set_value(SECTION, "music_volume", ShowSettings.music_volume)
+	cfg.set_value(SECTION, "music_on", ShowSettings.music_on)
+	cfg.set_value(SECTION, "ui_sounds", ShowSettings.ui_sounds)
 	if SetupPrefs.has_saved:
 		cfg.set_value(SETUP_SECTION, "players", SetupPrefs.players)
 		cfg.set_value(SETUP_SECTION, "rounds", SetupPrefs.rounds)
@@ -76,6 +87,7 @@ static func save(file_path: String = "") -> bool:
 		cfg.set_value(SETUP_SECTION, "wind_level", SetupPrefs.wind_level)
 		cfg.set_value(SETUP_SECTION, "controllers", SetupPrefs.controllers_array())
 		cfg.set_value(SETUP_SECTION, "watch", SetupPrefs.watch)
+		cfg.set_value(SETUP_SECTION, "theme", SetupPrefs.theme)
 	return cfg.save(file_path if file_path != "" else path) == OK
 
 
@@ -92,6 +104,7 @@ static func _load_setup(cfg: ConfigFile) -> void:
 	SetupPrefs.set_controllers_from(cfg.get_value(SETUP_SECTION, "controllers", []))
 	var watch: Variant = cfg.get_value(SETUP_SECTION, "watch", false)
 	SetupPrefs.watch = watch as bool if typeof(watch) == TYPE_BOOL else false
+	SetupPrefs.theme = ThemeDefs.sanitize(cfg.get_value(SETUP_SECTION, "theme", ThemeDefs.DEFAULT_ID))
 
 
 static func _int_in(cfg: ConfigFile, key: String, fallback: int, lo: int, hi: int) -> int:
@@ -105,6 +118,21 @@ static func delete(file_path: String = "") -> void:
 	var p: String = file_path if file_path != "" else path
 	if FileAccess.file_exists(p):
 		DirAccess.remove_absolute(p)
+
+
+## A 0-100 volume (anything else keeps `fallback`, out-of-range numbers are clamped).
+static func _volume(cfg: ConfigFile, key: String, fallback: int) -> int:
+	var v: Variant = cfg.get_value(SECTION, key, fallback)
+	if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT:
+		return clampi(int(v), 0, 100)
+	return fallback
+
+
+## Pushes the loaded sound settings into the audio buses (the AudioDirector autoload may not exist, e.g. in a tool script).
+static func _apply_audio() -> void:
+	var loop: SceneTree = Engine.get_main_loop() as SceneTree
+	if loop != null and loop.root != null and loop.root.has_node("AudioDirector"):
+		loop.root.get_node("AudioDirector").call("apply_settings")
 
 
 static func _bool(cfg: ConfigFile, key: String, fallback: bool) -> bool:

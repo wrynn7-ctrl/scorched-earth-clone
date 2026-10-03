@@ -107,6 +107,7 @@ func _fit_scrolls() -> void:
 func open() -> void:
 	visible = true
 	if is_inside_tree():
+		Transition.fade_in(self)  # a short alpha fade (none with reduce motion or headless)
 		_fit_scrolls()
 		_refit_next_frame()
 

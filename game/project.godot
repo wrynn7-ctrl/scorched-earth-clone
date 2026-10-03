@@ -11,6 +11,14 @@ config/icon="res://icon.svg"
 run/main_scene="res://ui/title/title_screen.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
+[autoload]
+
+AudioDirector="*res://show/audio/audio_director.gd"
+
 [debug]
 
 gdscript/warnings/untyped_declaration=2
@@ -30,7 +38,7 @@ window/handheld/orientation=4
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [input_devices]
 

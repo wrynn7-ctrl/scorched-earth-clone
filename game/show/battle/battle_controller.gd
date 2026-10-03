@@ -174,6 +174,11 @@ var _elapsed: float = 0.0
 var _auto_timer: float = 0.0
 var _auto_fire_pending: bool = false
 var _hooks_done: bool = false
+## Camera follow (FollowCam) and the terrain theme: the player's choice (a ThemeDefs id or
+## "random") and the concrete theme showing now. Visual only; saved in the autosave meta.
+var _follow: FollowCam = FollowCam.new()
+var _theme_choice: String = ThemeDefs.DEFAULT_ID
+var _theme_id: String = ""
 var _frozen: bool = false
 var _fire_timeline: bool = false
 var _fire_count: int = 0
@@ -218,6 +223,8 @@ func _ready() -> void:
 	# We handle the Android back button ourselves (opens the pause menu).
 	get_tree().set_quit_on_go_back(false)
 	_speed = ShowSettings.playback_speed if ShotArgs.speed <= 0.0 else ShotArgs.speed
+	if not _configured:
+		_theme_choice = ThemeDefs.sanitize(ShotArgs.theme if ShotArgs.theme != "" else BattleConfig.theme)
 	if ShotArgs.cpu_speed >= 0:
 		ShowSettings.cpu_turn_speed = clampi(ShotArgs.cpu_speed, ShowSettings.CPU_SPEED_NORMAL, ShowSettings.CPU_SPEED_INSTANT)
 	_build_support_nodes()
@@ -244,6 +251,7 @@ func _exit_tree() -> void:
 	# Never leave the whole tree paused behind us.
 	if is_inside_tree() and get_tree().paused:
 		get_tree().paused = false
+	AudioDirector.stop_all()  # the well hum and flame crackle belong to this battle
 
 
 func _notification(what: int) -> void:
@@ -336,10 +344,33 @@ func _build_support_nodes() -> void:
 
 
 func _frame_camera() -> void:
-	var vis: Vector2 = get_viewport().get_visible_rect().size
-	var f: Dictionary = BattleFraming.frame(vis)
-	_camera.zoom = Vector2.ONE * float(f["zoom"])
-	_camera.position = f["center"] as Vector2
+	_follow.set_view(get_viewport().get_visible_rect().size)
+	_apply_follow_cam()
+
+
+func _apply_follow_cam() -> void:
+	_camera.zoom = Vector2.ONE * _follow.get_zoom()
+	_camera.position = _follow.get_center()
+
+
+## Every frame: shells above the picture pull the camera up (FollowCam), and it eases back
+## shortly after the last one lands. Heads and a short look-ahead come from the shell paths.
+func _update_follow_cam(delta: float) -> void:
+	_follow.enabled = CameraSettings.follow_active()
+	var heads := PackedVector2Array()
+	var ahead := PackedVector2Array()
+	var ticks: float = FollowCam.LOOKAHEAD_SECONDS * TPS * _speed
+	for entry: Variant in _shells.values():
+		var sh: Dictionary = entry
+		var pts: PackedVector2Array = sh.get("pts", PackedVector2Array()) as PackedVector2Array
+		if pts.is_empty():
+			continue
+		var idx: float = clampf(_playhead - float(sh["start"]) - 1.0, 0.0, float(pts.size() - 1))
+		heads.append(FollowCam.head_at(pts, idx))
+		ahead.append_array(FollowCam.lookahead(pts, idx, ticks))
+	_follow.update(delta, heads, ahead)
+	if not (_camera.zoom.x == _follow.get_zoom() and _camera.position.is_equal_approx(_follow.get_center())):
+		_apply_follow_cam()
 
 
 ## Starts a fresh match (settings from setup / defaults) or restores the autosave.
@@ -362,6 +393,8 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 	_cpu.stop()
 	session = new_session
 	state = session.state
+	if restored:
+		_theme_choice = ThemeDefs.sanitize(session.meta.get("theme", ThemeDefs.DEFAULT_ID))
 	if not restored:
 		_apply_debug_inventory()
 	_init_per_tank_data(restored)
@@ -439,6 +472,10 @@ func _init_per_tank_data(restored: bool) -> void:
 func _rebuild_display() -> void:
 	_cancel_tank_tweens()
 	var has_terrain: bool = state.terrain != null
+	if has_terrain:
+		_apply_theme()
+	_follow.reset()
+	_apply_follow_cam()
 	_world.visible = has_terrain and state.phase != SimConstants.PHASE_SHOP
 	if has_terrain:
 		display_terrain = state.terrain.duplicate_terrain()
@@ -466,6 +503,33 @@ func _rebuild_display() -> void:
 	_pour = {}
 
 
+## Shows this round's theme: "random" is resolved from the match seed and round index, so
+## a restored match looks exactly as before. The sky, the terrain shader and the blast tint
+## all follow it.
+func _apply_theme() -> void:
+	var id: String = ThemeDefs.resolve(_theme_choice, state.seed, maxi(state.round_index, 0),
+			state.settings.full_unlocked)
+	_theme_id = id
+	_sky.apply_theme(id)
+	_terrain_view.apply_theme(id)
+	var def: Dictionary = ThemeDefs.get_def(id)
+	for fx: Explosion in _fx:
+		fx.set_tint(def["tint_core"] as Color, def["tint_ring"] as Color, def["tint_mid"] as Color,
+				def["tint_end"] as Color)
+
+
+func get_theme_id() -> String:
+	return _theme_id
+
+
+func get_theme_choice() -> String:
+	return _theme_choice
+
+
+func get_follow_cam() -> FollowCam:
+	return _follow
+
+
 func _shield_max(shield_type: int) -> int:
 	var id: String = Catalog.id_at(shield_type)
 	if id == "" or not ItemDefs.has(id):
@@ -479,6 +543,8 @@ func _rebuild_wells() -> void:
 	_wells.clear()
 	for well: Dictionary in state.wells:
 		_place_well(well["owner"] as int, well["x"] as int, well["y"] as int, well["expires_turn"] as int)
+	if not _instant:
+		AudioDirector.sync_wells(_wells.keys())
 
 
 func _apply_initial_aim_override() -> void:
@@ -827,7 +893,7 @@ func quit_to_title() -> void:
 	close_pause()
 	if state != null and state.phase != SimConstants.PHASE_MATCH_OVER:
 		autosave_now()
-	get_tree().change_scene_to_file(TITLE_SCENE)
+	Transition.go(get_tree(), TITLE_SCENE)
 
 
 func open_pause() -> void:
@@ -1044,6 +1110,8 @@ func _cancel_playback() -> void:
 	_pour = {}
 	_clear_shells()
 	_cancel_tank_tweens()
+	_follow.reset()
+	_apply_follow_cam()
 
 
 func _cancel_tank_tweens() -> void:
@@ -1123,6 +1191,7 @@ func _process(delta: float) -> void:
 			_playhead = float(ShotArgs.freeze_tick)
 			_frozen = true  # screenshot hook: hold this moment of the shot
 		_advance_playback()
+	_update_follow_cam(delta)
 	_update_overlays()
 	_tick_autosave(delta)
 	_run_auto_hooks(delta)
@@ -1189,6 +1258,8 @@ func _finish_playback() -> void:
 
 func _dispatch(e: Dictionary) -> void:
 	var type: String = e["type"]
+	if not _instant:
+		AudioDirector.on_event(e, state.phase == SimConstants.PHASE_MATCH_OVER)
 	if not _pour.is_empty() and not VISUAL_TYPES.has(type):
 		_flush_pour()  # the next terrain event builds on the finished pour
 	match type:
@@ -1304,7 +1375,7 @@ func _start_shell(e: Dictionary) -> void:
 	trail.set_process(false)
 	trail.set_progress(0.0)
 	_shells[e["id"] as int] = {"trail": trail, "start": e["tick"] as int, "points": pts.size(),
-			"weapon": e.get("weapon", "") as String}
+			"weapon": e.get("weapon", "") as String, "pts": pts}
 
 
 func _end_shell(e: Dictionary) -> void:
@@ -1732,6 +1803,8 @@ func _cpu_step(delta: float, force: bool = false) -> bool:
 					return false
 				_cpu_decide()
 			CpuDriver.Stage.THINK:
+				if not _instant:
+					AudioDirector.think_tick(delta)
 				_cpu.timer -= step
 				if _cpu.timer > 0.0:
 					return false
@@ -1906,7 +1979,7 @@ func _make_meta() -> Dictionary:
 			items.append([it["id"], it["units"]])
 		buys.append({"tank": entry["tank"], "level": entry["level"], "items": items})
 	return {"looks": PlayerLooks.to_dict(state.tanks.size()), "round_money": money,
-			"summary_pending": _summary_pending, "cpu_buys": buys}
+			"summary_pending": _summary_pending, "cpu_buys": buys, "theme": _theme_choice}
 
 
 ## Restores the CPU purchases shown on the round summary from a save's meta (JSON numbers are
@@ -1974,6 +2047,7 @@ func _close_overlays() -> void:
 
 
 func _show_toast(text: String) -> void:
+	AudioDirector.play_ui("locked")  # toasts here are refusals (no ammo, not allowed)
 	_toast.show_message(text)
 	toast_shown.emit(text)
 

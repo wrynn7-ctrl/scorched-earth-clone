@@ -14,6 +14,8 @@ static var instant: bool = false
 static var settings: MatchSettings = null
 ## True when the battle should restore the autosave instead of starting a new match.
 static var resume: bool = false
+## Terrain theme chosen on the setup screen: a ThemeDefs id or "random" (visual only).
+static var theme: String = ThemeDefs.DEFAULT_ID
 ## Where autosaves go. Tests point this at a scratch file; "" disables autosaving.
 static var autosave_path: String = SaveStore.AUTOSAVE_PATH
 
@@ -24,4 +26,5 @@ static func reset() -> void:
 	instant = false
 	settings = null
 	resume = false
+	theme = ThemeDefs.DEFAULT_ID
 	autosave_path = SaveStore.AUTOSAVE_PATH

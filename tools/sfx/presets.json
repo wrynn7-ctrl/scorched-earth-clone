@@ -1,0 +1,154 @@
+{
+  "_comment": "Craterline sound presets. Format and parameters: see the header of gen_sfx.py. Regenerate: python3 tools/sfx/gen_sfx.py",
+  "sounds": {
+    "fire_light": {"seed": 11, "layers": [
+      {"wave": "square", "freq": 1500, "slide": -5.0, "min_freq": 220, "duty": 0.3, "duty_sweep": -1.2, "attack": 0.001, "sustain": 0.02, "decay": 0.13, "lp": 7000, "punch": 0.5},
+      {"wave": "noise", "freq": 0, "hp": 2500, "attack": 0.0005, "sustain": 0.004, "decay": 0.03, "gain": 0.35}
+    ]},
+    "fire_medium": {"seed": 12, "layers": [
+      {"wave": "saw", "freq": 700, "slide": -4.0, "min_freq": 90, "attack": 0.001, "sustain": 0.04, "decay": 0.2, "lp": 4500, "lp_sweep": -2.0, "punch": 0.6},
+      {"wave": "sine", "freq": 160, "slide": -3.0, "min_freq": 40, "attack": 0.001, "sustain": 0.03, "decay": 0.16, "gain": 0.9},
+      {"wave": "noise", "freq": 0, "lp": 5000, "attack": 0.0005, "sustain": 0.01, "decay": 0.08, "gain": 0.4}
+    ]},
+    "fire_heavy": {"seed": 13, "drive": 0.4, "layers": [
+      {"wave": "saw", "freq": 380, "slide": -2.6, "min_freq": 50, "attack": 0.002, "sustain": 0.08, "decay": 0.34, "lp": 3000, "lp_sweep": -2.5, "punch": 0.7},
+      {"wave": "sine", "freq": 110, "slide": -1.8, "min_freq": 30, "attack": 0.001, "sustain": 0.1, "decay": 0.34, "gain": 1.1},
+      {"wave": "noise", "freq": 0, "lp": 2800, "lp_sweep": -2.5, "attack": 0.001, "sustain": 0.05, "decay": 0.26, "gain": 0.55}
+    ]},
+    "beam_zap": {"seed": 14, "layers": [
+      {"wave": "saw", "freq": 2400, "slide": -1.4, "min_freq": 300, "vib_rate": 55, "vib_depth": 0.06, "attack": 0.002, "sustain": 0.12, "decay": 0.26, "hp": 500, "lp": 9000, "am_rate": 36, "am_depth": 0.35},
+      {"wave": "square", "freq": 1210, "slide": -1.0, "min_freq": 200, "duty": 0.2, "attack": 0.002, "sustain": 0.1, "decay": 0.22, "lp": 4000, "gain": 0.5},
+      {"wave": "noise", "freq": 0, "hp": 4000, "attack": 0.001, "sustain": 0.06, "decay": 0.18, "gain": 0.25}
+    ]},
+
+    "explosion_small": {"seed": 21, "layers": [
+      {"wave": "sine", "freq": 120, "slide": -2.2, "min_freq": 28, "attack": 0.001, "sustain": 0.03, "decay": 0.24, "gain": 1.0},
+      {"wave": "noise", "freq": 0, "lp": 3600, "lp_sweep": -2.8, "attack": 0.001, "sustain": 0.02, "decay": 0.22, "gain": 0.8},
+      {"wave": "noise", "freq": 0, "hp": 1800, "crackle": 90, "crackle_decay": 0.004, "attack": 0.002, "sustain": 0.1, "decay": 0.28, "delay": 0.03, "gain": 0.4}
+    ]},
+    "explosion_medium": {"seed": 22, "drive": 0.3, "layers": [
+      {"wave": "sine", "freq": 100, "slide": -1.6, "min_freq": 24, "attack": 0.001, "sustain": 0.06, "decay": 0.42, "gain": 1.1},
+      {"wave": "noise", "freq": 0, "lp": 3200, "lp_sweep": -2.2, "attack": 0.001, "sustain": 0.05, "decay": 0.5, "gain": 0.85},
+      {"wave": "noise", "freq": 0, "hp": 1500, "crackle": 110, "crackle_decay": 0.005, "attack": 0.002, "sustain": 0.2, "decay": 0.5, "delay": 0.05, "gain": 0.45},
+      {"wave": "saw", "freq": 55, "slide": -0.4, "attack": 0.01, "sustain": 0.1, "decay": 0.5, "lp": 220, "delay": 0.04, "gain": 0.5}
+    ]},
+    "explosion_large": {"seed": 23, "drive": 0.45, "layers": [
+      {"wave": "sine", "freq": 85, "slide": -1.2, "min_freq": 20, "attack": 0.001, "sustain": 0.12, "decay": 0.75, "gain": 1.2},
+      {"wave": "noise", "freq": 0, "lp": 2800, "lp_sweep": -1.7, "attack": 0.001, "sustain": 0.1, "decay": 0.9, "gain": 0.9},
+      {"wave": "noise", "freq": 0, "hp": 1200, "crackle": 130, "crackle_decay": 0.006, "attack": 0.002, "sustain": 0.35, "decay": 0.8, "delay": 0.08, "gain": 0.5},
+      {"wave": "saw", "freq": 48, "slide": -0.3, "attack": 0.01, "sustain": 0.2, "decay": 0.9, "lp": 180, "delay": 0.05, "gain": 0.6}
+    ]},
+    "explosion_nuke": {"seed": 24, "drive": 0.6, "layers": [
+      {"wave": "sine", "freq": 70, "slide": -1.0, "min_freq": 16, "attack": 0.001, "sustain": 0.3, "decay": 1.4, "gain": 1.3},
+      {"wave": "noise", "freq": 0, "lp": 2400, "lp_sweep": -1.2, "attack": 0.001, "sustain": 0.2, "decay": 1.6, "gain": 0.95},
+      {"wave": "noise", "freq": 0, "hp": 900, "crackle": 150, "crackle_decay": 0.008, "attack": 0.002, "sustain": 0.6, "decay": 1.2, "delay": 0.12, "gain": 0.5},
+      {"wave": "saw", "freq": 40, "slide": -0.2, "attack": 0.02, "sustain": 0.5, "decay": 1.5, "lp": 150, "delay": 0.08, "gain": 0.7},
+      {"wave": "square", "freq": 330, "slide": -2.5, "min_freq": 40, "duty": 0.5, "bits": 5, "crush": 3, "attack": 0.001, "sustain": 0.08, "decay": 0.5, "lp": 1800, "gain": 0.35}
+    ]},
+
+    "terrain_crumble": {"seed": 31, "layers": [
+      {"wave": "noise", "freq": 0, "lp": 1100, "lp_sweep": -0.8, "crackle": 55, "crackle_decay": 0.012, "attack": 0.01, "sustain": 0.25, "decay": 0.5, "gain": 1.0},
+      {"wave": "sine", "freq": 62, "slide": -0.5, "min_freq": 30, "attack": 0.02, "sustain": 0.2, "decay": 0.4, "gain": 0.6}
+    ]},
+    "dirt_thud": {"seed": 32, "layers": [
+      {"wave": "sine", "freq": 130, "slide": -2.4, "min_freq": 38, "attack": 0.001, "sustain": 0.02, "decay": 0.17, "gain": 1.0},
+      {"wave": "noise", "freq": 0, "lp": 700, "attack": 0.001, "sustain": 0.01, "decay": 0.1, "gain": 0.6}
+    ]},
+    "sludge_pour": {"seed": 33, "layers": [
+      {"wave": "noise", "freq": 0, "lp": 650, "lp_sweep": 0.3, "am_rate": 8.5, "am_depth": 0.45, "attack": 0.12, "sustain": 0.6, "decay": 0.3, "gain": 1.0},
+      {"wave": "sine", "freq": 170, "slide": 0.15, "vib_rate": 11, "vib_depth": 0.2, "attack": 0.15, "sustain": 0.5, "decay": 0.3, "gain": 0.35},
+      {"wave": "noise", "freq": 0, "hp": 1500, "lp": 3000, "crackle": 45, "crackle_decay": 0.01, "attack": 0.1, "sustain": 0.6, "decay": 0.3, "gain": 0.3}
+    ]},
+    "fire_crackle": {"seed": 34, "loop": true, "loop_samples": 52920, "layers": [
+      {"wave": "noise", "freq": 0, "hp": 900, "lp": 6000, "crackle": 75, "crackle_decay": 0.008, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 1.0},
+      {"wave": "noise", "freq": 0, "lp": 500, "am_rate": 3.1, "am_depth": 0.6, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.2}
+    ]},
+    "well_hum": {"seed": 35, "loop": true, "loop_samples": 66150, "layers": [
+      {"wave": "sine", "freq": 55, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 1.0},
+      {"wave": "sine", "freq": 110.7, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.5},
+      {"wave": "saw", "freq": 55.4, "lp": 280, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.35},
+      {"wave": "sine", "freq": 440, "vib_rate": 0.7, "vib_depth": 0.02, "am_rate": 2.0, "am_depth": 0.8, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.07}
+    ]},
+    "anchor_clank": {"seed": 36, "layers": [
+      {"wave": "square", "freq": 420, "duty": 0.5, "bits": 8, "attack": 0.001, "sustain": 0.01, "decay": 0.32, "lp": 3500, "curve": 3, "gain": 0.7},
+      {"wave": "square", "freq": 633, "duty": 0.4, "bits": 8, "attack": 0.001, "sustain": 0.01, "decay": 0.26, "lp": 3500, "curve": 3, "gain": 0.5},
+      {"wave": "sine", "freq": 150, "slide": -1.2, "min_freq": 60, "attack": 0.001, "sustain": 0.02, "decay": 0.2, "gain": 0.8},
+      {"wave": "noise", "freq": 0, "hp": 2000, "attack": 0.0005, "sustain": 0.005, "decay": 0.05, "gain": 0.5}
+    ]},
+
+    "shield_up": {"seed": 41, "layers": [
+      {"wave": "sine", "freq": 280, "slide": 2.1, "attack": 0.01, "sustain": 0.12, "decay": 0.2, "am_rate": 22, "am_depth": 0.3},
+      {"wave": "triangle", "freq": 560, "slide": 2.1, "attack": 0.02, "sustain": 0.1, "decay": 0.2, "gain": 0.4}
+    ]},
+    "shield_hit": {"seed": 42, "layers": [
+      {"wave": "sine", "freq": 760, "slide": -1.4, "min_freq": 200, "attack": 0.001, "sustain": 0.02, "decay": 0.16, "punch": 0.4},
+      {"wave": "square", "freq": 1520, "duty": 0.25, "slide": -1.4, "attack": 0.001, "sustain": 0.01, "decay": 0.1, "lp": 5000, "gain": 0.3}
+    ]},
+    "shield_break": {"seed": 43, "layers": [
+      {"wave": "saw", "freq": 900, "slide": -3.0, "min_freq": 60, "attack": 0.001, "sustain": 0.05, "decay": 0.4, "lp": 5000, "lp_sweep": -2.0},
+      {"wave": "noise", "freq": 0, "hp": 2000, "crackle": 120, "crackle_decay": 0.004, "attack": 0.001, "sustain": 0.1, "decay": 0.38, "gain": 0.7},
+      {"wave": "sine", "freq": 120, "slide": -2.0, "min_freq": 40, "attack": 0.001, "sustain": 0.02, "decay": 0.2, "gain": 0.6}
+    ]},
+    "repulsor_pulse": {"seed": 44, "layers": [
+      {"wave": "sine", "freq": 160, "slide": 3.0, "slide_accel": -4.0, "attack": 0.005, "sustain": 0.08, "decay": 0.26},
+      {"wave": "triangle", "freq": 960, "slide": -1.0, "min_freq": 300, "am_rate": 30, "am_depth": 0.5, "attack": 0.005, "sustain": 0.05, "decay": 0.22, "gain": 0.3}
+    ]},
+
+    "chute_pop": {"seed": 51, "layers": [
+      {"wave": "sine", "freq": 380, "slide": 2.0, "attack": 0.001, "sustain": 0.01, "decay": 0.09, "punch": 0.6},
+      {"wave": "noise", "freq": 0, "hp": 1800, "lp": 5500, "attack": 0.001, "sustain": 0.008, "decay": 0.05, "gain": 0.6},
+      {"wave": "noise", "freq": 0, "lp": 1400, "am_rate": 17, "am_depth": 0.6, "attack": 0.03, "sustain": 0.05, "decay": 0.22, "delay": 0.07, "gain": 0.35}
+    ]},
+    "repair_chime": {"seed": 52, "layers": [
+      {"wave": "sine", "notes": [[76, 0.0, 0.07], [83, 0.1, 0.07], [88, 0.2, 0.14]], "attack": 0.003, "decay": 0.3, "curve": 2.0},
+      {"wave": "triangle", "notes": [[88, 0.0, 0.07], [95, 0.1, 0.07], [100, 0.2, 0.14]], "attack": 0.003, "decay": 0.25, "gain": 0.25}
+    ]},
+    "money_gain": {"seed": 53, "layers": [
+      {"wave": "square", "duty": 0.25, "notes": [[84, 0.0, 0.045], [91, 0.06, 0.09]], "attack": 0.002, "decay": 0.12, "lp": 6500, "gain": 0.8},
+      {"wave": "sine", "notes": [[96, 0.0, 0.045], [103, 0.06, 0.09]], "attack": 0.002, "decay": 0.12, "gain": 0.3}
+    ]},
+    "money_loss": {"seed": 54, "layers": [
+      {"wave": "saw", "notes": [[67, 0.0, 0.06], [60, 0.08, 0.1]], "attack": 0.002, "decay": 0.14, "lp": 2400}
+    ]},
+    "tank_destroyed": {"seed": 55, "drive": 0.4, "layers": [
+      {"wave": "sine", "freq": 95, "slide": -1.4, "min_freq": 22, "attack": 0.001, "sustain": 0.1, "decay": 0.6, "gain": 1.1},
+      {"wave": "noise", "freq": 0, "lp": 3000, "lp_sweep": -2.0, "attack": 0.001, "sustain": 0.06, "decay": 0.6, "gain": 0.8},
+      {"wave": "saw", "freq": 420, "slide": -2.2, "min_freq": 50, "bits": 6, "crush": 2, "attack": 0.001, "sustain": 0.1, "decay": 0.55, "lp": 2500, "gain": 0.5},
+      {"wave": "noise", "freq": 0, "hp": 1800, "crackle": 90, "crackle_decay": 0.005, "attack": 0.002, "sustain": 0.15, "decay": 0.4, "delay": 0.15, "gain": 0.4}
+    ]},
+    "round_win": {"seed": 56, "layers": [
+      {"wave": "square", "duty": 0.3, "notes": [[60, 0.0, 0.07], [64, 0.1, 0.07], [67, 0.2, 0.07], [72, 0.3, 0.32]], "attack": 0.003, "decay": 0.16, "lp": 5200, "vib_rate": 6, "vib_depth": 0.01},
+      {"wave": "saw", "notes": [[48, 0.0, 0.07], [52, 0.1, 0.07], [55, 0.2, 0.07], [60, 0.3, 0.32]], "attack": 0.003, "decay": 0.2, "lp": 1200, "gain": 0.5},
+      {"wave": "sine", "notes": [[84, 0.3, 0.3]], "attack": 0.005, "decay": 0.3, "gain": 0.25}
+    ]},
+    "match_win": {"seed": 57, "layers": [
+      {"wave": "square", "duty": 0.3, "notes": [[60, 0.0, 0.08], [64, 0.11, 0.08], [67, 0.22, 0.08], [72, 0.33, 0.08], [76, 0.44, 0.08], [79, 0.55, 0.08], [84, 0.66, 0.5]], "attack": 0.003, "decay": 0.22, "lp": 5600, "vib_rate": 6, "vib_depth": 0.012},
+      {"wave": "saw", "notes": [[48, 0.0, 0.08], [52, 0.11, 0.08], [55, 0.22, 0.08], [60, 0.33, 0.08], [64, 0.44, 0.08], [67, 0.55, 0.08], [72, 0.66, 0.5]], "attack": 0.003, "decay": 0.25, "lp": 1300, "gain": 0.5},
+      {"wave": "triangle", "notes": [[79, 0.66, 0.5], [76, 0.66, 0.5]], "attack": 0.01, "decay": 0.4, "gain": 0.35},
+      {"wave": "sine", "notes": [[96, 0.66, 0.45]], "attack": 0.005, "decay": 0.5, "gain": 0.18}
+    ]},
+
+    "ui_tap": {"seed": 61, "layers": [
+      {"wave": "square", "freq": 1250, "slide": -1.5, "min_freq": 500, "duty": 0.3, "attack": 0.001, "sustain": 0.008, "decay": 0.035, "lp": 5500},
+      {"wave": "sine", "freq": 2500, "slide": -1.0, "attack": 0.001, "sustain": 0.004, "decay": 0.02, "gain": 0.2}
+    ]},
+    "ui_back": {"seed": 62, "layers": [
+      {"wave": "square", "freq": 820, "slide": -2.2, "min_freq": 300, "duty": 0.3, "attack": 0.001, "sustain": 0.01, "decay": 0.06, "lp": 4500}
+    ]},
+    "ui_purchase": {"seed": 63, "layers": [
+      {"wave": "square", "duty": 0.25, "notes": [[79, 0.0, 0.05], [91, 0.07, 0.12]], "attack": 0.002, "decay": 0.16, "lp": 7000, "gain": 0.8},
+      {"wave": "sine", "notes": [[103, 0.07, 0.1]], "attack": 0.002, "decay": 0.2, "gain": 0.3},
+      {"wave": "noise", "freq": 0, "hp": 6000, "crackle": 160, "crackle_decay": 0.003, "attack": 0.001, "sustain": 0.1, "decay": 0.15, "delay": 0.07, "gain": 0.25}
+    ]},
+    "ui_locked": {"seed": 64, "layers": [
+      {"wave": "square", "duty": 0.5, "notes": [[45, 0.0, 0.05], [45, 0.1, 0.07]], "attack": 0.002, "decay": 0.05, "lp": 1500, "bits": 7}
+    ]},
+    "cpu_think_tick": {"seed": 65, "layers": [
+      {"wave": "triangle", "freq": 1700, "slide": -1.0, "attack": 0.001, "sustain": 0.004, "decay": 0.02, "lp": 4000}
+    ]},
+    "turn_blip": {"seed": 66, "layers": [
+      {"wave": "triangle", "notes": [[72, 0.0, 0.05], [79, 0.07, 0.07]], "attack": 0.003, "decay": 0.1, "lp": 5000},
+      {"wave": "sine", "notes": [[84, 0.07, 0.05]], "attack": 0.003, "decay": 0.1, "gain": 0.2}
+    ]}
+  }
+}
