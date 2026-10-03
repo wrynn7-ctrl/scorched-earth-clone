@@ -13,6 +13,9 @@
 
 ## Log
 
+### 2026-10-03
+- Owner request: secret **Love Edition** (tap logo 7× → hidden button; 2 players, hearts fill the opponent's love meter from 0; hearts burst and grow flowers; smiley over the winner). Contract in ARCHITECTURE §37.
+
 ### 2026-10-02
 - Asked clarifying questions; received answers (Godot 4, live + async friends-only online via Firebase, neon/synthwave, free-to-try + one unlock + Play Pass, Android 8.0+, phones + tablets, GitHub Actions builds, English first).
 - Wrote PLAN.md draft.
@@ -73,6 +76,9 @@
 | M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ✅ reviewed (Android picker untested on device) |
 | M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | 🟡 running |
 | M5-AI CPU stalemate fix: move closer / best-effort shot when nothing can reach; buy fuel | ai-dev | 🟡 running |
+| LOVE-C Secret Love Edition — core mode (hearts fill the opponent's love meter; winner = shooter) | core-sim-dev | 🟡 running |
+| LOVE-A Love Edition — CPU fires hearts | ai-dev | ⬜ after M5-AI |
+| LOVE-U Love Edition — secret unlock (tap logo 7×), love theme, meters, heart/flower FX, smiley win, sfx | show-ui-dev | ⬜ after M5-P |
 | M5-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
