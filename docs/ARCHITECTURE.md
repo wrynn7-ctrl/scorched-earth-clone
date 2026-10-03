@@ -394,3 +394,70 @@ All new `TankState` fields, `MatchState.wells` and anything else added to state 
   - A same-owner well emits `well_off` then `well_on`, and the pull affects everyone's shells, the owner's included.
   - The anchor triggers on any impact; `tank_drag` only for tanks that moved.
   - Fire start columns use a fixed ±10 pattern (no RNG). One damage event per tank per shot.
+
+---
+
+# M4 additions (computer opponents)
+
+## 27. Controllers & AI-visible state (core changes)
+- `MatchSettings.controllers: PackedInt32Array`, with one entry per tank: `0` human, `1` easy, `2` normal,
+  `3` hard, `4` expert (`SimConstants.CTRL_*`). Default: all human. `new_match` clamps it: size = num_tanks, values
+  0..4. It is fingerprinted, saved and validated. If `full_unlocked` is false, values 3–4 are clamped to 2 (Hard/Expert
+  are full-version).
+- `TankState.last_fire_*` (all ints): `last_fire_angle, last_fire_power, last_fire_weapon` (catalog index, −1 = none),
+  `last_fire_x, last_fire_y` (impact cell; −1 if lost/timeout), `last_fire_wind`, `last_fire_turn` (turn_number when
+  fired).
+  - Written by the simulation on every `fire`, for any controller.
+  - Reset to −1/0 at `start_round`.
+  - Fingerprinted, saved and validated.
+  - It is the AI's only "memory", so AI decisions are a pure function of the state, and save/load/online stay
+    deterministic.
+- No AI code lives in core. Core only stores these fields.
+
+## 28. AI interface (game/ai/ — `class_name AiPlayer`, pure, deterministic, integer math)
+```
+AiPlayer.next_action(state: MatchState, tank_id: int) -> Dictionary   # phase "aim": one action
+AiPlayer.shop_actions(state: MatchState, tank_id: int) -> Array[Dictionary]  # phase "shop": buys/sells then ready
+```
+- Difficulty comes from `state.settings.controllers[tank_id]`.
+- Randomness: `Rng.derive(state.seed, SimConstants.TAG_AI).fork(round_index * 100000 + turn_number * 16 + tank_id)`,
+  or the equivalent derived purely from the state. Never the global RNG; never Time.
+- `next_action` may return a non-turn-ending action (`use_item` shield/repulsor, or `move`). The caller applies it
+  and calls `next_action` again. The AI must guarantee a turn-ending action (`fire`/`pass`/`use_item` repair) within
+  **3 calls**, so it never loops. Every returned action must pass `Simulation.validate_action`. If something
+  unexpected happens, return a legal `fire` with `spark_dart`.
+- Any device computes the same AI action from the same state. That's how online matches will run AI turns (M7).
+- Budget: < 50 ms per call on a mid-range phone (assume about 3× slower than this container), so ≲ 15 ms here.
+  `Ballistics.trace` calls must be bounded (≤ 48 per decision).
+
+## 29. Behaviour by difficulty (starting values, all in `game/ai/ai_profile.gd`)
+| | Easy | Normal | Hard | Expert |
+|---|---|---|---|---|
+| Wind used in aiming (per-mille of actual) | 0 | 500 | 900 | 1000 |
+| Consistent power bias per round (‰ of power, sign seeded) | ±80–150 | ±40–80 | ±15–30 | 0 |
+| Shot-to-shot noise (‰ of power, σ-ish) | 40 | 25 | 10 | 4 |
+| Correction from last miss on same target (‰) | 250 | 500 | 800 | 1000 |
+| Weapon choice | basic missiles, random | sensible by range/terrain | right tool (tunnel/dirt/roller/Seeker) | best value incl. originals, counters shields (Static Burst) |
+| Shields / repulsor / repair | never | uses a shield if owned and health < 50 | uses shields proactively | shields + repulsor timing, repair when worth it |
+| Moves | never | never | rarely (out of a pit) | when it improves the line of fire |
+| Shop | random cheap mix | balanced, simple | plan: shield + strong weapons + chutes | saves money, counters opponents' stock |
+| Target | nearest | nearest, or whoever last hit it | weakest (kill-securing) | best expected value (kill chance × reward, threat) |
+
+- **Human-like misses:** the first shot at a new target uses the AI's noisy estimate. Each later shot at the same
+  target corrects by `correction ‰` of the observed miss (`last_fire_x` vs the target). The bias stays consistent for
+  the round, so Easy is "always a bit short", not random.
+- **Aim search:** pick a launch angle (prefer 30–70° toward the target, steeper over hills), then binary-search power
+  with `Ballistics.trace` (using the believed wind) until the predicted landing is within a tolerance. Then apply
+  bias/noise.
+
+## 30. AI acceptance tests (game/tests/ai/)
+Measured over ≥ 200 seeded scenarios each, with rates reported:
+- Expert hits a stationary target (≤ damage-radius miss) within 2 shots in ≥ 90%.
+- Hard within 3 shots in ≥ 80%.
+- Normal's first shot hits in 10–40%, and it improves within 5 shots.
+- Easy's first shot misses in ≥ 85%, with a "believable" median miss of 40–250 cells. With strong wind Easy misses
+  more than with no wind; with no wind Easy still misses because of bias.
+- Determinism: the same state gives the same action, including after a save/load round trip.
+- Every action is valid. A turn ends within 3 calls.
+- Budget: p95 decision time ≤ 15 ms × `PERF_BUDGET_SCALE`.
+- A 4-AI match (one per difficulty) runs to match_over with no errors, and over many matches Expert wins most often.
