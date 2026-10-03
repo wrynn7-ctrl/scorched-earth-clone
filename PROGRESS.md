@@ -68,7 +68,7 @@
 | M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | ✅ reviewed |
 | M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | ✅ reviewed (31 sfx, 1.4 MB; needs ear-check on device) |
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | 🟡 running |
-| M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | 🟡 running |
+| M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | ✅ reviewed (APK 79 MB arm64; AAB 53 MB both ABIs; CI to verify) |
 | M5-E Entitlement service, free/full gating UI, Unlock screen | show-ui-dev | ⬜ wave 2 |
 | M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ⬜ wave 2 |
 | M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera setting wiring | show-ui-dev | ⬜ wave 3 |
@@ -77,7 +77,7 @@
 ## Decisions / notes
 - **S26 Ultra HUD edge bug — root cause confirmed** from the owner's in-battle diagnostics: the BattleHud root (a Control under a CanvasLayer) was left at a stale rect when the battle laid out before the Android window settled. LayoutGuard corrected it once ("layout corrections: HUD 1") and the HUD is 1950×900 afterwards. Keep LayoutGuard + diagnostics as a permanent safety net.
 - Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
-- Non-Gradle export gives minSdk 24 (still covers Android 8+). minSdk 26 / targetSdk 36 get enforced when Gradle builds are enabled (M5, needed for billing).
+- Gradle builds since M5: minSdk 26 (Android 8), targetSdk 36. Test APK is arm64-only (79 MB); the Play AAB includes arm64 + armv7.
 - The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
 
 ## Polish backlog (noticed in review; M5 unless it blocks earlier)
