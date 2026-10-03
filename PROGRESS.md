@@ -70,8 +70,8 @@
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | ✅ reviewed (327 show+ui tests) |
 | M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | ✅ reviewed (APK 79 MB arm64; AAB 53 MB both ABIs; CI to verify) |
 | M5-E Entitlement service, free/full gating UI, Unlock screen, Play Billing setup guide | show-ui-dev | 🟡 running |
-| M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | 🟡 running |
-| M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon | show-ui-dev | ⬜ wave 3 |
+| M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ✅ reviewed (Android picker untested on device) |
+| M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | ⬜ wave 3 |
 | M5-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
