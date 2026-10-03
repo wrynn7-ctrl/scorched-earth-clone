@@ -71,7 +71,8 @@
 | M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | ✅ reviewed (APK 79 MB arm64; AAB 53 MB both ABIs; CI to verify) |
 | M5-E Entitlement service, free/full gating UI, Unlock screen, Play Billing setup guide | show-ui-dev | ✅ reviewed (real purchases need Play Console setup) |
 | M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ✅ reviewed (Android picker untested on device) |
-| M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | ⬜ wave 3 |
+| M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | 🟡 running |
+| M5-AI CPU stalemate fix: move closer / best-effort shot when nothing can reach; buy fuel | ai-dev | 🟡 running |
 | M5-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
