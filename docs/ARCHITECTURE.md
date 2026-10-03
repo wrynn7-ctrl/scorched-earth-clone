@@ -471,3 +471,67 @@ Measured over ≥ 200 seeded scenarios each, with rates reported:
 - AI streams: `Rng.derive(seed, TAG_AI + tank_id).fork(round_index*100000 + turn_number*16 + tank_id)`. The round bias
   uses the fork `round_index*100000 + 99999`; shop streams use a large constant offset.
 - The AI doesn't use or buy fire/sludge weapons (weakest heuristics; may come later).
+
+---
+
+# M5 additions (polish, sound, themes, skins, full unlock)
+
+## 32. Entitlement (free vs full) — game/platform/entitlement.gd (`class_name Entitlement`, autoload-style static)
+- `Entitlement.is_full() -> bool` is the single source of truth for the UI. It is true if the Play purchase
+  `full_unlock` is owned (non-consumable), OR the device has a Play Pass entitlement (Play Billing reports it as an
+  owned purchase), OR the debug override is on.
+- The state is cached in `user://entitlement.cfg`, so it works offline. It's refreshed from Billing at startup and on
+  resume. A `changed` signal fires when it changes.
+- Backends:
+  - `BillingAndroid`: the GodotGooglePlayBilling plugin, only when the plugin singleton exists.
+  - `BillingFake`: desktop/tests and when the plugin is missing. Its purchase succeeds instantly, but only in debug
+    builds.
+- API: `purchase_full()`, `restore()`, `price_text() -> String` ("" until known, then the store's localized price),
+  and `set_debug_full(bool)` (debug builds only).
+- Every match is created with `MatchSettings.full_unlocked = Entitlement.is_full()`. The core enforces item tiers,
+  controller clamps and (new) `num_tanks ≤ 4` when not full.
+
+| Feature | Free | Full |
+|---|---|---|
+| Tanks per match | 2–4 | 2–8 |
+| Humans per device (pass-and-play) | ≤ 2 | ≤ 8 |
+| CPU levels | Easy, Normal | + Hard, Expert |
+| Weapons/items | `tier == "free"` | all |
+| Rounds | 1, 3, 5 | + 10, 20 |
+| Start money / wind presets | Normal only | all |
+| Terrain themes | 2 (Sunset Grid, Ice Circuit) | all |
+| Skin Studio | editor | + image import |
+Locked options stay **visible** with a small "FULL GAME" lock. Tapping one opens the Unlock screen; nothing is
+hidden.
+
+## 33. Audio — game/show/audio/ (`AudioDirector`, an autoload)
+- Buses: Master → SFX, UI, Music. Volumes (0–100) and on/off are stored in SettingsStore.
+- Sound effects are generated offline by `tools/sfx/gen_sfx.py`, a deterministic sfxr-style synthesizer with
+  parameters checked into `tools/sfx/presets.json`. The output WAVs are committed in `game/assets/sfx/`, all original.
+- Event → sound map:
+  - fire, by weapon class
+  - explosion (small/medium/large/nuke)
+  - terrain crumble, dirt thud, sludge pour, fire crackle, beam zap, well hum (looping while a well exists), anchor
+    clank
+  - shield up/hit/break, repulsor
+  - chute pop, repair chime, money gain/loss, tank destroyed, round win, match win
+  - UI tap/back/purchase/locked, CPU "thinking" tick (subtle)
+- Voices are pooled; at most 12 concurrent SFX, with priority by loudness. Pitch is jittered ±4% (floats are fine here).
+- Music: a `Music` bus and player with no track. Dropping an OGG into `game/assets/music/` plus one line in
+  `audio_director.gd` enables it. The Settings "Music" volume exists already.
+
+## 34. Terrain themes — visual only (game/show/themes/)
+- `ThemeDefs`: id, name key, sky gradient, sun/moon, grid colour, terrain strata palette, edge glow colour, particle
+  tint, tier.
+- Ids: `sunset_grid` (free), `ice_circuit` (free), `magma_city`, `toxic_marsh`, `midnight_chrome`.
+- The theme is chosen in setup (or "Random"). It is per match and stored in autosave meta, not in core state, so
+  determinism and fingerprints are unaffected.
+
+## 35. Skins — local only (game/show/skins/, game/ui/skins/)
+- Skin JSON at `user://skins/<id>.json`:
+  `{version, name, body_style 0..3, turret_style 0..3, base, accent, pattern 0..5, pattern_color, decal 0..9, glow 0..100, image: "<id>.png"|null}`.
+  An imported image (full only) is stored as a 128×64 PNG next to it after a neon posterize filter.
+- Assignment: `user://skins/assign.cfg` maps a player slot to a skin id. It is used when that slot is Human on this
+  device.
+- Never uploaded. Never shown to other devices.
+- The player identity colour (outline, name tag, emblem) is always drawn on top, from NeonPalette.
