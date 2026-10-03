@@ -402,7 +402,7 @@ func apply_scale() -> void:
 	UiScale.apply_edge_margins(_margin)
 	var pad: float = UiScale.dp(10.0)
 	_columns.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
-	_options.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
+	_options.add_theme_constant_override("separation", roundi(UiScale.dp(3.0)))
 	_players_box.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_rows.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_bottom.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
