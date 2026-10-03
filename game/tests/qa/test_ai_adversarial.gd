@@ -451,9 +451,9 @@ func test_walking_is_limited_to_hard_and_expert_and_stays_inside_three_calls() -
 		var kinds: Array[String] = []
 		for a: Dictionary in r["actions"]:
 			kinds.append(a["kind"])
-		if lv < SimConstants.CTRL_HARD:
-			assert_false(kinds.has("move"), "%s never walks" % NAMES[lv])
+		# No weapon reaches over this hill, so every level may walk (ARCHITECTURE §38 out-of-reach rule).
 		assert_true(kinds.count("move") <= 1, "at most one walk per turn")
+		assert_true(kinds.has("fire") or kinds.has("pass"), "%s still ends the turn" % NAMES[lv])
 	# Cornered at the map edge with fuel: a walk must stay on the map (validate_action covers that).
 	for lv: int in [3, 4]:
 		var s2: MatchState = QA_AI.flat([14, 1000], [lv, 2])

@@ -585,3 +585,13 @@ hidden.
   - a win overlay with a smiling face floating up over the winning tank, heart confetti, and REMATCH / TITLE
   - the HUD hides money, items and move
   - new sfx: heart fire (soft chime), heart burst (sparkle), love win jingle
+
+## 38. Out-of-reach rule (M5-AI, binding; amends §29 "Moves")
+- **When it applies:** a target counts as hopeless when the best plan falls short at max power with no workable
+  weapon, or when the last shot at it was at ≥ 985 power and landed ≥ 150 cells short. If every target is hopeless,
+  **all levels**, Easy included, fall back to this rule.
+- **What the AI does:**
+  - with fuel (≤ 200 units in hand), walk up to 200 cells toward the nearest enemy (gaining at least 20), then fire;
+  - otherwise, fire the closest-landing max-power Spark Dart.
+- **Shop:** after a long round spent out of range (≥ 10 turns per tank, last shot lost or > 300 cells from every
+  enemy), buy 1 Fuel Cell (2 after ≥ 25 turns per tank). The AI never holds more than 200 fuel units.
