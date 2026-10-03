@@ -24,6 +24,7 @@ func _set_everything() -> void:
 	ShowSettings.trajectory_preview = ShowSettings.PREVIEW_OFF
 	ShowSettings.playback_speed = 2.0
 	ShowSettings.set_text_size(130)
+	ShowSettings.cpu_turn_speed = ShowSettings.CPU_SPEED_FAST
 
 
 func test_settings_persist_across_instances() -> void:
@@ -39,6 +40,7 @@ func test_settings_persist_across_instances() -> void:
 	assert_eq(ShowSettings.trajectory_preview, ShowSettings.PREVIEW_OFF)
 	assert_eq(ShowSettings.playback_speed, 2.0)
 	assert_eq(ShowSettings.text_size, 130)
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_FAST, "the CPU turn speed is saved too")
 	assert_almost_eq(UiScale.text_scale, 1.3, 0.0001, "loading applies the text scale")
 
 
@@ -163,3 +165,62 @@ func test_title_opens_the_settings_screen() -> void:
 	t.get_settings_button().pressed.emit()
 	assert_true(t.get_settings_overlay().visible)
 	BattleConfig.reset()
+
+
+func test_cpu_turn_speed_option_cycles_and_saves() -> void:
+	var o := SettingsOverlay.new()
+	add_child_autofree(o)
+	o.open()
+	var b: Button = o.get_cpu_speed_button()
+	assert_eq(b.text, "Normal")
+	b.pressed.emit()
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_FAST)
+	assert_eq(b.text, "Fast")
+	b.pressed.emit()
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_INSTANT)
+	assert_eq(b.text, "Instant")
+	b.pressed.emit()
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_NORMAL, "wraps around")
+	assert_eq(b.text, "Normal")
+	b.pressed.emit()
+	ShowSettings.reset()
+	assert_true(SettingsStore.load_into())
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_FAST, "what is on disk is what was chosen")
+	o.open()
+	assert_eq(b.text, "Fast", "reopening shows the current value")
+
+
+func test_damaged_cpu_turn_speed_is_clamped() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("show", "cpu_turn_speed", 17)
+	cfg.save(PATH)
+	assert_true(SettingsStore.load_into())
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_INSTANT)
+	cfg.set_value("show", "cpu_turn_speed", "fast")
+	cfg.save(PATH)
+	ShowSettings.reset()
+	SettingsStore.load_into()
+	assert_eq(ShowSettings.cpu_turn_speed, ShowSettings.CPU_SPEED_NORMAL, "a non-number keeps the default")
+
+
+func test_setup_prefs_share_the_file_with_the_show_settings() -> void:
+	ShowSettings.haptics = false
+	SetupPrefs.remember(4, 5, 0, 1, PackedInt32Array([0, 2, 4, 1, 0, 0, 0, 0]), true)
+	assert_true(SettingsStore.save())
+	ShowSettings.reset()
+	assert_false(SetupPrefs.has_saved, "reset forgets the last setup")
+	assert_true(SettingsStore.load_into())
+	assert_false(ShowSettings.haptics)
+	assert_true(SetupPrefs.has_saved)
+	assert_eq(SetupPrefs.players, 4)
+	assert_eq(SetupPrefs.rounds, 5)
+	assert_eq(SetupPrefs.money_level, 0)
+	assert_eq(SetupPrefs.wind_level, 1)
+	assert_eq(SetupPrefs.controllers, PackedInt32Array([0, 2, 4, 1, 0, 0, 0, 0]))
+	assert_true(SetupPrefs.watch)
+	# Saving the display settings does not forget a setup that was never chosen.
+	ShowSettings.reset()
+	assert_true(SettingsStore.save())
+	var cfg := ConfigFile.new()
+	cfg.load(PATH)
+	assert_false(cfg.has_section("setup"), "no setup chosen: no [setup] section")

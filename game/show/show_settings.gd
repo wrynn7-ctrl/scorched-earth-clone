@@ -13,6 +13,13 @@ const TEXT_SIZE_MIN: int = 80
 const TEXT_SIZE_MAX: int = 150
 const TEXT_SIZE_STEP: int = 10
 
+## CPU turn speed levels (the settings screen cycles through them).
+const CPU_SPEED_NORMAL: int = 0
+const CPU_SPEED_FAST: int = 1
+const CPU_SPEED_INSTANT: int = 2
+## Multiplier on the CPU's think and sweep times for each level (0 = no waiting at all).
+const CPU_SPEED_SCALE: Array[float] = [1.0, 0.35, 0.0]
+
 ## Master "reduce motion" flag: disables camera shake and large animated motion.
 static var reduce_motion: bool = false
 ## Dim the bright explosion flash for flash-sensitive players.
@@ -27,6 +34,8 @@ static var trajectory_preview: int = PREVIEW_SHORT
 static var playback_speed: float = 1.0
 ## UI text size in percent (80..150). Applied through UiScale.text_scale.
 static var text_size: int = 100
+## How fast computer opponents think and aim: CPU_SPEED_NORMAL / _FAST / _INSTANT.
+static var cpu_turn_speed: int = CPU_SPEED_NORMAL
 
 
 static func shake_enabled() -> bool:
@@ -47,4 +56,12 @@ static func reset() -> void:
 	haptics = true
 	trajectory_preview = PREVIEW_SHORT
 	playback_speed = 1.0
+	cpu_turn_speed = CPU_SPEED_NORMAL
 	set_text_size(100)
+	# The last-used match setup is reset with the rest so tests never leak it into each other.
+	SetupPrefs.reset()
+
+
+## The wait multiplier for the current CPU turn speed setting.
+static func cpu_speed_scale() -> float:
+	return CPU_SPEED_SCALE[clampi(cpu_turn_speed, 0, CPU_SPEED_SCALE.size() - 1)]

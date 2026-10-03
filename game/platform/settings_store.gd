@@ -5,6 +5,8 @@ extends RefCounted
 
 const DEFAULT_PATH: String = "user://settings.cfg"
 const SECTION: String = "show"
+## The last-used match setup (SetupPrefs) lives in its own section.
+const SETUP_SECTION: String = "setup"
 
 ## Where load/save go. Tests point this at a scratch file.
 static var path: String = DEFAULT_PATH
@@ -49,6 +51,10 @@ static func load_into(file_path: String = "") -> bool:
 	var size: Variant = cfg.get_value(SECTION, "text_size", ShowSettings.text_size)
 	if typeof(size) == TYPE_INT or typeof(size) == TYPE_FLOAT:
 		ShowSettings.set_text_size(int(size))
+	var cpu: Variant = cfg.get_value(SECTION, "cpu_turn_speed", ShowSettings.cpu_turn_speed)
+	if typeof(cpu) == TYPE_INT or typeof(cpu) == TYPE_FLOAT:
+		ShowSettings.cpu_turn_speed = clampi(int(cpu), ShowSettings.CPU_SPEED_NORMAL, ShowSettings.CPU_SPEED_INSTANT)
+	_load_setup(cfg)
 	return true
 
 
@@ -62,7 +68,37 @@ static func save(file_path: String = "") -> bool:
 	cfg.set_value(SECTION, "trajectory_preview", ShowSettings.trajectory_preview)
 	cfg.set_value(SECTION, "playback_speed", ShowSettings.playback_speed)
 	cfg.set_value(SECTION, "text_size", ShowSettings.text_size)
+	cfg.set_value(SECTION, "cpu_turn_speed", ShowSettings.cpu_turn_speed)
+	if SetupPrefs.has_saved:
+		cfg.set_value(SETUP_SECTION, "players", SetupPrefs.players)
+		cfg.set_value(SETUP_SECTION, "rounds", SetupPrefs.rounds)
+		cfg.set_value(SETUP_SECTION, "money_level", SetupPrefs.money_level)
+		cfg.set_value(SETUP_SECTION, "wind_level", SetupPrefs.wind_level)
+		cfg.set_value(SETUP_SECTION, "controllers", SetupPrefs.controllers_array())
+		cfg.set_value(SETUP_SECTION, "watch", SetupPrefs.watch)
 	return cfg.save(file_path if file_path != "" else path) == OK
+
+
+## Reads the [setup] section. It is all-or-nothing: a file without it leaves the defaults, and
+## every value is clamped to what the setup screen can show.
+static func _load_setup(cfg: ConfigFile) -> void:
+	if not cfg.has_section(SETUP_SECTION):
+		return
+	SetupPrefs.has_saved = true
+	SetupPrefs.players = _int_in(cfg, "players", SetupPrefs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+	SetupPrefs.rounds = _int_in(cfg, "rounds", SetupPrefs.rounds, SimConstants.MIN_ROUNDS, SimConstants.MAX_ROUNDS)
+	SetupPrefs.money_level = _int_in(cfg, "money_level", SetupPrefs.money_level, 0, 2)
+	SetupPrefs.wind_level = _int_in(cfg, "wind_level", SetupPrefs.wind_level, 0, 3)
+	SetupPrefs.set_controllers_from(cfg.get_value(SETUP_SECTION, "controllers", []))
+	var watch: Variant = cfg.get_value(SETUP_SECTION, "watch", false)
+	SetupPrefs.watch = watch as bool if typeof(watch) == TYPE_BOOL else false
+
+
+static func _int_in(cfg: ConfigFile, key: String, fallback: int, lo: int, hi: int) -> int:
+	var v: Variant = cfg.get_value(SETUP_SECTION, key, fallback)
+	if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT:
+		return clampi(int(v), lo, hi)
+	return fallback
 
 
 static func delete(file_path: String = "") -> void:

@@ -25,6 +25,10 @@ extends RefCounted
 ##   --auto-next         battle: with --auto-play, also press NEXT automatically on the round summary
 ##   --players=<n>       battle: number of tanks (2..8) for a quick match
 ##   --money=<n>         battle: starting credits
+##   --controllers=<a>,<b>,...  battle/setup: who controls each tank (0 human, 1 easy, 2 normal, 3 hard,
+##                       4 expert); on the setup screen it also seeds the slots (and --players the count)
+##   --setup-picker=<n>  setup: open the controller picker of player n (1-based) shortly after start
+##   --cpu-speed=<n>     CPU turn speed (0 normal, 1 fast, 2 instant), overriding the saved setting
 ##   --give=<id>:<n>     battle: put n units of a catalog entry in every tank's inventory (repeatable)
 ##   --skip-shop         battle: every player presses READY at once (no shop screens)
 ##   --shop-player=<n>   battle: open the shop of player n (1-based) directly, skipping the hand-over
@@ -55,6 +59,9 @@ static var auto_next: bool = false
 static var open_pause: bool = false
 static var players: int = 0
 static var money: int = -1
+static var controllers: PackedInt32Array = PackedInt32Array()
+static var setup_picker: int = 0
+static var cpu_speed: int = -1
 static var gives: Array[String] = []
 static var skip_shop: bool = false
 static var shop_player: int = 0
@@ -134,6 +141,13 @@ static func parse() -> void:
 			players = a.substr(10).to_int()
 		elif a.begins_with("--money="):
 			money = a.substr(8).to_int()
+		elif a.begins_with("--controllers="):
+			for c: String in a.substr(14).split(","):
+				controllers.append(clampi(c.to_int(), SimConstants.CTRL_HUMAN, SimConstants.CTRL_MAX))
+		elif a.begins_with("--setup-picker="):
+			setup_picker = a.substr(15).to_int()
+		elif a.begins_with("--cpu-speed="):
+			cpu_speed = a.substr(12).to_int()
 		elif a.begins_with("--give="):
 			gives.append(a.substr(7))
 		elif a == "--skip-shop":

@@ -1,9 +1,11 @@
 class_name ShopFlow
 extends Control
-## The pass-and-play shop between rounds: for each player who is not ready yet, a hand-over
-## screen ("PLAYER N - YOUR SHOP", tap to continue) and then that player's shop. READY submits
-## a `ready` action and moves on; after the last READY it emits `all_ready` and the battle
-## controller asks the simulation to start the round.
+## The shop between rounds. Computer players shop first and instantly (CpuShop). Then, for each
+## human who is not ready yet, a hand-over screen ("PLAYER N - YOUR SHOP", tap to continue) and
+## that human's shop. Hand-overs only exist when two or more humans share the device: with one
+## human (or none) there is no hand-over at all. READY submits a `ready` action and moves on;
+## after the last READY it emits `all_ready` and the battle controller asks the simulation to
+## start the round.
 
 signal all_ready
 
@@ -15,6 +17,8 @@ var _screen: ShopScreen = null
 var _toast: Toast = null
 var _tab: int = 0
 var _select: String = ""
+## What the CPUs bought when this flow opened: [{tank, level, items}] (see CpuShop.run).
+var _cpu_buys: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -47,11 +51,12 @@ func open(state: MatchState, submit: Callable, start_player: int = -1, skip_hand
 	_select = select_id
 	_screen.setup(state, submit)
 	visible = true
+	_cpu_buys = CpuShop.run(state, submit)
 	_player = start_player if start_player >= 0 else first_unready()
 	if _player < 0:
 		all_ready.emit()
 		return
-	if skip_handover:
+	if skip_handover or not CpuShop.needs_handover(state):
 		_show_shop()
 	else:
 		_show_handover()
@@ -64,12 +69,18 @@ func close() -> void:
 	_screen.close_popup()
 
 
-## The lowest player id that has not pressed READY, or -1 when everyone has.
+## The lowest human player id that has not pressed READY, or -1 when everyone has (computer
+## players never get a shop screen; CpuShop readies them).
 func first_unready() -> int:
 	for t: TankState in _state.tanks:
-		if not t.ready:
+		if not t.ready and not CpuShop.is_cpu(_state, t.id):
 			return t.id
 	return -1
+
+
+## What the computer players bought when the flow opened (empty if none shopped).
+func get_cpu_purchases() -> Array[Dictionary]:
+	return _cpu_buys
 
 
 func current_player() -> int:
@@ -124,4 +135,7 @@ func _on_ready() -> void:
 		all_ready.emit()
 		return
 	_player = next
-	_show_handover()
+	if CpuShop.needs_handover(_state):
+		_show_handover()
+	else:
+		_show_shop()

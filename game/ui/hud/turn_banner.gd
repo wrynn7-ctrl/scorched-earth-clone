@@ -1,7 +1,12 @@
 class_name TurnBanner
 extends PanelContainer
-## "PLAYER 2'S TURN" banner in the player's colour with their emblem.
+## "PLAYER 2'S TURN" banner in the player's colour with their emblem. A computer player's turn
+## reads "CPU NORMAL — PLAYER 3" and can show a small "thinking…" line underneath.
 ## show_turn() plays a short pop-in; the banner then stays (set auto_hide_seconds > 0 to fade).
+
+## Below this screen width (dp) a CPU banner wraps onto two lines (see _fit_width).
+const WRAP_BELOW_DP: float = 820.0
+const WRAP_WIDTH_DP: float = 118.0
 
 var auto_hide_seconds: float = 0.0
 
@@ -10,14 +15,23 @@ var _player_name: String = ""
 var _emblem: EmblemIcon = null
 var _label: Label = null
 var _tween: Tween = null
+var _thinking: Label = null
+var _think_tween: Tween = null
+## SimConstants.CTRL_* of the player shown (0 = a human, the plain "PLAYER n'S TURN" text).
+var _level: int = 0
 
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := VBoxContainer.new()
+	box.name = "Box"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
 	var row := HBoxContainer.new()
+	row.name = "Row"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	add_child(row)
+	box.add_child(row)
 	_emblem = EmblemIcon.new()
 	_emblem.name = "Emblem"
 	row.add_child(_emblem)
@@ -25,6 +39,14 @@ func _init() -> void:
 	_label.name = "Text"
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_label)
+	_thinking = Label.new()
+	_thinking.name = "Thinking"
+	_thinking.text = tr("HUD_THINKING")
+	_thinking.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_thinking.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_thinking.add_theme_color_override("font_color", NeonPalette.TEXT_DIM)
+	_thinking.visible = false
+	box.add_child(_thinking)
 
 
 func _ready() -> void:
@@ -37,10 +59,18 @@ func apply_scale() -> void:
 	# buttons on a 700 dp phone and would push them off screen at 150%.
 	_label.add_theme_font_size_override("font_size", maxi(8, roundi(UiScale.dp(15.0))))
 	_emblem.custom_minimum_size = Vector2.ONE * UiScale.dp(28.0)
+	_thinking.add_theme_font_size_override("font_size", maxi(8, roundi(UiScale.dp(11.0))))
+	if _index >= 0 and _label.text != "":
+		_fit_width()
 
 
 ## player_index selects colour + emblem. Empty name = "PLAYER n".
 func show_turn(player_index: int, player_name: String = "") -> void:
+	_show(player_index, player_name, 0)
+
+
+func _show(player_index: int, player_name: String, level: int) -> void:
+	_level = level
 	_index = player_index
 	_player_name = player_name
 	_refresh()
@@ -60,16 +90,56 @@ func show_turn(player_index: int, player_name: String = "") -> void:
 		_tween.tween_property(self, "modulate:a", 0.0, 0.4)
 
 
+## A computer player's turn: "CPU NORMAL — PLAYER 3". `level` is a SimConstants.CTRL_* value.
+func show_cpu_turn(player_index: int, level: int) -> void:
+	_show(player_index, "", level)
+
+
+## The small "thinking…" line under the text (pulses unless motion is reduced).
+func set_thinking(on: bool) -> void:
+	_thinking.visible = on
+	if _think_tween != null:
+		_think_tween.kill()
+		_think_tween = null
+	_thinking.modulate.a = 1.0
+	if on and not ShowSettings.reduce_motion and is_inside_tree():
+		_think_tween = create_tween().set_loops()
+		_think_tween.tween_property(_thinking, "modulate:a", 0.35, 0.6).set_trans(Tween.TRANS_SINE)
+		_think_tween.tween_property(_thinking, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
+
+
+func is_thinking() -> bool:
+	return _thinking.visible
+
+
+func get_thinking_text() -> String:
+	return _thinking.text
+
+
 func get_text() -> String:
 	return _label.text
 
 
 func _refresh() -> void:
 	var shown: String = _player_name if _player_name != "" else tr("HUD_PLAYER_N") % (_index + 1)
-	_label.text = tr("HUD_TURN_OF") % shown
+	if _level > 0:
+		_label.text = tr("HUD_CPU_TURN_FMT") % [CpuNames.level_word(_level), shown]
+	else:
+		_label.text = tr("HUD_TURN_OF") % shown
+	_fit_width()
+	_thinking.text = tr("HUD_THINKING")
 	var c: Color = PlayerLooks.color(_index)
 	_label.add_theme_color_override("font_color", c)
 	_emblem.set_index(_index)
+
+
+## "CPU EXPERT — PLAYER 8" is about 55 dp longer than the plain banner and would push the power
+## panel off a ~700 dp phone, so on narrow screens it wraps onto two lines ("CPU EXPERT —" /
+## "PLAYER 8"); wider screens keep one line.
+func _fit_width() -> void:
+	var narrow: bool = _level > 0 and is_inside_tree() and get_viewport_rect().size.x < UiScale.dp(WRAP_BELOW_DP)
+	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if narrow else TextServer.AUTOWRAP_OFF
+	_label.custom_minimum_size.x = UiScale.dp(WRAP_WIDTH_DP) if narrow else 0.0
 
 
 func _notification(what: int) -> void:

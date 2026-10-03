@@ -37,7 +37,8 @@ func _build(win: Vector2, dpi: float) -> Dictionary:
 	add_child_autofree(vp)
 	var hud: BattleHud = (load("res://ui/hud/hud.tscn") as PackedScene).instantiate()
 	vp.add_child(hud)
-	hud.show_turn(7)  # longest-looking banner: emblem + "PLAYER 8'S TURN"
+	# Longest and tallest banner: emblem + "CPU EXPERT - PLAYER 8" with the thinking line under it.
+	hud.show_cpu_turn(7, SimConstants.CTRL_EXPERT, true)
 	hud.set_angle_tenths(1800)
 	hud.set_power(1000)
 	hud.set_wind(-100)

@@ -200,6 +200,29 @@ func add_toggle(caption: String, value: bool, on_changed: Callable) -> Button:
 	return b
 
 
+## A "Caption ...... Value" row whose button cycles through several values: `on_press` runs on each
+## tap and should update the button text. Returns the button.
+func add_cycle(caption: String, value_text: String, on_press: Callable) -> Button:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_target.add_child(row)
+	var l := Label.new()
+	l.text = caption
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_font_dp[l] = 15.0
+	_labels.append(l)
+	row.add_child(l)
+	var b := Button.new()
+	b.text = value_text
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(on_press)
+	_btn_dp[b] = [84.0, 14.0]
+	_buttons.append(b)
+	row.add_child(b)
+	return b
+
+
 ## A scrollable table (round summary, standings). Returns the table; fill it with set_data().
 func add_stat_table() -> StatTable:
 	var scroll := TouchScroll.new()

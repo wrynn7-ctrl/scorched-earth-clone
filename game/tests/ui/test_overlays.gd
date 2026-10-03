@@ -47,7 +47,21 @@ func _check(overlay: OverlayPanel, vp: SubViewport, label: String) -> void:
 	for b: BaseButton in btns:
 		var dp: float = UiScale.canvas_to_dp(minf(b.size.y, b.size.x))
 		assert_gte(dp, 47.5, "%s %s: %s is %.1f dp" % [label, overlay.name, b.name, dp])
-		assert_true(vis.encloses(b.get_global_rect()), "%s %s: button %s off screen" % [label, overlay.name, b.name])
+		var scroll: ScrollContainer = _scroll_ancestor(b, overlay)
+		if scroll != null:
+			# Inside a scroll area: the area itself must be on screen (the rest scrolls into view).
+			assert_true(vis.encloses(scroll.get_global_rect()), "%s %s: scroll area of %s off screen" % [label, overlay.name, b.name])
+		else:
+			assert_true(vis.encloses(b.get_global_rect()), "%s %s: button %s off screen" % [label, overlay.name, b.name])
+
+
+func _scroll_ancestor(n: Node, stop: Node) -> ScrollContainer:
+	var p: Node = n.get_parent()
+	while p != null and p != stop:
+		if p is ScrollContainer:
+			return p as ScrollContainer
+		p = p.get_parent()
+	return null
 
 
 func _rows(n: int) -> Array[Dictionary]:

@@ -9,6 +9,8 @@ signal closed
 
 var _toggles: Dictionary = {}
 var _speed_btn: Button = null
+var _cpu_btn: Button = null
+var _scroll: TouchScroll = null
 var _preview_btn: Button = null
 var _size_value: Label = null
 var _size_minus: Button = null
@@ -21,13 +23,24 @@ var _last_tap_ms: int = 0
 ## Taps on the version number that open the hidden diagnostics (each within TAP_WINDOW_MS of the last).
 const DIAG_TAPS: int = 5
 const TAP_WINDOW_MS: int = 2000
+## Names of the CPU turn speed levels, in ShowSettings.CPU_SPEED_* order.
+const CPU_SPEED_KEYS: Array[String] = ["SET_CPU_NORMAL", "SET_CPU_FAST", "SET_CPU_INSTANT"]
 
 
 func _init() -> void:
 	super._init()
 	name = "SettingsOverlay"
 	add_title(tr("SET_TITLE"), NeonPalette.CYAN, 24.0)
-	begin_grid()
+	# The toggles sit in a scroll area: with big text on a short phone screen they would not all fit.
+	_scroll = TouchScroll.new()
+	_scroll.name = "Scroll"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_box.add_child(_scroll)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(grid)
+	_target = grid
 	_toggles["Haptics"] = add_toggle(tr("SET_HAPTICS"), ShowSettings.haptics, func(on: bool) -> void:
 		ShowSettings.haptics = on
 		_save())
@@ -51,6 +64,8 @@ func _init() -> void:
 	_size_minus.name = "TextSmaller"
 	_size_plus.name = "TextLarger"
 	_size_value.name = "TextSizeValue"
+	_cpu_btn = add_cycle(tr("SET_CPU_SPEED"), "", _on_cpu_speed)
+	_cpu_btn.name = "CpuSpeed"
 	end_container()
 	# BACK and the (hidden-diagnostics) version number share a row to keep the panel short.
 	begin_row()
@@ -71,6 +86,43 @@ func _init() -> void:
 func open() -> void:
 	_sync()
 	super.open()
+	_refit_settings_next_frame()
+
+
+func get_scroll() -> TouchScroll:
+	return _scroll
+
+
+func apply_scale() -> void:
+	super.apply_scale()
+	if _scroll == null:
+		return
+	# Two columns when they fit the screen, one long (scrolling) column when text is very large.
+	var grid: GridContainer = _scroll.get_child(0)
+	grid.columns = 2
+	var frame: float = _panel.get_theme_stylebox("panel").get_minimum_size().x + UiScale.dp(32.0 + TouchScroll.BAR_DP + TouchScroll.GAP_DP)
+	if grid.get_combined_minimum_size().x + frame > get_viewport_rect().size.x * 0.92:
+		grid.columns = 1
+
+
+## Sizes the toggle area to its content, but never so tall that the panel would leave the screen
+## (a phone in landscape is ~320 dp high): what does not fit scrolls.
+func _fit_scrolls() -> void:
+	if _scroll == null:
+		return
+	var content: float = _scroll.get_child(0).get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = content
+	var room: float = get_viewport_rect().size.y * 0.97 - _panel.get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = clampf(content + minf(room, 0.0), minf(UiScale.dp(96.0), content), content)
+
+
+## Container minimum sizes only settle after a frame, so measure again then.
+func _refit_settings_next_frame() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if visible and is_inside_tree():
+		_fit_scrolls()
 
 
 func close() -> void:
@@ -120,6 +172,7 @@ func _sync() -> void:
 func _refresh_texts() -> void:
 	_preview_btn.text = tr("SET_PREVIEW_SHORT") if ShowSettings.trajectory_preview == ShowSettings.PREVIEW_SHORT else tr("SET_OFF")
 	_speed_btn.text = tr("HUD_SPEED_FMT") % (2 if ShowSettings.playback_speed >= 1.5 else 1)
+	_cpu_btn.text = tr(CPU_SPEED_KEYS[clampi(ShowSettings.cpu_turn_speed, 0, CPU_SPEED_KEYS.size() - 1)])
 	_size_value.text = "%d%%" % ShowSettings.text_size
 	_size_minus.disabled = ShowSettings.text_size <= ShowSettings.TEXT_SIZE_MIN
 	_size_plus.disabled = ShowSettings.text_size >= ShowSettings.TEXT_SIZE_MAX
@@ -133,6 +186,13 @@ func _on_preview(on: bool) -> void:
 
 func _on_speed(on: bool) -> void:
 	ShowSettings.playback_speed = 2.0 if on else 1.0
+	_refresh_texts()
+	_save()
+
+
+## One tap: Normal -> Fast -> Instant -> Normal.
+func _on_cpu_speed() -> void:
+	ShowSettings.cpu_turn_speed = (ShowSettings.cpu_turn_speed + 1) % CPU_SPEED_KEYS.size()
 	_refresh_texts()
 	_save()
 
@@ -156,6 +216,10 @@ func get_toggle(key: String) -> Button:
 
 func get_speed_button() -> Button:
 	return _speed_btn
+
+
+func get_cpu_speed_button() -> Button:
+	return _cpu_btn
 
 
 func get_preview_button() -> Button:

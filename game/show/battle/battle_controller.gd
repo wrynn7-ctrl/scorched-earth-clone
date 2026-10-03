@@ -17,6 +17,13 @@ extends Node2D
 ## turn banner last) so the player can follow cause and effect; this only moves the visuals in
 ## time, never changes outcomes. `instant` mode (tests) applies a whole timeline at once.
 ##
+## Computer players (docs/ARCHITECTURE.md sections 27-30): when the current tank is a CPU the input
+## is locked and a CpuDriver walks through the turn: AiPlayer decides (one frame after the turn
+## starts), a short think pause, the turret and power readout sweep to the chosen values, then the
+## action goes through the same submit path as a human's (validate, apply, playback, autosave).
+## CPU tanks also shop instantly (CpuShop). An AI action that fails validation is replaced by a
+## pass, so a bad answer can never freeze the game.
+##
 ## Floats and non-determinism are fine here: the seed is just an input to the simulation.
 
 signal timeline_finished
@@ -25,6 +32,8 @@ signal match_finished
 signal toast_shown(text: String)
 ## Every player pressed READY; the round is about to start.
 signal shop_finished
+## A computer turn replaced an invalid or runaway AI answer by a pass (should never happen).
+signal cpu_fallback(action: Dictionary, error: String)
 
 const TITLE_SCENE: String = "res://ui/title/title_screen.tscn"
 const TPS: float = float(SimConstants.TICKS_PER_SECOND)
@@ -55,6 +64,8 @@ const TANK_FADE_RECT: Rect2 = Rect2(-22.0, -84.0, 44.0, 86.0)
 const YOU_TIP_Y: float = -86.0
 const SHAKE_PER_RADIUS: float = 1.0 / 80.0
 const MOVE_STEP: int = 10
+## Test hook limit: a drive_cpu() call never loops more than this many steps.
+const CPU_DRIVE_GUARD: int = 64
 ## Minimum gap between idle autosaves (a burst of shop taps saves once).
 const SAVE_DEBOUNCE: float = 0.4
 
@@ -143,6 +154,16 @@ var _pour: Dictionary = {}
 ## tank id -> where a walk/drag put the tank on the ground (see _on_tank_slide).
 var _slide_ground: Dictionary = {}
 
+# --- computer players ---
+var _cpu: CpuDriver = CpuDriver.new()
+## What each CPU bought in the latest shop: [{tank, level, items}], shown on the round summary.
+var _cpu_buys: Array[Dictionary] = []
+## Test hook: Callable(state: MatchState, tank_id: int) -> Dictionary that replaces AiPlayer.
+var cpu_action_override: Callable = Callable()
+## How many AI answers were replaced by a pass.
+var cpu_fallbacks: int = 0
+var _configured_controllers: PackedInt32Array = PackedInt32Array()
+
 # --- autosave ---
 var _save_dirty: bool = false
 var _save_cooldown: float = 0.0
@@ -174,6 +195,11 @@ func configure(rounds: int, seed_value: int, instant: bool = false, players: int
 	_configured = true
 
 
+## Who controls each tank (SimConstants.CTRL_*), for configure()d matches (call before add_child()).
+func set_controllers(controllers: PackedInt32Array) -> void:
+	_configured_controllers = controllers.duplicate()
+
+
 ## Enables autosaving to `path` (call before add_child()).
 func set_autosave_path(path: String) -> void:
 	_autosave_path = path
@@ -192,6 +218,8 @@ func _ready() -> void:
 	# We handle the Android back button ourselves (opens the pause menu).
 	get_tree().set_quit_on_go_back(false)
 	_speed = ShowSettings.playback_speed if ShotArgs.speed <= 0.0 else ShotArgs.speed
+	if ShotArgs.cpu_speed >= 0:
+		ShowSettings.cpu_turn_speed = clampi(ShotArgs.cpu_speed, ShowSettings.CPU_SPEED_NORMAL, ShowSettings.CPU_SPEED_INSTANT)
 	_build_support_nodes()
 	_hud.angle_changed.connect(_on_hud_angle)
 	_hud.power_changed.connect(_on_hud_power)
@@ -331,6 +359,7 @@ func _start_match(resume: bool = false) -> void:
 ## Makes `new_session` the running match: per-tank data, tank views, display, first screen.
 func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 	_cancel_playback()
+	_cpu.stop()
 	session = new_session
 	state = session.state
 	if not restored:
@@ -363,6 +392,10 @@ func _new_settings() -> MatchSettings:
 		settings.wind_max = 100
 		if ShotArgs.money >= 0:
 			settings.start_money = ShotArgs.money
+		if not ShotArgs.controllers.is_empty() and not _configured:
+			settings.controllers = ShotArgs.controllers.duplicate()
+	if not _configured_controllers.is_empty():
+		settings.controllers = _configured_controllers.duplicate()
 	settings.seed = _seed if _seed != 0 else (settings.seed if settings.seed != 0 else int(randi()))
 	return settings
 
@@ -390,7 +423,9 @@ func _init_per_tank_data(restored: bool) -> void:
 	_round_money.fill(0)
 	_summary_pending = false
 	_round_ended = false
+	_cpu_buys.clear()
 	if restored:
+		_cpu_buys = _cpu_buys_from_meta(session.meta.get("cpu_buys", []))
 		var saved: Variant = session.meta.get("round_money", [])
 		if typeof(saved) == TYPE_ARRAY and (saved as Array).size() == n:
 			for i: int in range(n):
@@ -458,11 +493,14 @@ func _enter_phase() -> void:
 	match state.phase:
 		SimConstants.PHASE_SHOP:
 			_set_busy(true)
-			if Simulation.all_ready(state):
+			_run_cpu_shop()
+			if _summary_pending:
+				# Before the CPUs' shop and the humans': the summary comes first (with only
+				# CPUs everyone is "ready" already, which must not skip it).
+				_show_round_summary()
+			elif Simulation.all_ready(state):
 				# Saved between the last READY and the round start: finish the hand-off.
 				_begin_round()
-			elif _summary_pending:
-				_show_round_summary()
 			else:
 				_open_shop()
 		SimConstants.PHASE_MATCH_OVER:
@@ -474,11 +512,16 @@ func _enter_phase() -> void:
 			_run_start_hooks()
 
 
-## HUD + preview for whoever's turn it is now.
+## HUD + preview for whoever's turn it is now. A computer player's turn locks the input and
+## starts the CpuDriver instead (see _cpu_step).
 func _begin_turn_ui() -> void:
 	var id: int = state.current_tank
 	_turn_tank = id
 	_ensure_selection(id)
+	if state.phase == SimConstants.PHASE_AIM and is_cpu_tank(id) and state.tanks[id].alive:
+		_begin_cpu_turn(id)
+		return
+	_cpu.stop()
 	_hud.show_turn(id)
 	_hud.set_angle_tenths(_aim_angle[id])
 	_hud.set_power(_aim_power[id])
@@ -523,6 +566,26 @@ static func _fuel_total(t: TankState) -> int:
 
 func get_state() -> MatchState:
 	return state
+
+
+## True if tank `id` is played by the computer (SimConstants.CTRL_* other than human).
+func is_cpu_tank(id: int) -> bool:
+	return CpuShop.is_cpu(state, id)
+
+
+## The CpuDriver (tests): its stage and pending action.
+func get_cpu_driver() -> CpuDriver:
+	return _cpu
+
+
+## True while a computer turn is being presented (decision, pause, sweep) and not yet submitted.
+func is_cpu_turn_active() -> bool:
+	return _cpu.is_active()
+
+
+## What the CPUs bought in the latest shop ([{tank, level, items}]).
+func get_cpu_purchases() -> Array[Dictionary]:
+	return _cpu_buys
 
 
 func get_session() -> MatchSession:
@@ -671,6 +734,12 @@ func open_weapon_picker() -> void:
 func submit_action(action: Dictionary) -> String:
 	if _busy:
 		return "busy"
+	return _submit_now(action)
+
+
+## The path every action takes, human or CPU: validate, log and apply through the session,
+## then play the timeline. Does not look at `_busy` (the CPU submits while input is locked).
+func _submit_now(action: Dictionary) -> String:
 	var res: Dictionary = session.submit(action)
 	var err: String = res["err"]
 	if err != "":
@@ -1047,6 +1116,7 @@ func _process(delta: float) -> void:
 		var t: TankView = _tank_views[state.current_tank]
 		_hud.set_aim_pivot(get_viewport().get_canvas_transform() * (t.position + Vector2(0, -TankView.TANK_H * 0.5) * TankView.VISUAL_SCALE))
 		_sky.set_parallax(_camera.get_screen_center_position())
+	_cpu_step(delta)
 	if _playing and not _frozen:
 		_playhead += delta * TPS * _speed
 		if ShotArgs.freeze_tick >= 0 and _fire_timeline and _playhead >= float(ShotArgs.freeze_tick):
@@ -1099,6 +1169,7 @@ func _finish_playback() -> void:
 		SimConstants.PHASE_SHOP:
 			if _round_ended:
 				_summary_pending = true
+				_run_cpu_shop()
 				_show_round_summary()
 				round_finished.emit(_round_winner)
 				_save_dirty = true
@@ -1184,7 +1255,10 @@ func _dispatch(e: Dictionary) -> void:
 			var id: int = e["tank"]
 			_turn_tank = id
 			_ensure_selection(id)
-			_hud.show_turn(id)
+			if is_cpu_tank(id):
+				_hud.show_cpu_turn(id, CpuShop.level_of(state, id), false)
+			else:
+				_hud.show_turn(id)
 			_hud.set_angle_tenths(_aim_angle[id])
 			_hud.set_power(_aim_power[id])
 			_refresh_loadout(id)
@@ -1614,6 +1688,158 @@ func get_markers() -> BattleMarkers:
 
 
 # ======================================================================================
+# Computer players
+# ======================================================================================
+
+## Computer tanks buy instantly through the normal action path (no hand-over, no screen). A
+## shop that has nothing to do (restored after they bought, or no CPUs) leaves the last
+## purchases alone, so the summary after a restore still shows them.
+func _run_cpu_shop() -> void:
+	if state.phase != SimConstants.PHASE_SHOP:
+		return
+	var buys: Array[Dictionary] = CpuShop.run(state, _shop_submit)
+	if not buys.is_empty():
+		_cpu_buys = buys
+
+
+## The computer's turn starts: input locked, "CPU NORMAL - PLAYER 3" with the thinking line, and
+## the driver asks the AI one frame from now.
+func _begin_cpu_turn(id: int) -> void:
+	_set_busy(true)
+	_preview.hide_preview()
+	_hud.show_cpu_turn(id, CpuShop.level_of(state, id))
+	_hud.set_angle_tenths(_aim_angle[id])
+	_hud.set_power(_aim_power[id])
+	_refresh_loadout(id)
+	_cpu.begin(id, CpuDriver.turn_key_of(state, id))
+
+
+## Advances the computer's turn by `delta` seconds. One call submits at most one action.
+## `force` skips every wait (tests). Returns true when an action was submitted.
+func _cpu_step(delta: float, force: bool = false) -> bool:
+	if not _cpu.is_active() or _playing or state.phase != SimConstants.PHASE_AIM or state.current_tank != _cpu.tank:
+		return false
+	var scale: float = 0.0 if force else CpuDriver.wait_scale(ShowSettings.cpu_speed_scale(), _speed, _instant)
+	# Seconds of "normal speed acting" this frame is worth (everything at once when scale is 0).
+	var step: float = INF if scale <= 0.0 else delta / scale
+	var guard: int = 0
+	while guard < 6:
+		guard += 1
+		match _cpu.stage:
+			CpuDriver.Stage.COMPUTE:
+				if _cpu.wait_frames > 0 and not force:
+					_cpu.wait_frames -= 1
+					return false
+				_cpu_decide()
+			CpuDriver.Stage.THINK:
+				_cpu.timer -= step
+				if _cpu.timer > 0.0:
+					return false
+				_cpu_after_think()
+			CpuDriver.Stage.SWEEP:
+				_cpu.timer += step
+				_cpu_sweep_to(CpuDriver.ease_sweep(_cpu.timer / maxf(_cpu.duration, 0.001)))
+				if _cpu.timer < _cpu.duration:
+					return false
+				_cpu_sweep_to(1.0)
+				_cpu.stage = CpuDriver.Stage.ACT
+			CpuDriver.Stage.ACT:
+				_cpu_act()
+				return true
+			_:
+				return false
+		step = INF if scale <= 0.0 else 0.0  # leftover time is not carried into the next stage
+	return false
+
+
+## Asks the AI (or the test hook) and checks the answer. Anything illegal, or a turn that keeps
+## asking for non-ending actions, becomes a pass.
+func _cpu_decide() -> void:
+	var id: int = _cpu.tank
+	_cpu.calls += 1
+	var raw: Dictionary
+	if cpu_action_override.is_valid():
+		raw = cpu_action_override.call(state, id) as Dictionary
+	else:
+		raw = AiPlayer.next_action(state, id)
+	var action: Dictionary = Simulation.normalize_action(raw)
+	var err: String = Simulation.validate_action(state, action)
+	if err == "" and _cpu.calls >= CpuDriver.MAX_CALLS and not CpuDriver.ends_turn(action):
+		err = "cpu_runaway"
+	if err != "":
+		_cpu_fall_back(action, err)
+		action = {"kind": "pass", "tank": id}
+	_cpu.action = action
+	_cpu.from_angle = _aim_angle[id]
+	_cpu.from_power = _aim_power[id]
+	if action["kind"] == "fire":
+		var weapon: String = action["weapon"]
+		if WeaponDefs.has(weapon):
+			_selected[id] = weapon
+			_refresh_loadout(id)
+	_cpu.timer = CpuDriver.think_seconds(state, id, _cpu.calls)
+	_cpu.stage = CpuDriver.Stage.THINK
+
+
+func _cpu_fall_back(action: Dictionary, err: String) -> void:
+	cpu_fallbacks += 1
+	push_warning("BattleController: the AI for tank %d returned an unusable action %s (%s); passing instead"
+			% [_cpu.tank, str(action), err])
+	cpu_fallback.emit(action, err)
+
+
+func _cpu_after_think() -> void:
+	if _cpu.action["kind"] == "fire":
+		_cpu.timer = 0.0
+		_cpu.duration = CpuDriver.sweep_seconds(state, _cpu.tank)
+		_cpu.stage = CpuDriver.Stage.SWEEP
+	else:
+		_cpu.stage = CpuDriver.Stage.ACT
+
+
+## Puts the turret and the power readout at fraction k of the way to the chosen aim.
+func _cpu_sweep_to(k: float) -> void:
+	var id: int = _cpu.tank
+	_aim_angle[id] = roundi(lerpf(float(_cpu.from_angle), float(_cpu.action["angle"] as int), k))
+	_aim_power[id] = roundi(lerpf(float(_cpu.from_power), float(_cpu.action["power"] as int), k))
+	_tank_views[id].set_angle_tenths(_aim_angle[id])
+	_hud.set_angle_tenths(_aim_angle[id])
+	_hud.set_power(_aim_power[id])
+
+
+## Submits the pending action like a human would. If even that is refused, pass; if the pass is
+## refused too, give the turn to the human controls rather than freezing.
+func _cpu_act() -> void:
+	var id: int = _cpu.tank
+	var action: Dictionary = _cpu.action
+	_cpu.stage = CpuDriver.Stage.IDLE
+	_hud.set_thinking(false)
+	var err: String = _submit_now(action)
+	if err != "":
+		_cpu_fall_back(action, err)
+		err = _submit_now({"kind": "pass", "tank": id})
+		if err != "":
+			push_error("BattleController: CPU tank %d cannot even pass (%s); unlocking the controls" % [id, err])
+			_set_busy(false)
+			return
+	if action["kind"] == "fire":
+		_ensure_selection(id)  # the shot may have used the last unit
+
+
+## Test hook: runs the computer's turn right now, skipping every wait, until it has submitted
+## `max_actions` actions or stops (turn over, human's turn, playback running). Returns how many
+## actions it submitted.
+func drive_cpu(max_actions: int = 1) -> int:
+	var done: int = 0
+	var guard: int = 0
+	while done < max_actions and guard < CPU_DRIVE_GUARD and _cpu.is_active() and not _playing:
+		guard += 1
+		if _cpu_step(0.0, true):
+			done += 1
+	return done
+
+
+# ======================================================================================
 # Round summary, match over
 # ======================================================================================
 
@@ -1635,7 +1861,8 @@ func _show_round_summary() -> void:
 	_set_busy(true)
 	_hud.visible = true
 	_world.visible = state.terrain != null
-	_round_overlay.show_summary(_round_winner_for_summary(), _summary_rows(), state.round_index + 1, state.settings.rounds)
+	_round_overlay.show_summary(_round_winner_for_summary(), _summary_rows(), state.round_index + 1, state.settings.rounds,
+			_cpu_buys)
 
 
 ## After a restore the winner is not remembered; it is the tank with the most round wins that
@@ -1672,8 +1899,35 @@ func _make_meta() -> Dictionary:
 	var money: Array = []
 	for v: int in _round_money:
 		money.append(v)
+	var buys: Array = []
+	for entry: Dictionary in _cpu_buys:
+		var items: Array = []
+		for it: Dictionary in entry["items"] as Array[Dictionary]:
+			items.append([it["id"], it["units"]])
+		buys.append({"tank": entry["tank"], "level": entry["level"], "items": items})
 	return {"looks": PlayerLooks.to_dict(state.tanks.size()), "round_money": money,
-			"summary_pending": _summary_pending}
+			"summary_pending": _summary_pending, "cpu_buys": buys}
+
+
+## Restores the CPU purchases shown on the round summary from a save's meta (JSON numbers are
+## floats; anything malformed is skipped).
+func _cpu_buys_from_meta(saved: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if typeof(saved) != TYPE_ARRAY:
+		return out
+	for raw: Variant in saved as Array:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var d: Dictionary = raw
+		var tank: int = int(d.get("tank", -1))
+		if tank < 0 or tank >= state.tanks.size() or typeof(d.get("items", null)) != TYPE_ARRAY:
+			continue
+		var items: Array[Dictionary] = []
+		for it: Variant in d["items"] as Array:
+			if typeof(it) == TYPE_ARRAY and (it as Array).size() == 2 and Catalog.has(str((it as Array)[0])):
+				items.append({"id": str((it as Array)[0]), "units": int((it as Array)[1])})
+		out.append({"tank": tank, "level": int(d.get("level", 0)), "items": items})
+	return out
 
 
 ## Writes the autosave now. Returns true when a file was written. Does nothing without an

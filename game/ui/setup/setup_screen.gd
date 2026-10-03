@@ -1,8 +1,11 @@
 class_name SetupScreen
 extends Control
-## Match setup (from the title's START): players 2-8 (every slot human for now), rounds,
-## starting money, wind, and each player's colour and emblem. START creates the match settings
-## (full game unlocked) and loads the battle, which opens the first shop.
+## Match setup (from the title's START): players 2-8, who controls each slot (Human or a CPU
+## from Easy to Expert), rounds, starting money, wind, and each player's colour and emblem.
+## START creates the match settings (full game unlocked) and loads the battle, which opens the
+## first shop. The last-used setup is remembered (SetupPrefs / SettingsStore).
+##
+## At least one slot must be human, unless "Watch CPUs play" is ticked.
 ##
 ## Layout: options on the left, one scrolling row per player on the right, BACK / START under
 ## the player list. Everything is containers and dp sizes, so it fits phones and tablets.
@@ -22,12 +25,21 @@ const DEFAULT_ROUNDS: int = 3
 const DEFAULT_MONEY_LEVEL: int = 1
 const DEFAULT_WIND_LEVEL: int = 2
 
+## Chip colour per level (the chip also spells the level out, so colour is never the only cue).
+const LEVEL_COLORS: Array[Color] = [Color.WHITE, NeonPalette.GOOD, NeonPalette.CYAN, NeonPalette.WARN, NeonPalette.MAGENTA]
+
 var _players: int = 2
 var _rounds: int = DEFAULT_ROUNDS
 var _money_level: int = DEFAULT_MONEY_LEVEL
 var _wind_level: int = DEFAULT_WIND_LEVEL
 var _colors: PackedInt32Array = PackedInt32Array()
 var _emblems: PackedInt32Array = PackedInt32Array()
+## SimConstants.CTRL_* for every slot (also the hidden ones, so shrinking and growing the
+## player count keeps the choices).
+var _controllers: PackedInt32Array = PackedInt32Array()
+var _watch: bool = false
+## False locks CPU Hard and Expert behind the full game (this build: unlocked).
+var _full_unlocked: bool = true
 
 var _sky: NeonSky = null
 var _margin: MarginContainer = null
@@ -53,7 +65,12 @@ var _player_labels: Array[Label] = []
 var _color_buttons: Array[SwatchButton] = []
 var _emblem_buttons: Array[SwatchButton] = []
 var _kind_buttons: Array[Button] = []
-var _kind_popup: PopupPanel = null
+var _chips: Array[PanelContainer] = []
+var _chip_labels: Array[Label] = []
+var _picker: KindPicker = null
+var _header: HBoxContainer = null
+var _watch_box: Button = null
+var _hint: Label = null
 var _bottom: HBoxContainer = null
 var _back: Button = null
 var _start: Button = null
@@ -68,8 +85,13 @@ func _init() -> void:
 	for i: int in range(SimConstants.MAX_TANKS):
 		_colors.append(i)
 		_emblems.append(i)
+	_controllers.resize(SimConstants.MAX_TANKS)
+	_controllers.fill(SimConstants.CTRL_HUMAN)
+	_load_prefs()
 	if ShotArgs.players >= SimConstants.MIN_TANKS:
 		_players = clampi(ShotArgs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+	for i: int in range(mini(ShotArgs.controllers.size(), SimConstants.MAX_TANKS)):
+		_controllers[i] = _allowed_level(ShotArgs.controllers[i])
 	_build()
 
 
@@ -79,11 +101,30 @@ func _ready() -> void:
 	LayoutWatch.attach(self, apply_scale)
 	_refresh()
 	ShotHook.attach(self)
+	if ShotArgs.setup_picker > 0:
+		_open_kind_popup.call_deferred(clampi(ShotArgs.setup_picker - 1, 0, SimConstants.MAX_TANKS - 1))
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		go_back()
+		if _picker != null and _picker.visible:
+			_picker.close()  # Android back closes the picker first
+		else:
+			go_back()
+
+
+## The last-used setup, validated again (SettingsStore clamps it too).
+func _load_prefs() -> void:
+	if not SetupPrefs.has_saved:
+		return
+	_players = clampi(SetupPrefs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+	_rounds = SetupPrefs.rounds if ROUND_CHOICES.has(SetupPrefs.rounds) else DEFAULT_ROUNDS
+	_money_level = clampi(SetupPrefs.money_level, 0, MONEY_CHOICES.size() - 1)
+	_wind_level = clampi(SetupPrefs.wind_level, 0, WIND_CHOICES.size() - 1)
+	_watch = SetupPrefs.watch
+	for i: int in range(SimConstants.MAX_TANKS):
+		_controllers[i] = _allowed_level(SetupPrefs.controllers[i] if i < SetupPrefs.controllers.size() else 0)
+	_enforce_human_rule()
 
 
 # ======================================================================================
@@ -102,8 +143,9 @@ func _build() -> void:
 	_margin.add_child(_columns)
 	_build_options()
 	_build_players()
-	_kind_popup = _build_kind_popup()
-	add_child(_kind_popup)
+	_picker = KindPicker.new()
+	_picker.chosen.connect(_on_kind_chosen)
+	add_child(_picker)
 
 
 func _panel(panel_name: String) -> Array:
@@ -208,11 +250,32 @@ func _build_players() -> void:
 	_players_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_players_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_columns.add_child(_players_panel)
+	_header = HBoxContainer.new()
+	_header.name = "Header"
+	_players_box.add_child(_header)
 	_players_caption = Label.new()
 	_players_caption.name = "PlayersCaption"
 	_players_caption.text = tr("SETUP_PLAYER_LIST")
+	_players_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Trimmed, not wrapped: a wrapping label whose height changes its parent's width can loop.
+	_players_caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_players_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_players_caption.add_theme_color_override("font_color", NeonPalette.CYAN)
-	_players_box.add_child(_players_caption)
+	_header.add_child(_players_caption)
+	# A toggle button (lit when on, and the text says ON/OFF): the default check-box art is
+	# invisible on the neon theme.
+	_watch_box = Button.new()
+	_watch_box.name = "Watch"
+	_watch_box.toggle_mode = true
+	_watch_box.focus_mode = Control.FOCUS_NONE
+	_watch_box.toggled.connect(set_watch)
+	_header.add_child(_watch_box)
+	_hint = Label.new()
+	_hint.name = "Hint"
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint.add_theme_color_override("font_color", NeonPalette.WARN)
+	_hint.visible = false
+	_players_box.add_child(_hint)
 	_scroll = TouchScroll.new()
 	_scroll.name = "Scroll"
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -270,37 +333,37 @@ func _build_player_row(i: int) -> void:
 	kb.focus_mode = Control.FOCUS_NONE
 	kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	kb.clip_text = true
+	kb.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	kb.pressed.connect(_open_kind_popup.bind(i))
 	row.add_child(kb)
 	_kind_buttons.append(kb)
-
-
-## The HUMAN / "AI - COMING SOON" chooser. The AI entry is disabled until M4.
-func _build_kind_popup() -> PopupPanel:
-	var popup := PopupPanel.new()
-	popup.name = "KindPopup"
-	var box := VBoxContainer.new()
-	box.name = "Box"
-	popup.add_child(box)
-	var human := Button.new()
-	human.name = "Human"
-	human.text = tr("SETUP_HUMAN")
-	human.focus_mode = Control.FOCUS_NONE
-	human.pressed.connect(popup.hide)
-	box.add_child(human)
-	var ai := Button.new()
-	ai.name = "Ai"
-	ai.text = tr("SETUP_AI_SOON")
-	ai.disabled = true
-	ai.focus_mode = Control.FOCUS_NONE
-	box.add_child(ai)
-	return popup
+	# The level chip sits inside the picker button's right end, so a CPU row needs no extra width.
+	var chip := PanelContainer.new()
+	chip.name = "Chip"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.anchor_left = 1.0
+	chip.anchor_right = 1.0
+	chip.anchor_top = 0.5
+	chip.anchor_bottom = 0.5
+	chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	chip.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var chip_label := Label.new()
+	chip_label.name = "Text"
+	chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_child(chip_label)
+	kb.add_child(chip)
+	_chips.append(chip)
+	_chip_labels.append(chip_label)
 
 
 func _open_kind_popup(index: int) -> void:
-	var b: Button = _kind_buttons[index]
-	var pos: Vector2 = b.get_screen_position() + Vector2(0.0, b.size.y)
-	_kind_popup.popup(Rect2i(Vector2i(pos), Vector2i.ZERO))
+	_picker.open_for(index, _controllers[index], _full_unlocked)
+
+
+func _on_kind_chosen(level: int) -> void:
+	set_controller(_picker.get_player(), level)
 
 
 # ======================================================================================
@@ -338,22 +401,27 @@ func apply_scale() -> void:
 		b.custom_minimum_size = Vector2(UiScale.dp(66.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
 	for l: Label in _player_labels:
-		l.custom_minimum_size.x = UiScale.dp(34.0)
+		l.custom_minimum_size.x = UiScale.dp(30.0)
 		l.add_theme_font_size_override("font_size", UiScale.hud_font(14.0))
 	for b: SwatchButton in _color_buttons:
 		b.custom_minimum_size = Vector2.ONE * touch
 	for b: SwatchButton in _emblem_buttons:
 		b.custom_minimum_size = Vector2.ONE * touch
 	for b: Button in _kind_buttons:
-		b.custom_minimum_size = Vector2(UiScale.dp(84.0), touch)
+		b.custom_minimum_size = Vector2(UiScale.dp(92.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+	for i: int in range(_chips.size()):
+		_chips[i].offset_right = -UiScale.dp(6.0)
+		_chips[i].add_theme_stylebox_override("panel", _chip_style(_controllers[i]))
+		_chip_labels[i].add_theme_font_size_override("font_size", UiScale.hud_font(10.0))
+	_header.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
+	_watch_box.custom_minimum_size = Vector2(0.0, touch)
+	_watch_box.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+	_hint.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
 	_back.custom_minimum_size = Vector2(UiScale.dp(84.0), UiScale.dp(56.0))
 	_back.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
 	_start.custom_minimum_size = Vector2(UiScale.dp(120.0), UiScale.dp(56.0))
 	_start.add_theme_font_size_override("font_size", UiScale.hud_font(22.0))
-	for n: Node in _kind_popup.find_children("*", "Button", true, false):
-		(n as Button).custom_minimum_size = Vector2(UiScale.dp(220.0), touch)
-		(n as Button).add_theme_font_size_override("font_size", UiScale.hud_font(14.0))
 
 
 # ======================================================================================
@@ -362,6 +430,8 @@ func apply_scale() -> void:
 
 func set_players(n: int) -> void:
 	_players = clampi(n, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+	_hint.text = ""
+	_enforce_human_rule()
 	_refresh()
 
 
@@ -377,6 +447,62 @@ func set_money_level(level: int) -> void:
 
 func set_wind_level(level: int) -> void:
 	_wind_level = clampi(level, 0, WIND_CHOICES.size() - 1)
+	_refresh()
+
+
+## Chooses who controls slot `i`: SimConstants.CTRL_HUMAN or a CPU level. Returns false (and
+## changes nothing) when the choice is locked (Hard/Expert without the full game) or would
+## leave the match without a human while "Watch CPUs play" is off.
+func set_controller(i: int, level: int) -> bool:
+	if i < 0 or i >= SimConstants.MAX_TANKS or level < SimConstants.CTRL_HUMAN or level > SimConstants.CTRL_MAX:
+		return false
+	if _allowed_level(level) != level:
+		return false
+	_hint.text = ""
+	if level != SimConstants.CTRL_HUMAN and i < _players and not _watch and _humans_without(i) == 0:
+		_hint.text = tr("SETUP_NEED_HUMAN")
+		_refresh()
+		return false
+	_controllers[i] = level
+	_refresh()
+	return true
+
+
+## "Watch CPUs play": lets every slot be a CPU. Turning it off while nobody is human makes
+## player 1 human again.
+func set_watch(on: bool) -> void:
+	_hint.text = ""
+	_watch = on
+	_enforce_human_rule()
+	_refresh()
+
+
+## Humans among the visible slots if slot `skip` were not one of them.
+func _humans_without(skip: int) -> int:
+	var n: int = 0
+	for j: int in range(_players):
+		if j != skip and _controllers[j] == SimConstants.CTRL_HUMAN:
+			n += 1
+	return n
+
+
+func _enforce_human_rule() -> void:
+	if not _watch and _humans_without(-1) == 0:
+		_controllers[0] = SimConstants.CTRL_HUMAN
+
+
+## Hard and Expert fall back to Normal while the full game is locked.
+func _allowed_level(level: int) -> int:
+	var top: int = SimConstants.CTRL_MAX if _full_unlocked else SimConstants.CTRL_FREE_MAX
+	return clampi(level, SimConstants.CTRL_HUMAN, top)
+
+
+## Test/billing hook: lock or unlock CPU Hard and Expert. Locking also demotes slots that
+## already use them.
+func set_full_unlocked(unlocked: bool) -> void:
+	_full_unlocked = unlocked
+	for i: int in range(_controllers.size()):
+		_controllers[i] = _allowed_level(_controllers[i])
 	_refresh()
 
 
@@ -434,6 +560,35 @@ func _refresh() -> void:
 		_color_buttons[i].tooltip_text = tr(NeonPalette.TANK_COLOR_NAME_KEYS[_colors[i]])
 		_emblem_buttons[i].set_art(col, _emblems[i])
 		_emblem_buttons[i].tooltip_text = tr(NeonPalette.EMBLEM_NAME_KEYS[_emblems[i]])
+		_refresh_kind(i)
+	_watch_box.set_pressed_no_signal(_watch)
+	_watch_box.text = "%s: %s" % [tr("SETUP_WATCH"), tr("SET_ON") if _watch else tr("SET_OFF")]
+	_hint.visible = _hint.text != ""
+
+
+## Slot i's picker button, level chip and tooltip.
+func _refresh_kind(i: int) -> void:
+	var level: int = _controllers[i]
+	var cpu: bool = level != SimConstants.CTRL_HUMAN
+	_kind_buttons[i].text = tr("SETUP_KIND_CPU") if cpu else tr("SETUP_HUMAN")
+	_kind_buttons[i].tooltip_text = CpuNames.full_name(level)
+	_chips[i].visible = cpu
+	if cpu:
+		_chip_labels[i].text = CpuNames.level_word(level)
+		_chip_labels[i].add_theme_color_override("font_color", LEVEL_COLORS[level])
+		_chips[i].add_theme_stylebox_override("panel", _chip_style(level))
+
+
+## A small outlined badge in the level's colour.
+func _chip_style(level: int) -> StyleBoxFlat:
+	var col: Color = LEVEL_COLORS[clampi(level, 0, LEVEL_COLORS.size() - 1)]
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col, 0.16)
+	sb.border_color = col
+	sb.set_border_width_all(maxi(1, roundi(UiScale.dp(1.5))))
+	sb.set_corner_radius_all(roundi(UiScale.dp(8.0)))
+	sb.set_content_margin_all(UiScale.dp(4.0))
+	return sb
 
 
 # ======================================================================================
@@ -447,12 +602,23 @@ func build_settings() -> MatchSettings:
 	s.rounds = _rounds
 	s.start_money = MONEY_CHOICES[_money_level]
 	s.wind_max = WIND_CHOICES[_wind_level]
-	s.full_unlocked = true
+	s.full_unlocked = _full_unlocked
+	var c := PackedInt32Array()
+	for i: int in range(_players):
+		c.append(_allowed_level(_controllers[i]))
+	s.controllers = c
 	s.seed = ShotArgs.seed_value if ShotArgs.seed_value != 0 else int(randi())
 	return s
 
 
+## Remembers the current choices in SetupPrefs and writes settings.cfg.
+func save_prefs() -> void:
+	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch)
+	SettingsStore.save()
+
+
 func start_match() -> void:
+	save_prefs()
 	BattleConfig.settings = build_settings()
 	BattleConfig.resume = false
 	BattleConfig.seed_value = 0
@@ -463,6 +629,7 @@ func start_match() -> void:
 
 
 func go_back() -> void:
+	save_prefs()
 	get_tree().change_scene_to_file(TITLE_SCENE)
 
 
@@ -492,8 +659,40 @@ func get_kind_button(i: int) -> Button:
 	return _kind_buttons[i]
 
 
-func get_kind_popup() -> PopupPanel:
-	return _kind_popup
+func get_kind_popup() -> KindPicker:
+	return _picker
+
+
+func get_controllers() -> PackedInt32Array:
+	return _controllers.slice(0, _players)
+
+
+func get_chip(i: int) -> PanelContainer:
+	return _chips[i]
+
+
+func get_chip_text(i: int) -> String:
+	return _chip_labels[i].text
+
+
+func get_watch_box() -> Button:
+	return _watch_box
+
+
+func is_watch() -> bool:
+	return _watch
+
+
+func get_hint_text() -> String:
+	return _hint.text
+
+
+func get_money_level() -> int:
+	return _money_level
+
+
+func get_wind_level() -> int:
+	return _wind_level
 
 
 func get_scroll() -> TouchScroll:

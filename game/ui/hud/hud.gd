@@ -353,7 +353,20 @@ func set_wind(w: int) -> void:
 
 func show_turn(player_index: int, player_name: String = "") -> void:
 	_banner.show_turn(player_index, player_name)
+	_banner.set_thinking(false)
 	_aim.set_color(PlayerLooks.color(player_index))
+
+
+## A computer player's turn: banner "CPU NORMAL — PLAYER 3" (their colour and emblem), with the
+## small "thinking…" line when `thinking` is set.
+func show_cpu_turn(player_index: int, level: int, thinking: bool = true) -> void:
+	_banner.show_cpu_turn(player_index, level)
+	_banner.set_thinking(thinking)
+	_aim.set_color(PlayerLooks.color(player_index))
+
+
+func set_thinking(on: bool) -> void:
+	_banner.set_thinking(on)
 
 
 func set_fire_enabled(enabled: bool) -> void:

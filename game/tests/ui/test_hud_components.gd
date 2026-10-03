@@ -199,6 +199,47 @@ func test_turn_banner_text() -> void:
 	assert_string_contains(b.get_text(), "ALICE")
 
 
+func test_turn_banner_for_a_cpu_player() -> void:
+	var b: TurnBanner = add_child_autofree(TurnBanner.new())
+	await wait_frames(1)
+	b.show_cpu_turn(2, SimConstants.CTRL_NORMAL)
+	assert_eq(b.get_text(), "CPU NORMAL — PLAYER 3")
+	assert_false(b.is_thinking(), "the thinking line is off until asked")
+	b.set_thinking(true)
+	assert_true(b.is_thinking())
+	assert_eq(b.get_thinking_text(), "thinking…")
+	for pair: Array in [[SimConstants.CTRL_EASY, "CPU EASY — PLAYER 3"], [SimConstants.CTRL_HARD, "CPU HARD — PLAYER 3"],
+			[SimConstants.CTRL_EXPERT, "CPU EXPERT — PLAYER 3"]]:
+		b.show_cpu_turn(2, pair[0])
+		assert_eq(b.get_text(), pair[1])
+	# A human turn afterwards is the plain banner again.
+	b.show_turn(1)
+	assert_eq(b.get_text(), "PLAYER 2'S TURN")
+	b.set_thinking(false)
+	assert_false(b.is_thinking())
+	# Reduced motion: the line is shown without pulsing.
+	ShowSettings.reduce_motion = true
+	b.set_thinking(true)
+	assert_true(b.is_thinking())
+	assert_eq((b.find_child("Thinking", true, false) as Label).modulate.a, 1.0)
+	ShowSettings.reset()
+
+
+func test_hud_cpu_turn_helpers() -> void:
+	var hud: BattleHud = add_child_autofree(BattleHud.new())
+	await wait_frames(1)
+	hud.show_cpu_turn(3, SimConstants.CTRL_HARD)
+	assert_eq(hud.get_turn_banner().get_text(), "CPU HARD — PLAYER 4")
+	assert_true(hud.get_turn_banner().is_thinking())
+	hud.set_thinking(false)
+	assert_false(hud.get_turn_banner().is_thinking())
+	hud.show_cpu_turn(3, SimConstants.CTRL_HARD, false)
+	assert_false(hud.get_turn_banner().is_thinking())
+	hud.show_cpu_turn(3, SimConstants.CTRL_HARD, true)
+	hud.show_turn(0)
+	assert_false(hud.get_turn_banner().is_thinking(), "a human turn clears the thinking line")
+
+
 func test_fire_button_signal_and_disabled() -> void:
 	var f: FireButton = add_child_autofree(FireButton.new())
 	await wait_frames(1)
