@@ -68,6 +68,7 @@ static func write(b: StreamPeerBuffer, state: MatchState) -> void:
 	b.put_32(st.controllers.size())
 	for c: int in st.controllers:
 		b.put_32(c)
+	b.put_32(st.mode)
 	b.put_64(state.seed)
 	b.put_32(state.round_index)
 	b.put_32(state.wind)
@@ -120,6 +121,7 @@ static func _write_tank(b: StreamPeerBuffer, t: TankState) -> void:
 	b.put_32(t.last_fire_y)
 	b.put_32(t.last_fire_wind)
 	b.put_32(t.last_fire_turn)
+	b.put_32(t.love)
 	b.put_32(t.inventory.size())
 	for n: int in t.inventory:
 		b.put_32(n)
@@ -128,7 +130,7 @@ static func _write_tank(b: StreamPeerBuffer, t: TankState) -> void:
 ## Parses what write() produced. Returns null if the data is truncated or inconsistent.
 static func read(b: StreamPeerBuffer) -> MatchState:
 	var s := MatchState.new()
-	if b.get_available_bytes() < 8 + 4 * 3 + 8 + 4 + 8 + 4 + 4 + 32 + 12:
+	if b.get_available_bytes() < 8 + 4 * 3 + 8 + 4 + 8 + 4 + 4 + 4 + 32 + 12:
 		return null
 	var st: MatchSettings = s.settings
 	st.seed = b.get_64()
@@ -138,13 +140,14 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 	st.start_money = b.get_64()
 	st.full_unlocked = b.get_32() != 0
 	var n_ctrl: int = b.get_32()
-	if n_ctrl < 0 or n_ctrl > MAX_TANKS_READ or b.get_available_bytes() < n_ctrl * 4 + 8 + 4 * 3 + 4 + 32 + 12:
+	if n_ctrl < 0 or n_ctrl > MAX_TANKS_READ or b.get_available_bytes() < n_ctrl * 4 + 4 + 8 + 4 * 3 + 4 + 32 + 12:
 		return null
 	var ctrl := PackedInt32Array()
 	ctrl.resize(n_ctrl)
 	for i: int in range(n_ctrl):
 		ctrl[i] = b.get_32()
 	st.controllers = ctrl
+	st.mode = b.get_32()
 	s.seed = b.get_64()
 	s.round_index = b.get_32()
 	s.wind = b.get_32()
@@ -193,7 +196,7 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 
 
 static func _read_tank(b: StreamPeerBuffer) -> TankState:
-	if b.get_available_bytes() < 9 * 4 + 8 + 4 + 8 + 6 * 4 + 7 * 4 + 4:
+	if b.get_available_bytes() < 9 * 4 + 8 + 4 + 8 + 6 * 4 + 7 * 4 + 4 + 4:
 		return null
 	var t := TankState.new()
 	t.id = b.get_32()
@@ -221,6 +224,7 @@ static func _read_tank(b: StreamPeerBuffer) -> TankState:
 	t.last_fire_y = b.get_32()
 	t.last_fire_wind = b.get_32()
 	t.last_fire_turn = b.get_32()
+	t.love = b.get_32()
 	var n_inv: int = b.get_32()
 	if n_inv != Catalog.count() or n_inv > MAX_INVENTORY_READ or b.get_available_bytes() < n_inv * 4:
 		return null
@@ -268,6 +272,12 @@ static func _validate_header(state: MatchState) -> String:
 		return "settings.wind_max %d" % st.wind_max
 	if st.start_money < 0 or st.start_money > SimConstants.MAX_START_MONEY:
 		return "settings.start_money %d" % st.start_money
+	if st.mode < SimConstants.MODE_STANDARD or st.mode > SimConstants.MODE_MAX:
+		return "settings.mode %d" % st.mode
+	if st.mode == SimConstants.MODE_LOVE:
+		if st.num_tanks != 2 or st.rounds != 1 or st.wind_max > SimConstants.LOVE_WIND_MAX or st.start_money != 0:
+			return "love mode settings (tanks %d, rounds %d, wind_max %d, money %d)" % [st.num_tanks,
+					st.rounds, st.wind_max, st.start_money]
 	if st.controllers.size() != st.num_tanks:
 		return "settings.controllers size %d != num_tanks %d" % [st.controllers.size(), st.num_tanks]
 	var top: int = SimConstants.CTRL_MAX if st.full_unlocked else SimConstants.CTRL_FREE_MAX
@@ -321,6 +331,10 @@ static func _validate_flow(state: MatchState) -> String:
 			return "terrain size %dx%d" % [terrain.width, terrain.height]
 		if terrain.cells.size() != terrain.width * terrain.height:
 			return "terrain cell count"
+	if state.settings.mode == SimConstants.MODE_LOVE:
+		var err: String = _validate_love_flow(state)
+		if err != "":
+			return err
 	if state.phase == SimConstants.PHASE_AIM:
 		var alive: int = 0
 		for t: TankState in state.tanks:
@@ -330,6 +344,20 @@ static func _validate_flow(state: MatchState) -> String:
 			return "aim phase with %d tank(s) alive" % alive
 		if not state.tanks[state.current_tank].alive:
 			return "current_tank %d is dead" % state.current_tank
+	return ""
+
+
+## Love mode (section 37) has no shop; a meter is full exactly when the match is over.
+static func _validate_love_flow(state: MatchState) -> String:
+	if state.phase == SimConstants.PHASE_SHOP:
+		return "shop in love mode"
+	var most: int = 0
+	for t: TankState in state.tanks:
+		most = maxi(most, t.love)
+	if state.phase == SimConstants.PHASE_AIM and most >= SimConstants.LOVE_MAX:
+		return "full love meter during aim"
+	if state.phase == SimConstants.PHASE_MATCH_OVER and most < SimConstants.LOVE_MAX:
+		return "love match over without a full meter"
 	return ""
 
 
@@ -359,6 +387,10 @@ static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
 		return "fuel %d" % t.fuel
 	if t.repulsor_charge < 0 or t.repulsor_charge > SimConstants.REPULSOR_CHARGE:
 		return "repulsor_charge %d" % t.repulsor_charge
+	if t.love < 0 or t.love > SimConstants.LOVE_MAX:
+		return "love %d" % t.love
+	if t.love != 0 and st.mode != SimConstants.MODE_LOVE:
+		return "love %d outside love mode" % t.love
 	var err: String = _validate_last_fire(state, t)
 	if err != "":
 		return err
@@ -385,9 +417,15 @@ static func _validate_last_fire(state: MatchState, t: TankState) -> String:
 				or t.last_fire_wind != 0 or t.last_fire_turn != -1:
 			return "last_fire fields set without a weapon"
 		return ""
-	if t.last_fire_weapon < 0 or t.last_fire_weapon >= Catalog.count() \
+	var is_heart: bool = t.last_fire_weapon == Catalog.HEART_INDEX
+	if is_heart:
+		if state.settings.mode != SimConstants.MODE_LOVE:
+			return "heart fired outside love mode"
+	elif t.last_fire_weapon < 0 or t.last_fire_weapon >= Catalog.count() \
 			or not Catalog.is_weapon(Catalog.id_at(t.last_fire_weapon)):
 		return "last_fire_weapon %d" % t.last_fire_weapon
+	elif state.settings.mode == SimConstants.MODE_LOVE:
+		return "catalog weapon fired in love mode"
 	if t.last_fire_angle < 0 or t.last_fire_angle > SimConstants.MAX_ANGLE:
 		return "last_fire_angle %d" % t.last_fire_angle
 	if t.last_fire_power < SimConstants.MIN_POWER or t.last_fire_power > SimConstants.MAX_POWER:

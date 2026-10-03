@@ -35,6 +35,8 @@ const CRITICAL_HEALTH: int = 20
 ## move (max dx is 200): the walk then burns the lot, so a second walk in the same turn cannot
 ## follow and the turn stays within 3 calls (a shield, the walk, the shot).
 const OUT_OF_REACH_FUEL: int = 200
+## The shortest walk worth making when nothing reaches (cells actually gained).
+const MIN_APPROACH: int = 20
 ## Extra launch angles (tenths of a degree above the horizontal) a full-power best-effort shot tries.
 ## A last shot at or above this power counts as "full power"; one that landed this far short of the target
 ## (cells) proves the target is out of reach from here (the AI's wind model may be wrong, the shell is not).
@@ -148,8 +150,9 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 # --- nothing reaches ----------------------------------------------------------------------------------------
 
 ## True when nothing reaches this target from here: the plan found no hit and the best the solver managed
-## still comes down SHORT (too far for the power, or a hill in the way; a shot that flies past the target is
-## not out of range, less power fixes that), or the last full-power shot proved it (spent_short).
+## still comes down SHORT with the power already at its maximum (a shot that flies past the target is not out
+## of range, less power fixes that; a hill or a pit wall that blocks lower shots is the old walking logic's
+## business, see _maybe_move), or the last full-power shot proved it (spent_short).
 static func is_hopeless(sit: AiSituation, plan: Dictionary) -> bool:
 	if not plan["ok"]:
 		return is_out_of_range(sit) or sit.spent_short
@@ -159,7 +162,7 @@ static func is_hopeless(sit: AiSituation, plan: Dictionary) -> bool:
 
 static func is_out_of_range(sit: AiSituation) -> bool:
 	var d: Dictionary = sit.direct
-	return not d["ok"] and (d["err"] as int) < -AimSolver.TOL_ACCEPT
+	return not d["ok"] and (d["power"] as int) >= SimConstants.MAX_POWER and (d["err"] as int) < -AimSolver.TOL_ACCEPT
 
 
 ## The last shot (same direction as the one now needed) was fired at full power and landed
@@ -231,7 +234,8 @@ static func _approach(sit: AiSituation) -> Dictionary:
 	var dir: int = 1 if sit.target.x >= me.x else -1
 	for amount: int in [200, 100, 50, 25]:
 		var dx: int = dir * mini(amount, units)
-		if _walk_dest(sit, dx).x != me.x:
+		# A shuffle of a few cells (a pit wall, a ledge) is no approach: shoot instead.
+		if absi(_walk_dest(sit, dx).x - me.x) >= MIN_APPROACH:
 			return {"kind": "move", "tank": me.id, "dx": dx}
 	return {}
 

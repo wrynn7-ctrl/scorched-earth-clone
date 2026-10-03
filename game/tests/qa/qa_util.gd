@@ -48,6 +48,9 @@ const EVENT_FIELDS: Dictionary = {
 	"beam": {"x0": TYPE_INT, "y0": TYPE_INT, "x1": TYPE_INT, "y1": TYPE_INT},
 	"well_on": {"owner": TYPE_INT, "x": TYPE_INT, "y": TYPE_INT, "expires_turn": TYPE_INT},
 	"tank_drag": {"tank": TYPE_INT, "from_x": TYPE_INT, "to_x": TYPE_INT},
+	# Love mode (section 37)
+	"heart_burst": {"x": TYPE_INT, "y": TYPE_INT, "radius": TYPE_INT},
+	"love": {"tank": TYPE_INT, "amount": TYPE_INT, "love": TYPE_INT, "from": TYPE_INT},
 	# Not in the section 10 table: only emitted by Simulation.start_round().
 	"round_start": {"round": TYPE_INT},
 }

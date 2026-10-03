@@ -137,6 +137,7 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 	state.settings.wind_max = 100
 	state.settings.full_unlocked = false
 	state.settings.controllers = PackedInt32Array([4, 0, 3])
+	state.settings.mode = SimConstants.MODE_LOVE
 	state.seed = 9223372036854775807
 	state.round_index = 2
 	state.wind = -100
@@ -163,6 +164,7 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 		t.shield_type = [-1, 27, 22][t.id]
 		t.shield_hp = [0, 100, 1][t.id]
 		t.repulsor_charge = 100 * t.id
+		t.love = [100, 1, 57][t.id]
 		t.last_fire_angle = [1800, 0, 901][t.id]
 		t.last_fire_power = [1000, 1, 333][t.id]
 		t.last_fire_weapon = [Catalog.count() - 1, 0, 7][t.id]

@@ -78,7 +78,7 @@
 | M5-AI CPU stalemate fix: move closer / best-effort shot when nothing can reach; buy fuel | ai-dev | 🟡 running |
 | LOVE-C Secret Love Edition — core mode (hearts fill the opponent's love meter; winner = shooter) | core-sim-dev | 🟡 running |
 | LOVE-A Love Edition — CPU fires hearts | ai-dev | ⬜ after M5-AI |
-| LOVE-U Love Edition — secret unlock (tap logo 7×), love theme, meters, heart/flower FX, smiley win, sfx | show-ui-dev | ⬜ after M5-P |
+| LOVE-U Love Edition — secret unlock (tap logo 7×), love theme, meters, heart/flower FX, smiley win, sfx | show-ui-dev | 🟡 running |
 | M5-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
