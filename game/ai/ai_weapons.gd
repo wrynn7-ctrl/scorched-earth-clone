@@ -103,7 +103,10 @@ static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dic
 		return out  # the shell flies off the map: nothing explodes
 	var prof: Dictionary = sit.prof
 	var err_pm: int = 2 * ((prof["bias_max"] as int) + 2 * (prof["noise"] as int))
-	var margin: int = absi(impact.x - sit.me.x) * err_pm / 1000 + spread
+	var reach: int = absi(impact.x - sit.me.x)
+	var margin: int = reach * err_pm / 1000 + spread
+	if sit.target.has_shield():
+		margin += SimConstants.SHIELD_RADIUS  # the shell stops at the bubble, nearer than the box
 	for t: TankState in sit.state.tanks:
 		if not t.alive:
 			continue
@@ -119,8 +122,20 @@ static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dic
 ## top of the target's hit box, like the real shell would. (-1, -1) if it leaves the map.
 static func _impact(sit: AiSituation, plan: Dictionary, at_target: bool) -> Vector2i:
 	var row: int = sit.target.y - SimConstants.TANK_H if at_target else -1
-	sit.flight.fly_shot(sit.me.x, sit.me.y, plan["angle"], plan["power"], sit.ctx.wind, AimSolver.MODEL_TICKS, row)
+	# The shot actually sent carries the level's bias (and any partial correction): judge that one.
+	var power: int = AiPlayer.expected_power(sit, plan)
+	# Safety is judged against the real wind, not the wind the level believes in.
+	sit.flight.fly_shot(sit.me.x, sit.me.y, plan["angle"], power, sit.state.wind, AimSolver.MODEL_TICKS, row)
 	AimSolver.model_count += 1
+	# A muzzle inside somebody else's shield bubble: the shell bursts on the spot.
+	var mx: int = FixedMath.to_cell(sit.flight.muzzle_px)
+	var my: int = FixedMath.to_cell(sit.flight.muzzle_py)
+	for t: TankState in sit.state.tanks:
+		if t.alive and t.id != sit.me.id and t.has_shield():
+			var dx: int = mx - t.x
+			var dy: int = my - (t.y - SimConstants.SHIELD_CENTER_DY)
+			if dx * dx + dy * dy <= SimConstants.SHIELD_RADIUS * SimConstants.SHIELD_RADIUS:
+				return Vector2i(mx, my)
 	if sit.flight.r_reason != AiFlight.REASON_TERRAIN:
 		return Vector2i(-1, -1)
 	return Vector2i(sit.flight.r_x, sit.flight.r_y)

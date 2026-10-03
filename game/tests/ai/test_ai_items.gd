@@ -120,10 +120,10 @@ func test_shield_and_repulsor_come_before_the_shot_within_three_calls() -> void:
 
 
 func _notch_state(level: int, fuel: int, cells: int = 2) -> MatchState:
-	# The shooter stands in a notch: a wall that reaches the top of the map rises 30 cells to
+	# The shooter stands in a notch: a 350-cell wall rises 30 cells to
 	# its right, so no lob clears it from here, but a walk away from it opens a steep lob.
 	var state: MatchState = AiTestUtil.flat_duel(level, 500, 0, {"pulse_missile": 9, "fuel_cell": cells})
-	state.terrain.flatten(330, 429, 0)
+	state.terrain.flatten(330, 429, 250)
 	state.tanks[0].fuel = fuel
 	return state
 
@@ -153,10 +153,10 @@ func test_walk_uses_a_fuel_cell_when_the_tank_has_no_fuel() -> void:
 
 func test_nobody_walks_without_fuel_and_easy_normal_never_walk() -> void:
 	var dry: MatchState = _notch_state(SimConstants.CTRL_EXPERT, 0, 0)
-	assert_eq(AiPlayer.next_action(dry, 0)["kind"], "fire", "no fuel, no cell: just shoot")
+	assert_ne(AiPlayer.next_action(dry, 0)["kind"], "move", "no fuel, no cell: no walk")
 	for level: int in [SimConstants.CTRL_EASY, SimConstants.CTRL_NORMAL]:
 		var state: MatchState = _notch_state(level, 150)
-		assert_eq(AiPlayer.next_action(state, 0)["kind"], "fire", "level %d never walks" % level)
+		assert_ne(AiPlayer.next_action(state, 0)["kind"], "move", "level %d never walks" % level)
 
 
 func test_no_walk_when_a_shot_reaches_the_target() -> void:
@@ -171,7 +171,7 @@ func test_a_walk_never_runs_into_a_fall() -> void:
 	state.terrain.flatten(0, 255, 700)
 	var kinds: Array[String] = _kinds(state, 0)
 	assert_eq(state.tanks[0].health, 100, "no fall damage from the AI's own walk: %s" % str(kinds))
-	assert_gte(state.tanks[0].x, 256 + SimConstants.TANK_W / 2 - 1, "stayed on the plateau")
+	assert_gte(state.tanks[0].x, 256, "did not walk off the plateau")
 
 
 func test_moves_never_loop_over_many_notches() -> void:

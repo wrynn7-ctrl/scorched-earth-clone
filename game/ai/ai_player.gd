@@ -285,14 +285,27 @@ static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 			# human would aim along the ground, so the error is folded towards the horizontal.
 			err = -absi(err) if angle < 900 else absi(err)
 		angle = clampi(angle + err, 0, SimConstants.MAX_ANGLE)
-	elif plan["corrected"]:
+	else:
+		power = clampi(_with_error(plan, prof, bias, noise), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
+	return {"kind": "fire", "tank": me.id, "angle": angle, "power": power, "weapon": plan["weapon"]}
+
+
+## The power the AI will really send for `plan`: the exact solution with the round's bias and
+## `noise` (per-mille) added, or, after an earlier shot at the same target, moved from that
+## shot's power by the level's correction.
+static func _with_error(plan: Dictionary, prof: Dictionary, bias: int, noise: int) -> int:
+	var power: int = plan["power"]
+	if plan["corrected"]:
 		var prev: int = plan["prev_power"]
 		power = prev + (power - prev) * (prof["correction"] as int) / 1000
-		power = power * (1000 + noise) / 1000
-	else:
-		power = power * (1000 + bias + noise) / 1000
-	power = clampi(power, SimConstants.MIN_POWER, SimConstants.MAX_POWER)
-	return {"kind": "fire", "tank": me.id, "angle": angle, "power": power, "weapon": plan["weapon"]}
+		return power * (1000 + noise) / 1000
+	return power * (1000 + bias + noise) / 1000
+
+
+## The power finalize() sends before the random jitter (what the shot is "centred" on).
+static func expected_power(sit: AiSituation, plan: Dictionary) -> int:
+	var bias: int = round_bias(sit.state, sit.me.id, sit.prof)
+	return clampi(_with_error(plan, sit.prof, bias, 0), SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 
 
 # --- moving ----------------------------------------------------------------------------------------------

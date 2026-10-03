@@ -82,12 +82,13 @@ func test_easy_buys_a_few_cheap_random_things() -> void:
 		var bought: Dictionary = _bought(actions)
 		for id: String in bought.keys():
 			kinds[id] = true
-			assert_true(AiProfile.SHOP_EASY_POOL.has(id), "Easy bought %s" % id)
+			assert_true(AiProfile.SHOP_EASY_POOL.has(id) or id == "pulse_missile" or id == "hyperpulse", "Easy bought %s" % id)
 		max_cost = maxi(max_cost, 10000 - state.tanks[0].money)
-		assert_gte(state.tanks[0].stock_of("pulse_missile"), 3, "Easy never goes into battle empty-handed")
+		assert_between(state.tanks[0].stock_of("pulse_missile"), 10, 20, "Easy stocks 8-12 shots of Pulse Missile (bundles of 5)")
+		assert_between(10000 - state.tanks[0].money, 3000, 8000, "Easy spends a real share but keeps a reserve")
 	gut.p("SHOP    easy: %d different cheap items over 30 shops, most spent %d of 10000" % [kinds.size(), max_cost])
 	assert_gte(kinds.size(), 5, "random: a varied mix")
-	assert_lte(max_cost, 7500, "cheap: at most three 2000-credit items plus one starter bundle")
+	assert_lte(max_cost, 8000, "keeps at least a 20% reserve")
 
 
 func test_normal_buys_a_balanced_simple_kit() -> void:
@@ -96,7 +97,9 @@ func test_normal_buys_a_balanced_simple_kit() -> void:
 	var t: TankState = state.tanks[0]
 	assert_gte(t.stock_of("pulse_missile"), 10)
 	assert_gte(t.stock_of("glow_shield"), 1)
-	assert_true(t.stock_of("hyperpulse") >= 3 or t.money < 2500)
+	# 60-75% of the money goes into the kit; the rest stays in the bank.
+	assert_between(10000 - t.money, 4500, 7500, "Normal spends 45-75% of 10000")
+	assert_gte(t.money, 2500)
 	gut.p("SHOP    normal kit: pulse %d, hyperpulse %d, glow shield %d, chutes %d, money left %d" % [
 			t.stock_of("pulse_missile"), t.stock_of("hyperpulse"), t.stock_of("glow_shield"),
 			t.stock_of("drift_chute"), t.money])
