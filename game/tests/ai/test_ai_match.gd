@@ -19,16 +19,8 @@ func test_a_four_ai_match_runs_to_match_over() -> void:
 	var wins: int = 0
 	for t: TankState in state.tanks:
 		wins += t.round_wins
-	assert_eq(wins, ROUNDS - (0 if state.tanks.size() > 0 else 0) - _draws(state), "every decided round has one winner")
+	assert_between(wins, 1, ROUNDS, "every decided round has exactly one winner")
 	gut.p("MATCH   4-AI match: %d turns, standings %s" % [r["turns"], str(Simulation.standings(state))])
-
-
-func _draws(state: MatchState) -> int:
-	# Rounds nobody won (everyone destroyed together) do not add a win.
-	var wins: int = 0
-	for t: TankState in state.tanks:
-		wins += t.round_wins
-	return ROUNDS - wins if wins < ROUNDS else 0
 
 
 func test_expert_wins_the_most_rounds_over_many_matches() -> void:

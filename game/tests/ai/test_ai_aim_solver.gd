@@ -7,6 +7,7 @@ func _flat(dist: int, wind: int = 0) -> MatchState:
 
 
 func _ctx(state: MatchState, wind: int, dir: int = 1, row: int = -1) -> AimSolver.Ctx:
+	AimSolver.reset_budget()
 	var t: TankState = state.tanks[0]
 	var c: AimSolver.Ctx = AimSolver.new_ctx(state, 0, t.x, t.y, wind, dir, AiFlight.new(state.terrain))
 	c.row = row
@@ -74,6 +75,7 @@ func test_solve_power_works_to_the_left_with_mirrored_angles() -> void:
 	var state: MatchState = _flat(700)
 	# Shoot from the right tank at the left one.
 	var t: TankState = state.tanks[1]
+	AimSolver.reset_budget()
 	var c: AimSolver.Ctx = AimSolver.new_ctx(state, 1, t.x, t.y, 0, -1, AiFlight.new(state.terrain))
 	var plan: Dictionary = AimSolver.solve_direct(c, state.tanks[0].x, 450)
 	assert_true(plan["ok"])
@@ -103,36 +105,43 @@ func test_an_unreachable_target_is_reported_not_ok() -> void:
 	assert_lt(plan["err"], 0, "it falls short of the aim point")
 
 
-func test_verify_fixes_what_the_model_cannot_see() -> void:
-	# The target's repulsor field deflects shells: the model knows nothing about it, the real
-	# trace does, and verify() shifts the aim until the shell reaches the target.
+func test_verify_confirms_a_seeker_shot_with_the_real_trace() -> void:
+	# The model flies a plain shell; the Seeker steers itself. verify() asks the real trace,
+	# and the Seeker's homing lands it on the target (or the aim is shifted until it does).
 	var fixed: int = 0
 	for i: int in range(20):
-		var state: MatchState = _flat(800 + i * 10)
-		state.tanks[1].repulsor_charge = 100
-		var c: AimSolver.Ctx = _ctx(state, 0, 1, state.tanks[1].y - 6)
+		var state: MatchState = _flat(800 + i * 10, 60)
+		var c: AimSolver.Ctx = _ctx(state, 60, 1, state.tanks[1].y - 6)
 		var plan: Dictionary = AimSolver.solve_direct(c, state.tanks[1].x, 450)
 		AimSolver.reset_budget()
-		var checked: Dictionary = AimSolver.verify(c, plan, "pulse_missile", 1, state.tanks[1].x)
+		var checked: Dictionary = AimSolver.verify(c, plan, "seeker", 1, state.tanks[1].x)
 		assert_lte(AimSolver.trace_count, AimSolver.MAX_VERIFY)
 		assert_true(checked["verified"])
 		if checked["hit"] or absi(checked["real_err"] as int) <= AimSolver.VERIFY_TOL:
 			fixed += 1
-	gut.p("VERIFY  repulsor-deflected shots corrected by real-trace feedback: %d/20" % fixed)
-	assert_gte(fixed, 10)
+	gut.p("VERIFY  seeker shots confirmed or corrected by real-trace feedback: %d/20" % fixed)
+	assert_gte(fixed, 16)
+
+
+func test_a_correct_plan_costs_one_confirming_trace() -> void:
+	var state: MatchState = _flat(800)
+	var c: AimSolver.Ctx = _ctx(state, 0, 1, state.tanks[1].y - 6)
+	var plan: Dictionary = AimSolver.solve_direct(c, state.tanks[1].x, 450)
+	AimSolver.reset_budget()
+	var checked: Dictionary = AimSolver.verify(c, plan, "pulse_missile", 1, state.tanks[1].x)
+	assert_true(checked["verified"])
+	assert_true(checked["hit"] or absi(checked["real_err"] as int) <= AimSolver.VERIFY_TOL)
+	assert_eq(AimSolver.trace_count, 1, "a correct plan needs one confirmation only")
 
 
 func test_needs_verify_only_when_the_model_can_be_wrong() -> void:
 	var state: MatchState = _flat(800)
 	var c: AimSolver.Ctx = _ctx(state, 0)
 	assert_false(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "plain duel")
-	assert_true(AimSolver.needs_verify(c, 1, state.tanks[1].x, "seeker"), "steering shell")
+	assert_false(AimSolver.needs_verify(c, 1, state.tanks[1].x, "seeker"), "a Seeker steers itself in: plain aim is enough")
 	state.wells.append({"owner": 1, "x": 600, "y": 400, "expires_turn": 9})
-	assert_false(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "wells are in the model")
-	state.wells.clear()
 	state.tanks[1].repulsor_charge = 10
-	assert_true(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "repulsor")
-	state.tanks[1].repulsor_charge = 0
+	assert_false(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "wells and repulsors are in the model")
 	# A third tank: an enemy in the way is just hit instead; a teammate is not wanted there.
 	var third := TankState.new()
 	third.id = 2
@@ -143,6 +152,30 @@ func test_needs_verify_only_when_the_model_can_be_wrong() -> void:
 	assert_false(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "enemy between")
 	third.team = state.tanks[0].team
 	assert_true(AimSolver.needs_verify(c, 1, state.tanks[1].x, "pulse_missile"), "teammate between")
+
+
+func test_model_follows_repulsor_fields_like_the_real_trace() -> void:
+	var agree: int = 0
+	var deflected: int = 0
+	for i: int in range(40):
+		var r: Rng = Rng.derive(i, 62)
+		var state: MatchState = _flat(700 + i * 8)
+		state.tanks[1].repulsor_charge = r.range_int(10, 100)
+		var angle: int = r.range_int(350, 700)
+		var power: int = r.range_int(450, 800)
+		var tr: Dictionary = Ballistics.trace(state, 0, angle, power, "pulse_missile", 0, 420)
+		var flight := AiFlight.new(state.terrain, state.wells, AiPlayer.others_with_repulsors(state, state.tanks[0]))
+		flight.fly_shot(300, state.tanks[0].y, angle, power, 0, 420)
+		var plain := AiFlight.new(state.terrain)
+		plain.fly_shot(300, state.tanks[0].y, angle, power, 0, 420)
+		if absi(plain.r_x - flight.r_x) > 5:
+			deflected += 1
+		# A shell that enters the target's box is a hit in the real trace (the model has no boxes).
+		if tr["end_reason"] == "tank" or absi(flight.r_x - (tr["end_x"] as int)) <= 2:
+			agree += 1
+	gut.p("MODEL   repulsor fields: shot deflected in %d/40 flights; model agrees with the real trace in %d/40" % [deflected, agree])
+	assert_gte(deflected, 5, "the scenario really exercises the field")
+	assert_gte(agree, 38)
 
 
 func test_model_follows_gravity_wells_like_the_real_trace() -> void:

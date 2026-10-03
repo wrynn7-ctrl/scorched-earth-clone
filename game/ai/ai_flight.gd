@@ -3,14 +3,15 @@ class_name AiFlight
 extends RefCounted
 ## A cheap integer copy of the shell physics, used by the aim search.
 ##
-## Why it exists: one Ballistics.trace costs about 2.5 ms in GDScript, and the AI has to try
-## several powers and angles per decision. This class flies the same semi-implicit Euler
-## flight as Ballistics (so a free flight is *exactly* the same path) but only looks at the
-## terrain where the shell is near the ground, using a lazily filled height map and a binary
-## search per column. It ignores tank boxes, shields, repulsors and wells. The AI uses it to
-## search, then confirms the final answer with the real Ballistics.trace when something the
-## model does not know about could matter (a repulsor, a steering shell).
-## It does include gravity wells, because a trace with a well active is several times slower.
+## Why it exists: one Ballistics.trace costs about 2.5 ms in GDScript (more with wells or many
+## tanks), and the AI has to try several powers and angles per decision, in about 15 ms. This
+## class flies the same semi-implicit Euler flight as Ballistics (so a free flight is *exactly*
+## the same path) but only looks at the terrain where the shell is near the ground, using a
+## lazily filled height map with a binary search per column.
+## It models wind, gravity wells and repulsor fields. It ignores tank boxes and shield bubbles
+## (a shell that hits an enemy is a fine outcome for the AI) and a Seeker's steering.
+## AimSolver confirms a plan with the real Ballistics.trace in the one case where that matters
+## (a teammate standing in the line of fire).
 ## Pure integer maths. Never mutates the state.
 
 const REASON_NONE: int = 0
@@ -29,6 +30,15 @@ var _top: PackedInt32Array = PackedInt32Array()
 var _wells: Array[Dictionary] = []
 var _well_r: int = 0
 var _well_strength: int = 0
+# Active repulsor fields of the other tanks: Q16.16 centre and charge (ticks left).
+var _rep_x: PackedInt32Array = PackedInt32Array()
+var _rep_y: PackedInt32Array = PackedInt32Array()
+var _rep_charge: PackedInt32Array = PackedInt32Array()
+# Q16.16 box around every well and repulsor field: outside it no force acts, so most ticks skip them.
+var _fx0: int = 0
+var _fx1: int = 0
+var _fy0: int = 0
+var _fy1: int = 0
 
 ## Results of the last fly_shot(): why it ended, the cell it ended in, and the Q16.16
 ## position/velocity at the end (what Ballistics.trace reports as px, py, vx, vy).
@@ -45,8 +55,9 @@ var muzzle_px: int = 0
 var muzzle_py: int = 0
 
 
-## `wells` is MatchState.wells (the gravity wells bend every flight).
-func _init(t: Terrain, wells: Array[Dictionary] = []) -> void:
+## `wells` is MatchState.wells (the gravity wells bend every flight); `repulsors` the other
+## tanks (never the shooter) that may have a charged repulsor field.
+func _init(t: Terrain, wells: Array[Dictionary] = [], repulsors: Array[TankState] = []) -> void:
 	terrain = t
 	_top.resize(t.width)
 	_top.fill(-1)
@@ -55,6 +66,12 @@ func _init(t: Terrain, wells: Array[Dictionary] = []) -> void:
 		_wells = wells
 		_well_r = FixedMath.from_cell(def["well_r"] as int)
 		_well_strength = def["strength"]
+	for r: TankState in repulsors:
+		if r.alive and r.repulsor_charge > 0:
+			_rep_x.append(FixedMath.from_cell(r.x))
+			_rep_y.append(FixedMath.from_cell(r.y - SimConstants.SHIELD_CENTER_DY))
+			_rep_charge.append(r.repulsor_charge)
+	_build_force_box()
 
 
 ## First solid y of column x (terrain.height when the column is empty). Terrain columns never
@@ -107,14 +124,18 @@ func fly_shot(tank_x: int, tank_y: int, angle: int, power: int, wind: int, max_t
 	r_reason = REASON_TIMEOUT
 	r_ticks = max_ticks
 	var split_pending: bool = split_dvx != 0
+	var charge: PackedInt32Array = _rep_charge.duplicate()
+	var forces: bool = not _wells.is_empty() or not charge.is_empty()
 	for tick: int in range(1, max_ticks + 1):
-		if _wells.is_empty():
+		if not forces or px <= _fx0 or px >= _fx1 or py <= _fy0 or py >= _fy1:
 			vx += wind_ax
 			vy += SimConstants.GRAVITY
 		else:
-			var pull: Vector2i = _well_pull(px, py)
-			vx += wind_ax + pull.x
-			vy += SimConstants.GRAVITY + pull.y
+			var push: Vector2i = _repulse_all(px, py, charge)
+			if not _wells.is_empty():
+				push += _well_pull(px, py)
+			vx += wind_ax + push.x
+			vy += SimConstants.GRAVITY + push.y
 		var ox: int = px
 		var oy: int = py
 		px = ox + vx
@@ -186,3 +207,50 @@ func _well_pull(px: int, py: int) -> Vector2i:
 		ax += a * dx / d
 		ay += a * dy / d
 	return Vector2i(ax, ay)
+
+
+## Same as Ballistics' repulsor push: away from the field's centre, PUSH * (R - d) / R, one
+## charge used per tick the shell is inside. `charge` is this flight's copy of the charges.
+func _repulse_all(px: int, py: int, charge: PackedInt32Array) -> Vector2i:
+	var ax: int = 0
+	var ay: int = 0
+	var r_fp: int = FixedMath.from_cell(SimConstants.REPULSOR_RADIUS)
+	for i: int in range(charge.size()):
+		if charge[i] <= 0:
+			continue
+		var dx: int = px - _rep_x[i]
+		var dy: int = py - _rep_y[i]
+		if absi(dx) >= r_fp or absi(dy) >= r_fp:
+			continue
+		var d: int = FixedMath.isqrt(dx * dx + dy * dy)
+		if d >= r_fp or d == 0:
+			continue
+		var a: int = SimConstants.REPULSOR_PUSH * (r_fp - d) / r_fp
+		ax += a * dx / d
+		ay += a * dy / d
+		charge[i] -= 1
+	return Vector2i(ax, ay)
+
+
+func _build_force_box() -> void:
+	var first: bool = true
+	var r_rep: int = FixedMath.from_cell(SimConstants.REPULSOR_RADIUS)
+	for w: Dictionary in _wells:
+		_grow_box(FixedMath.from_cell(w["x"] as int), FixedMath.from_cell(w["y"] as int), _well_r, first)
+		first = false
+	for i: int in range(_rep_x.size()):
+		_grow_box(_rep_x[i], _rep_y[i], r_rep, first)
+		first = false
+
+
+func _grow_box(cx: int, cy: int, r: int, first: bool) -> void:
+	if first:
+		_fx0 = cx - r
+		_fx1 = cx + r
+		_fy0 = cy - r
+		_fy1 = cy + r
+	else:
+		_fx0 = mini(_fx0, cx - r)
+		_fx1 = maxi(_fx1, cx + r)
+		_fy0 = mini(_fy0, cy - r)
+		_fy1 = maxi(_fy1, cy + r)

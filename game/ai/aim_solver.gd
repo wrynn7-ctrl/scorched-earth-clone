@@ -7,36 +7,40 @@ extends RefCounted
 ##  1. Pick an angle, preferring a 30..70 degree lob towards the target (a little random
 ##     variety so tanks do not all fire at exactly 45).
 ##  2. Find the power that lands the shell on the aim point. A vacuum formula gives a first
-##     guess, then a bracketing secant search refines it using AiFlight (the cheap model of
-##     the shell physics, with the wind the AI *believes* in).
+##     guess, then a bracketing secant search refines it. The flights are flown by AiFlight, a
+##     fast copy of the shell physics, with the wind the AI *believes* in.
 ##  3. If no power works at that angle (a hill is in the way, or the target is out of
-##     range), try steeper angles, which clear hills.
-##  4. Confirm the winner with the real Ballistics.trace. If reality disagrees with the model
-##     (a tank in the way, a repulsor, a gravity well, a shield bubble) the aim point is
-##     shifted by the observed difference and the search is repeated, at most a few times.
+##     range), try steeper angles, which clear hills. A plan only counts as good if it is
+##     also robust: a hair more or less power must still land near the aim point.
+##  4. When the cheap model could be wrong (a teammate in the line of fire), confirm the
+##     winner with the real Ballistics.trace; if reality disagrees, shift the aim point by the
+##     observed difference and search again, at most a few times (verify()).
 ## The human-like mistakes (bias, noise, correcting from the last miss) are NOT added here;
 ## AiPlayer adds them on top of the exact answer this class returns.
 ##
 ## Everything is integer maths. Real traces are counted in `trace_count` (reset per decision)
-## and refused once TRACE_BUDGET is reached, so a decision always has bounded cost.
+## and refused once TRACE_BUDGET is reached, and model flights are counted in `model_count`,
+## so a decision always has bounded cost.
 
 const TRACE_BUDGET: int = 48
-## A search or verification flight is cut off after this many ticks (a long lob is ~250).
-const MODEL_TICKS: int = 700
-const VERIFY_TICKS: int = 700
+## A search or verification flight is cut off after this many ticks (the longest real lob,
+## 86 degrees at full power, is about 230); a shell caught orbiting a gravity well would
+## otherwise burn the whole budget.
+const MODEL_TICKS: int = 420
+const VERIFY_TICKS: int = 420
 ## The model landing is "good enough" within this many cells of the aim point.
 const TOL_ACCEPT: int = 14
 const TOL_SEARCH: int = 3
 const VERIFY_TOL: int = 6
-const MAX_VERIFY: int = 2
+const MAX_VERIFY: int = 2  # real traces to confirm one plan
 const MAX_EVALS: int = 8
 ## A plan is only preferred if the shell still comes down near the aim point when the power is
 ## off by +-ROBUST_PM per-mille: this avoids shots that just clear a crest and would
 ## land far short if the power were a hair lower.
 const ROBUST_PM: int = 8
-## Model flights one decision may spend (about 0.3 ms each): a hopeless target (out of range,
-## walled in) stops the angle search instead of grinding through every angle.
-const MODEL_BUDGET: int = 45
+## Model flights one angle search (solve_direct) may spend (about 0.3 ms each): a hopeless
+## target (out of range, walled in) stops the search instead of grinding through every angle.
+const MODEL_BUDGET: int = 32
 const ROBUST_TOL: int = 45
 
 ## What the power search measures.
@@ -47,7 +51,9 @@ const MODE_TUNNEL: int = 1  # where a tunneler's bore ends (extra = bore length)
 ## angle cannot reach the aim point.
 const FALLBACK_ANGLES: Array[int] = [640, 720, 800, 860, 340]
 ## Angles tried for a tunneler (flat enough that the bore runs on towards the target).
-const TUNNEL_ANGLES: Array[int] = [180, 300, 420]
+const TUNNEL_ANGLES: Array[int] = [200, 340]
+## A coarse bore that ends farther than this from the target is not refined.
+const TUNNEL_PROMISING: int = 90
 
 ## Debug counters, read by the tests.
 static var trace_count: int = 0
@@ -196,6 +202,7 @@ static func solve_power(ctx: Ctx, angle: int, aim_x: int, mode: int = MODE_LAND,
 ## range). `a0_dir` is the preferred angle in dir-space tenths of a degree.
 static func solve_direct(ctx: Ctx, aim_x: int, a0_dir: int, mode: int = MODE_LAND, extra: int = 0,
 		tol: int = TOL_ACCEPT) -> Dictionary:
+	var start_count: int = model_count
 	var best: Dictionary = {}
 	var first_ok: Dictionary = {}
 	var robust: bool = false
@@ -204,9 +211,10 @@ static func solve_direct(ctx: Ctx, aim_x: int, a0_dir: int, mode: int = MODE_LAN
 		if absi(a - a0_dir) >= 40:
 			order.append(a)
 	for a_dir: int in order:
-		if not best.is_empty() and model_count >= MODEL_BUDGET:
+		if not best.is_empty() and model_count - start_count >= MODEL_BUDGET:
 			break
-		var plan: Dictionary = solve_power(ctx, actual_angle(ctx, a_dir), aim_x, mode, extra)
+		var plan: Dictionary = solve_power(ctx, actual_angle(ctx, a_dir), aim_x, mode, extra,
+				MAX_EVALS if best.is_empty() else MAX_EVALS - 2)
 		if best.is_empty() or absi(plan["err"] as int) < absi(best["err"] as int):
 			best = plan
 		if absi(plan["err"] as int) <= tol:
@@ -246,14 +254,17 @@ static func solve_tunnel(ctx: Ctx, tx: int, ty: int, length: int, blast_r: int,
 	var best_p: int = 1
 	for a_dir: int in angles:
 		var angle: int = actual_angle(ctx, a_dir)
-		for p: int in range(250, SimConstants.MAX_POWER + 1, 100):
+		for p: int in range(250, SimConstants.MAX_POWER + 1, 125):
 			var d: int = _bore_miss(ctx, angle, p, tx, ty, length)
 			if d < best_d:
 				best_d = d
 				best_angle = angle
 				best_p = p
+	if best_d > TUNNEL_PROMISING:
+		return {"angle": best_angle, "power": best_p, "err": best_d, "impact_x": 0, "land_x": 0,
+				"tunnel_ok": false}  # not even close: skip the fine search
 	var centre: int = best_p
-	for p: int in range(maxi(1, centre - 100), mini(SimConstants.MAX_POWER, centre + 100) + 1, 12):
+	for p: int in range(maxi(1, centre - 125), mini(SimConstants.MAX_POWER, centre + 125) + 1, 14):
 		var d: int = _bore_miss(ctx, best_angle, p, tx, ty, length)
 		if d < best_d:
 			best_d = d
@@ -276,24 +287,19 @@ static func _bore_miss(ctx: Ctx, angle: int, power: int, tx: int, ty: int, lengt
 	return FixedMath.isqrt(dx * dx + dy * dy)
 
 
-## True when the cheap model could be wrong about this shot: somebody's repulsor field is
-## near the line of fire, a teammate stands in it (a real shell would stop there), or the
-## weapon steers itself. Otherwise the model is exact (the same physics, gravity wells
-## included) and the real trace is skipped to save time. (An enemy standing in the way is not
-## a reason: the shell would just hit that enemy instead.)
-static func needs_verify(ctx: Ctx, target_id: int, aim_x: int, phys_weapon: String) -> bool:
+## True when the cheap model could be wrong about this shot: a teammate stands in the line of
+## fire (a real shell would stop there). Otherwise the model is exact (the same physics,
+## gravity wells and repulsor fields included) and the real trace is skipped to save time.
+## (An enemy standing in the way is not a reason: the shell would just hit that enemy instead.
+## A Seeker is not traced either: it steers itself onto the target, so its plan only has to be
+## close, and one real Seeker trace costs several milliseconds.)
+static func needs_verify(ctx: Ctx, target_id: int, aim_x: int, _phys_weapon: String) -> bool:
 	var state: MatchState = ctx.state
-	if phys_weapon != "pulse_missile":
-		return true
 	var me_team: int = state.tanks[ctx.me].team
 	var lo: int = mini(ctx.sx, aim_x) - 40
 	var hi: int = maxi(ctx.sx, aim_x) + 40
 	for t: TankState in state.tanks:
-		if not t.alive or t.id == ctx.me:
-			continue
-		if t.repulsor_charge > 0 and t.x >= lo - 60 and t.x <= hi + 60:
-			return true
-		if t.id != target_id and t.team == me_team and t.x >= lo and t.x <= hi:
+		if t.alive and t.id != ctx.me and t.id != target_id and t.team == me_team and t.x >= lo and t.x <= hi:
 			return true
 	return false
 
@@ -302,7 +308,8 @@ static func needs_verify(ctx: Ctx, target_id: int, aim_x: int, phys_weapon: Stri
 ## one being fired; "pulse_missile" for every plain-flight weapon). If reality lands somewhere
 ## else than the model said, the aim point is shifted by the difference and the power is
 ## searched again. A shell that reaches the target tank or its shield bubble counts as a hit.
-## Returns the best plan with extra keys real_err, hit (bool) and verified (bool).
+## Returns the best plan with extra keys real_err, hit (bool) and verified (bool), plus
+## ally_hit = true when the shell ran into a teammate.
 static func verify(ctx: Ctx, plan: Dictionary, phys_weapon: String, target_id: int, aim_x: int,
 		mode: int = MODE_LAND, extra: int = 0) -> Dictionary:
 	var cur: Dictionary = plan
@@ -316,7 +323,16 @@ static func verify(ctx: Ctx, plan: Dictionary, phys_weapon: String, target_id: i
 		if tr.is_empty():
 			break
 		var real_x: int = tr["end_x"]
-		var hit: bool = (tr["hit_tank"] as int) == target_id
+		var hit_id: int = tr["hit_tank"]
+		if hit_id >= 0 and hit_id != target_id and ctx.state.tanks[hit_id].team == ctx.state.tanks[ctx.me].team:
+			# A teammate is in the way: this arc is no good, whatever else it does.
+			best = cur.duplicate()
+			best["ally_hit"] = true
+			best["real_err"] = 1 << 20
+			best["hit"] = false
+			best["verified"] = true
+			return best
+		var hit: bool = hit_id == target_id
 		var rerr: int = ctx.dir * (real_x - aim_x)
 		if hit:
 			rerr = 0

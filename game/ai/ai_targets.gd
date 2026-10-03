@@ -112,7 +112,7 @@ static func _best_value(state: MatchState, me: TankState, list: Array[TankState]
 		if through_shield >= e.health:
 			score += SimConstants.KILL_BONUS
 		# Threat: a healthy, close enemy is more dangerous.
-		score += e.health * maxi(0, SimConstants.WORLD_W - dist) / 40
+		score += e.health * maxi(0, SimConstants.WORLD_W - dist) / 160
 		if shot_at_me(state, me, e, 120):
 			score += 600
 		# Staying on the same target keeps the miss-correction working.

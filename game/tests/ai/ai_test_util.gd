@@ -246,3 +246,15 @@ static func _random_state_try(i: int, play: bool) -> MatchState:
 		state.wells.append({"owner": r.range_int(0, n - 1), "x": r.range_int(300, 1300), "y": r.range_int(200, 600),
 				"expires_turn": state.turn_number + 5})
 	return state
+
+
+## Flat ground, `n` tanks spread along it (see SimTestUtil.flat_state); tank 0 is the AI at
+## `level`, the others are human (idle). Tank 0 owns 20 Pulse Missiles.
+static func flat_ffa(level: int, n: int) -> MatchState:
+	var state: MatchState = SimTestUtil.flat_state(n)
+	var ctrl := PackedInt32Array()
+	for i: int in range(n):
+		ctrl.append(level if i == 0 else SimConstants.CTRL_HUMAN)
+	state.settings.controllers = ctrl
+	state.tanks[0].set_stock("pulse_missile", 20)
+	return state

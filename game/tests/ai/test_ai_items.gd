@@ -172,3 +172,24 @@ func test_a_walk_never_runs_into_a_fall() -> void:
 	var kinds: Array[String] = _kinds(state, 0)
 	assert_eq(state.tanks[0].health, 100, "no fall damage from the AI's own walk: %s" % str(kinds))
 	assert_gte(state.tanks[0].x, 256 + SimConstants.TANK_W / 2 - 1, "stayed on the plateau")
+
+
+func test_moves_never_loop_over_many_notches() -> void:
+	# Walls at varying distances and heights from the shooter, varying targets, fuel or only cells:
+	# the turn always ends within 3 calls and at most one of them is a move.
+	var moves: int = 0
+	for i: int in range(24):
+		var r: Rng = Rng.derive(i, 818)
+		var level: int = SimConstants.CTRL_HARD if i % 2 == 0 else SimConstants.CTRL_EXPERT
+		var state: MatchState = AiTestUtil.flat_duel(level, r.range_int(400, 800), r.range_int(-60, 60),
+				{"pulse_missile": 9, "fuel_cell": r.range_int(0, 2)})
+		var wall_x: int = 300 + r.range_int(25, 90)
+		state.terrain.flatten(wall_x, wall_x + r.range_int(40, 140), r.range_int(0, 250))
+		state.tanks[0].fuel = r.range_int(0, 2) * 80
+		var kinds: Array[String] = _kinds(state, 0)
+		assert_lte(kinds.size(), 3, "variant %d: %s" % [i, str(kinds)])
+		assert_true(kinds[kinds.size() - 1].begins_with("fire:") or kinds[kinds.size() - 1].begins_with("pass"))
+		var walks: int = kinds.filter(func(k: String) -> bool: return k.begins_with("move")).size()
+		assert_lte(walks, 1, "variant %d walks at most once" % i)
+		moves += walks
+	gut.p("MOVE    %d of 24 notch variants needed a walk; none looped" % moves)

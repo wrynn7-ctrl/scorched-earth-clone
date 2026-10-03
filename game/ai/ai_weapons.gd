@@ -23,12 +23,14 @@ const CORRECTABLE: PackedStringArray = ["explode", "splitter", "dirt"]
 const PIT_DEPTH: int = 25
 const CLUSTER_RADIUS: int = 110
 ## Ticks a roller is followed when judging whether it reaches the target.
-const ROLL_LOOKAHEAD: int = 160
+const ROLL_LOOKAHEAD: int = 100
 ## Beyond this many real traces in one decision, plans are no longer confirmed by a trace
 ## (the hard limit is AimSolver.TRACE_BUDGET).
 const SOFT_TRACE_CAP: int = 8
 ## A Seeker steers itself onto the target, so its aim may be this far off (cells).
 const SEEKER_TOL: int = 40
+## Launch angle (tenths of a degree) tried first when a teammate blocks the usual arc.
+const ALLY_LOB_ANGLE: int = 780
 
 
 static func choose_and_plan(sit: AiSituation) -> Dictionary:
@@ -195,7 +197,9 @@ static func _check(sit: AiSituation, plan: Dictionary, phys: String, aim_x: int,
 static func _plan(id: String, base: Dictionary, corrected: bool, prev_power: int,
 		tol: int = AimSolver.TOL_ACCEPT) -> Dictionary:
 	var ok: bool = false
-	if base.has("tunnel_ok"):
+	if base.get("ally_hit", false):
+		ok = false
+	elif base.has("tunnel_ok"):
 		ok = base["tunnel_ok"]
 	elif base.get("verified", false):
 		ok = base["hit"] or absi(base["real_err"] as int) <= tol
@@ -217,7 +221,12 @@ static func _plain_plan(sit: AiSituation, id: String, aim_x: int, phys: String, 
 	if not sit.memo.has(key):
 		var base: Dictionary = sit.direct if aim_x == sit.target.x else \
 				AimSolver.solve_direct(sit.ctx, aim_x, sit.a0)
-		sit.memo[key] = _check(sit, base, phys, aim_x)
+		var checked: Dictionary = _check(sit, base, phys, aim_x)
+		if checked.get("ally_hit", false):
+			# A teammate stands in that arc: try a high lob over it.
+			var lob: Dictionary = AimSolver.solve_direct(sit.ctx, aim_x, ALLY_LOB_ANGLE)
+			checked = _check(sit, lob, phys, aim_x)
+		sit.memo[key] = checked
 	return _plan(id, sit.memo[key], false, 0, tol)
 
 
@@ -250,7 +259,7 @@ static func _plan_roller(sit: AiSituation, id: String, def: Dictionary) -> Dicti
 	var saved_row: int = sit.ctx.row
 	sit.ctx.row = -1  # a roller is judged by where it touches the ground
 	var result: Dictionary = {}
-	for off: int in [22, 35, 55, 80]:
+	for off: int in [25, 45, 75]:
 		var aim_x: int = clampi(sit.target.x - sit.ctx.dir * off, 0, sit.state.terrain.width - 1)
 		# Would a roller put down on this column roll into the target? (cheap: no flight yet)
 		var rolled: Dictionary = RollerBehavior.roll(sit.state, aim_x, def["speed"],

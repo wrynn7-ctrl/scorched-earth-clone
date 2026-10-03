@@ -25,6 +25,8 @@ const SHIELDS: Array[String] = ["fortress_field", "ion_shield", "glow_shield"]
 ## Last-shot weapon behaviours whose landing point is a fair reading of the aim error.
 const CORRECTABLE_LAST: PackedStringArray = ["explode", "tunneler", "dirt", "splitter"]
 const MAX_CORRECTION: int = 400
+## Model flights a decision may spend judging possible walks (it stops looking after that).
+const MOVE_SEARCH_FLIGHTS: int = 60
 
 
 ## One action for the tank whose turn it is. May return a non-turn-ending action
@@ -148,13 +150,22 @@ static func situation(state: MatchState, me: TankState, level: int, prof: Dictio
 	sit.dist = absi(sit.target.x - me.x)
 	var dir: int = 1 if sit.target.x >= me.x else -1
 	var wind: int = state.wind * (prof["wind_use"] as int) / 1000
-	sit.flight = AiFlight.new(state.terrain, state.wells)
+	sit.flight = AiFlight.new(state.terrain, state.wells, others_with_repulsors(state, me))
 	sit.ctx = AimSolver.new_ctx(state, me.id, me.x, me.y, wind, dir, sit.flight)
 	sit.ctx.row = sit.target.y - SimConstants.TANK_H / 2
 	sit.a0 = 450 + sit.rng.range_int(-70, 70)
 	sit.direct = AimSolver.solve_direct(sit.ctx, sit.target.x, sit.a0)
 	sit.corr = correction_for(sit)
 	return sit
+
+
+## The other alive tanks whose repulsor field is charged (the shooter's own never pushes its shell).
+static func others_with_repulsors(state: MatchState, me: TankState) -> Array[TankState]:
+	var out: Array[TankState] = []
+	for t: TankState in state.tanks:
+		if t.alive and t.id != me.id and t.repulsor_charge > 0:
+			out.append(t)
+	return out
 
 
 ## How far the last shot at this target landed from where the AI's model says it should have
@@ -232,7 +243,10 @@ static func _maybe_move(sit: AiSituation) -> Dictionary:
 	var steps: Array[int] = [-40, 40, -80, 80]
 	if sit.prof["move"] == AiProfile.MOVE_TO_IMPROVE:
 		steps = [-40, 40, -80, 80, -130, 130]
+	var spent_from: int = AimSolver.model_count
 	for dx: int in steps:
+		if AimSolver.model_count - spent_from > MOVE_SEARCH_FLIGHTS:
+			break
 		var dest: Vector2i = _walk_dest(sit, dx)
 		if dest.x == me.x:
 			continue

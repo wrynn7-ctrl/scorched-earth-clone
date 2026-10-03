@@ -366,3 +366,32 @@ func test_an_anchor_is_not_fired_from_inside_its_own_pull_radius() -> void:
 	state.terrain.flatten(tg.x - 20, tg.x + 19, 500)
 	tg.y = TankState.rest_y(state.terrain, tg.x)
 	assert_ne(_chosen(state, SimConstants.CTRL_EXPERT), "riptide_anchor", "it would drag the shooter along")
+
+
+# --- Teams ----------------------------------------------------------------------------------------------------
+
+func test_a_teammate_in_the_line_of_fire_is_lobbed_over_not_hit() -> void:
+	var safe: int = 0
+	var on_target: int = 0
+	for i: int in range(10):
+		var level: int = SimConstants.CTRL_HARD if i % 2 == 0 else SimConstants.CTRL_EXPERT
+		var state: MatchState = AiTestUtil.flat_duel(level, 700 + i * 20, 0, {"pulse_missile": 9})
+		# A teammate standing right in the way, half way to the target.
+		var mate := TankState.new()
+		mate.id = 2
+		mate.team = state.tanks[0].team
+		mate.x = 300 + 350 + i * 10
+		mate.y = state.tanks[0].y
+		mate.inventory = Catalog.new_inventory()
+		state.tanks.append(mate)
+		state.settings.num_tanks = 3
+		state.settings.controllers = PackedInt32Array([level, 0, 0])
+		var turn: Dictionary = AiTestUtil.play_turn(state, 0)
+		if mate.health == SimConstants.MAX_HEALTH:
+			safe += 1
+		assert_eq(mate.health, SimConstants.MAX_HEALTH, "level %d, dist %d: the teammate was spared" % [level, 700 + i * 20])
+		if level == SimConstants.CTRL_EXPERT and AiTestUtil.hit_target(turn["events"]):
+			on_target += 1
+	gut.p("TEAMS   a teammate stood in the line of fire: spared %d/10, Expert still hit the target %d/5" % [safe, on_target])
+	assert_eq(safe, 10)
+	assert_gte(on_target, 4, "and the Expert's high lob still finds the target")

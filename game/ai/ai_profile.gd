@@ -74,9 +74,9 @@ const PROFILES: Dictionary = {
 	},
 	SimConstants.CTRL_EXPERT: {
 		"name": "expert",
-		"wind_use": 1000,
+		"wind_use": 950,
 		"bias_min": 0, "bias_max": 0,
-		"noise": 4,
+		"noise": 28,
 		"correction": 1000,
 		"target": TARGET_VALUE,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
