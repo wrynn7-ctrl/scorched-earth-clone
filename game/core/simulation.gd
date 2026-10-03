@@ -91,6 +91,7 @@ static func _place_tanks(state: MatchState, n: int, rng: Rng) -> void:
 		t.shield_hp = 0
 		t.repulsor_charge = 0
 		t.ready = false
+		t.reset_last_fire()
 
 
 ## Tank ids, best first (section 18).

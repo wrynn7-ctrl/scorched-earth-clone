@@ -28,6 +28,35 @@ var repulsor_charge: int = 0
 ## Units owned per catalog index (spark_dart is unlimited and never stored).
 var inventory: PackedInt32Array = Catalog.new_inventory()
 
+# --- last shot (section 27): the AI's only memory, written by every successful fire ---
+# Conventions (all ints; reset by start_round to -1 for weapon/x/y/turn and 0 for the rest):
+#  - last_fire_weapon: catalog index of the weapon fired, -1 = none yet this round.
+#  - last_fire_x/y: the cell where the main projectile ended in an impact (terrain, tank or
+#    shield). -1/-1 when it was lost or timed out. A roller reports where it came to rest and a
+#    tunneler its entry point. For splitters whose main shell ends at the apex ("split") the
+#    FIRST child's impact is used (-1/-1 if that child was lost). A beam reports its end point
+#    (the cell where it stopped; this can be just outside the map, e.g. x = -1, y = -1).
+#  - last_fire_wind: state.wind when the shot was fired.
+#  - last_fire_turn: state.turn_number when the shot was fired.
+var last_fire_angle: int = 0
+var last_fire_power: int = 0
+var last_fire_weapon: int = -1
+var last_fire_x: int = -1
+var last_fire_y: int = -1
+var last_fire_wind: int = 0
+var last_fire_turn: int = -1
+
+
+## Clears the last-shot record (start of a round).
+func reset_last_fire() -> void:
+	last_fire_angle = 0
+	last_fire_power = 0
+	last_fire_weapon = -1
+	last_fire_x = -1
+	last_fire_y = -1
+	last_fire_wind = 0
+	last_fire_turn = -1
+
 
 ## Tanks rest on the highest surface point under their width.
 static func rest_y(terrain: Terrain, tx: int) -> int:
@@ -86,4 +115,11 @@ func duplicate_tank() -> TankState:
 	t.shield_hp = shield_hp
 	t.repulsor_charge = repulsor_charge
 	t.inventory = inventory.duplicate()
+	t.last_fire_angle = last_fire_angle
+	t.last_fire_power = last_fire_power
+	t.last_fire_weapon = last_fire_weapon
+	t.last_fire_x = last_fire_x
+	t.last_fire_y = last_fire_y
+	t.last_fire_wind = last_fire_wind
+	t.last_fire_turn = last_fire_turn
 	return t

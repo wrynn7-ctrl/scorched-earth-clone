@@ -65,6 +65,9 @@ static func write(b: StreamPeerBuffer, state: MatchState) -> void:
 	b.put_32(st.wind_max)
 	b.put_64(st.start_money)
 	b.put_32(1 if st.full_unlocked else 0)
+	b.put_32(st.controllers.size())
+	for c: int in st.controllers:
+		b.put_32(c)
 	b.put_64(state.seed)
 	b.put_32(state.round_index)
 	b.put_32(state.wind)
@@ -110,6 +113,13 @@ static func _write_tank(b: StreamPeerBuffer, t: TankState) -> void:
 	b.put_32(t.shield_type)
 	b.put_32(t.shield_hp)
 	b.put_32(t.repulsor_charge)
+	b.put_32(t.last_fire_angle)
+	b.put_32(t.last_fire_power)
+	b.put_32(t.last_fire_weapon)
+	b.put_32(t.last_fire_x)
+	b.put_32(t.last_fire_y)
+	b.put_32(t.last_fire_wind)
+	b.put_32(t.last_fire_turn)
 	b.put_32(t.inventory.size())
 	for n: int in t.inventory:
 		b.put_32(n)
@@ -127,6 +137,14 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 	st.wind_max = b.get_32()
 	st.start_money = b.get_64()
 	st.full_unlocked = b.get_32() != 0
+	var n_ctrl: int = b.get_32()
+	if n_ctrl < 0 or n_ctrl > MAX_TANKS_READ or b.get_available_bytes() < n_ctrl * 4 + 8 + 4 * 3 + 4 + 32 + 12:
+		return null
+	var ctrl := PackedInt32Array()
+	ctrl.resize(n_ctrl)
+	for i: int in range(n_ctrl):
+		ctrl[i] = b.get_32()
+	st.controllers = ctrl
 	s.seed = b.get_64()
 	s.round_index = b.get_32()
 	s.wind = b.get_32()
@@ -175,7 +193,7 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 
 
 static func _read_tank(b: StreamPeerBuffer) -> TankState:
-	if b.get_available_bytes() < 9 * 4 + 8 + 4 + 8 + 6 * 4 + 4:
+	if b.get_available_bytes() < 9 * 4 + 8 + 4 + 8 + 6 * 4 + 7 * 4 + 4:
 		return null
 	var t := TankState.new()
 	t.id = b.get_32()
@@ -196,6 +214,13 @@ static func _read_tank(b: StreamPeerBuffer) -> TankState:
 	t.shield_type = b.get_32()
 	t.shield_hp = b.get_32()
 	t.repulsor_charge = b.get_32()
+	t.last_fire_angle = b.get_32()
+	t.last_fire_power = b.get_32()
+	t.last_fire_weapon = b.get_32()
+	t.last_fire_x = b.get_32()
+	t.last_fire_y = b.get_32()
+	t.last_fire_wind = b.get_32()
+	t.last_fire_turn = b.get_32()
 	var n_inv: int = b.get_32()
 	if n_inv != Catalog.count() or n_inv > MAX_INVENTORY_READ or b.get_available_bytes() < n_inv * 4:
 		return null
@@ -238,6 +263,12 @@ static func _validate_header(state: MatchState) -> String:
 		return "settings.wind_max %d" % st.wind_max
 	if st.start_money < 0 or st.start_money > SimConstants.MAX_START_MONEY:
 		return "settings.start_money %d" % st.start_money
+	if st.controllers.size() != st.num_tanks:
+		return "settings.controllers size %d != num_tanks %d" % [st.controllers.size(), st.num_tanks]
+	var top: int = SimConstants.CTRL_MAX if st.full_unlocked else SimConstants.CTRL_FREE_MAX
+	for c: int in st.controllers:
+		if c < SimConstants.CTRL_HUMAN or c > top:
+			return "settings.controllers value %d" % c
 	if state.tanks.size() != st.num_tanks:
 		return "tank count %d != settings.num_tanks %d" % [state.tanks.size(), st.num_tanks]
 	if state.phase != SimConstants.PHASE_AIM and state.phase != SimConstants.PHASE_SHOP \
@@ -323,7 +354,10 @@ static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
 		return "fuel %d" % t.fuel
 	if t.repulsor_charge < 0 or t.repulsor_charge > SimConstants.REPULSOR_CHARGE:
 		return "repulsor_charge %d" % t.repulsor_charge
-	var err: String = _validate_shield(t)
+	var err: String = _validate_last_fire(state, t)
+	if err != "":
+		return err
+	err = _validate_shield(t)
 	if err != "":
 		return err
 	err = _validate_inventory(t)
@@ -335,6 +369,31 @@ static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
 			return "box off the map (x %d)" % t.x
 		if t.y < 0 or t.y > SimConstants.WORLD_H:
 			return "y %d" % t.y
+	return ""
+
+
+## last_fire_* (section 27): either the reset record, or a plausible shot with a real weapon.
+## x/y may lie one cell outside the map (a beam that left it); -1 doubles as "none".
+static func _validate_last_fire(state: MatchState, t: TankState) -> String:
+	if t.last_fire_weapon == -1:
+		if t.last_fire_angle != 0 or t.last_fire_power != 0 or t.last_fire_x != -1 or t.last_fire_y != -1 \
+				or t.last_fire_wind != 0 or t.last_fire_turn != -1:
+			return "last_fire fields set without a weapon"
+		return ""
+	if t.last_fire_weapon < 0 or t.last_fire_weapon >= Catalog.count() \
+			or not Catalog.is_weapon(Catalog.id_at(t.last_fire_weapon)):
+		return "last_fire_weapon %d" % t.last_fire_weapon
+	if t.last_fire_angle < 0 or t.last_fire_angle > SimConstants.MAX_ANGLE:
+		return "last_fire_angle %d" % t.last_fire_angle
+	if t.last_fire_power < SimConstants.MIN_POWER or t.last_fire_power > SimConstants.MAX_POWER:
+		return "last_fire_power %d" % t.last_fire_power
+	if t.last_fire_x < -1 or t.last_fire_x > SimConstants.WORLD_W \
+			or t.last_fire_y < -1 or t.last_fire_y > SimConstants.WORLD_H:
+		return "last_fire impact (%d, %d)" % [t.last_fire_x, t.last_fire_y]
+	if absi(t.last_fire_wind) > state.settings.wind_max:
+		return "last_fire_wind %d" % t.last_fire_wind
+	if t.last_fire_turn < 0 or t.last_fire_turn > state.turn_number:
+		return "last_fire_turn %d" % t.last_fire_turn
 	return ""
 
 

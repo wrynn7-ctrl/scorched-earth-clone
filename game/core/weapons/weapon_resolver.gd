@@ -23,6 +23,12 @@ static func resolve(state: MatchState, tank_id: int, action: Dictionary, events:
 	var power: int = action["power"]
 	tank.angle = angle
 	tank.power = power
+	tank.last_fire_angle = angle
+	tank.last_fire_power = power
+	tank.last_fire_weapon = Catalog.index_of(weapon)
+	tank.last_fire_wind = state.wind
+	tank.last_fire_turn = state.turn_number
+	var first_event: int = events.size()
 	events.append({"type": "fire", "tick": 0, "tank": tank_id, "angle": angle, "power": power,
 			"weapon": weapon})
 	var unlimited: bool = def.get("unlimited", false)
@@ -35,7 +41,33 @@ static func resolve(state: MatchState, tank_id: int, action: Dictionary, events:
 		was_alive.append(t.alive)
 	var tick: int = _dispatch(state, tank_id, action, def, events)
 	Simulation.emit_destroyed(state, was_alive, tick, events)
+	_record_impact(tank, events, first_event)
 	return tick
+
+
+## Sets tank.last_fire_x/y from the events this shot emitted (events[from..]); conventions are
+## documented in TankState. Reading the timeline keeps every behaviour's own impact logic the
+## single source of truth.
+static func _record_impact(tank: TankState, events: Array[Dictionary], from: int) -> void:
+	tank.last_fire_x = -1
+	tank.last_fire_y = -1
+	for i: int in range(from, events.size()):
+		var e: Dictionary = events[i]
+		var type: String = e["type"]
+		if type == "beam":
+			tank.last_fire_x = e["x1"]
+			tank.last_fire_y = e["y1"]
+			return
+		if type != "projectile_end":
+			continue
+		var id: int = e["id"]
+		var reason: String = e["reason"]
+		if id == 0 and reason == "split":
+			continue  # the first child (id 1) decides
+		if is_impact(reason):
+			tank.last_fire_x = e["x"]
+			tank.last_fire_y = e["y"]
+		return
 
 
 static func _dispatch(state: MatchState, tank_id: int, action: Dictionary, def: Dictionary,

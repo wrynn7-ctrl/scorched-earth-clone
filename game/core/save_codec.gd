@@ -13,7 +13,7 @@ extends RefCounted
 ## Bump SAVE_VERSION when StateSerial's layout or the catalog changes.
 
 const MAGIC: String = "CRTL"
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
 const FP_LEN: int = 16
 const SUM_LEN: int = 32
 

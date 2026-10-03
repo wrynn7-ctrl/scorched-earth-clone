@@ -51,6 +51,16 @@ const MAX_ROUNDS: int = 20
 const MAX_START_MONEY: int = 1_000_000
 const DEFAULT_START_MONEY: int = 10000
 
+## Controllers (section 27): who plays a tank. Hard and Expert are full-version only.
+const CTRL_HUMAN: int = 0
+const CTRL_EASY: int = 1
+const CTRL_NORMAL: int = 2
+const CTRL_HARD: int = 3
+const CTRL_EXPERT: int = 4
+const CTRL_MAX: int = CTRL_EXPERT
+## Highest controller allowed while `full_unlocked` is false.
+const CTRL_FREE_MAX: int = CTRL_NORMAL
+
 ## Economy (section 18).
 const CREDIT_PER_HP: int = 15
 const KILL_BONUS: int = 1500
