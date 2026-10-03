@@ -47,6 +47,11 @@ const POPUP_POOL: int = 14
 const FX_POOL: int = 8
 const FLAME_POOL: int = 2
 const BEAM_POOL: int = 2
+## Love Edition pools: heart bursts (a few can overlap) and "+N" popups.
+const BURST_POOL: int = 4
+const LOVE_POPUP_POOL: int = 4
+## Flowers sprout this many seconds after the heart lands (at normal speed).
+const SPROUT_DELAY: float = 0.3
 const PULL_POOL: int = 2
 ## Sludge pours over this many ticks (the following events wait for it).
 const POUR_TICKS: int = 54
@@ -57,7 +62,7 @@ const POUR_TICKS: int = 54
 const VISUAL_TYPES: PackedStringArray = ["projectile", "projectile_end", "explosion"]
 ## Events that deserve the long hold before the next turn.
 const IMPACT_TYPES: PackedStringArray = ["explosion", "round_end", "beam", "flames", "tunnel", "terrain_add",
-		"terrain_pour", "tank_drag", "well_on"]
+		"terrain_pour", "tank_drag", "well_on", "heart_burst"]
 ## Hit-box of a tank for the HUD fade (world units around the ground point), emblem included.
 const TANK_FADE_RECT: Rect2 = Rect2(-22.0, -84.0, 44.0, 86.0)
 ## Where the "you" arrow's tip sits above the ground point (world units).
@@ -118,6 +123,23 @@ var _settings_overlay: SettingsOverlay = null
 var _diag: DiagnosticsOverlay = null
 var _round_overlay: RoundEndOverlay = null
 var _match_overlay: MatchEndOverlay = null
+## Love Edition (ARCHITECTURE section 37), all created on the first love match: the pooled heart
+## bursts and popups, the flowers that stay on the terrain, the winner's smiley, the confetti and
+## the win overlay.
+var _love: bool = false
+var _configured_mode: int = -1
+var _flowers: FlowerField = null
+var _bursts: Array[HeartBurst] = []
+var _burst_next: int = 0
+var _love_pops: Array[LovePopup] = []
+var _love_pop_next: int = 0
+var _smiley: LoveSmiley = null
+var _confetti: HeartConfetti = null
+var _love_overlay: LoveWinOverlay = null
+## Where hearts landed, [[x, y, radius], ...], so a restored match can plant the same flowers.
+var _love_impacts: Array = []
+## Bumped whenever a match starts, so a late flower timer of the old match does nothing.
+var _love_epoch: int = 0
 ## tank id -> {tween: Tween, end: Vector2}: the one slide/fall animation a tank view may have.
 var _tank_tweens: Dictionary = {}
 
@@ -198,6 +220,12 @@ func configure(rounds: int, seed_value: int, instant: bool = false, players: int
 	_instant = instant
 	_players = players
 	_configured = true
+
+
+## Match mode for configure()d matches (SimConstants.MODE_*; call before add_child()). Love mode forces
+## 2 tanks, 1 round and no shop in the core.
+func set_mode(mode: int) -> void:
+	_configured_mode = mode
 
 
 ## Who controls each tank (SimConstants.CTRL_*), for configure()d matches (call before add_child()).
@@ -394,6 +422,8 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 	_cpu.stop()
 	session = new_session
 	state = session.state
+	_love = state.settings.mode == SimConstants.MODE_LOVE
+	_hud.set_love_mode(_love)
 	if restored:
 		_theme_choice = ThemeDefs.sanitize(session.meta.get("theme", ThemeDefs.DEFAULT_ID))
 	if not restored:
@@ -409,10 +439,15 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 		v.name = "Tank%d" % i
 		_world.add_child(v)
 		_tank_views.append(v)
+	_love_reset()
+	if _love:
+		_ensure_love_nodes()
 	_apply_skins()
 	mismatch_count = 0
 	_round_winner = -1
 	_rebuild_display()
+	if _love and restored:
+		_restore_flowers(session.meta.get("flowers", []))
 	_apply_initial_aim_override()
 	_sync_round_wins()
 	_enter_phase()
@@ -434,6 +469,10 @@ func _new_settings() -> MatchSettings:
 	var base: MatchSettings = BattleConfig.settings if (BattleConfig.settings != null and not _configured) else null
 	var settings: MatchSettings = base.duplicate_settings() if base != null else MatchSettings.new()
 	if base == null:
+		if ShotArgs.love and not _configured:
+			settings.mode = SimConstants.MODE_LOVE
+		if _configured_mode >= 0:
+			settings.mode = _configured_mode
 		# Quick matches (screenshots, tests, the demo) carry the player's real entitlement.
 		settings.full_unlocked = Entitlement.is_full()
 		settings.num_tanks = _players
@@ -469,7 +508,7 @@ func _init_per_tank_data(restored: bool) -> void:
 	_aim_power.resize(n)
 	_selected = PackedStringArray()
 	for _i: int in range(n):
-		_selected.append(Catalog.SPARK_DART)
+		_selected.append(Catalog.HEART if _love else Catalog.SPARK_DART)
 	_round_money.resize(n)
 	_round_money.fill(0)
 	_summary_pending = false
@@ -511,6 +550,8 @@ func _rebuild_display() -> void:
 		v.position = Vector2(float(t.x), float(t.y))
 		v.set_dead(not t.alive)
 		v.set_health(t.health, SimConstants.MAX_HEALTH)
+		v.set_love_mode(_love)
+		v.set_love(t.love)
 		v.set_angle_tenths(t.angle)
 		v.set_shield(t.shield_hp if t.has_shield() else 0, _shield_max(t.shield_type))
 		v.set_repulsor(t.repulsor_charge > 0 and t.alive)
@@ -527,6 +568,8 @@ func _rebuild_display() -> void:
 func _apply_theme() -> void:
 	var id: String = ThemeDefs.resolve(_theme_choice, state.seed, maxi(state.round_index, 0),
 			state.settings.full_unlocked)
+	if _love:
+		id = ThemeDefs.LOVE_THEME  # the rose sky belongs to love matches only
 	_theme_id = id
 	_sky.apply_theme(id)
 	_terrain_view.apply_theme(id)

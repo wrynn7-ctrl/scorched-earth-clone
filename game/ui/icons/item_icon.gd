@@ -75,6 +75,8 @@ static func glyph_color(id: String) -> Color:
 			return NeonPalette.SUNSET
 		"repair":
 			return NeonPalette.GOOD
+		"love":
+			return Color(1.0, 0.42, 0.66)
 	return NeonPalette.TEXT
 
 
@@ -121,6 +123,8 @@ static func draw_glyph(ci: CanvasItem, id: String, c: Vector2, r: float, col: Co
 			_fuel(ci, c, r, col)
 		"repair":
 			_repair(ci, c, r, col)
+		"love":
+			HeartShape.draw(ci, c + Vector2(0.0, r * 0.04), r * 0.88, col)
 		_:
 			ci.draw_circle(c, r * 0.35, col)
 

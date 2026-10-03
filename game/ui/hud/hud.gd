@@ -65,6 +65,8 @@ var _pause_held: float = -1.0  # seconds the pause button has been down, -1 = up
 var _pause_long: bool = false  # the long press fired: swallow the release
 ## Which handedness the node order currently shows (see _apply_handedness).
 var _lefty: bool = false
+## Love Edition (ARCHITECTURE section 37): no money, items or move; heart accents on the banner.
+var _love: bool = false
 
 
 func _init() -> void:
@@ -488,6 +490,22 @@ func set_money(n: int) -> void:
 	_money.set_amount(n)
 
 
+## Love mode hides the money readout, the items toggle and tray and the move buttons (nothing to
+## buy, use or drive), and puts small hearts beside the turn banner. Switch it on right after the
+## HUD is created for a love match (and off again for a standard one).
+func set_love_mode(on: bool) -> void:
+	_love = on
+	_money.visible = not on
+	_banner.set_love_mode(on)
+	if on:
+		set_items([] as Array[Dictionary])
+		set_fuel(0)
+
+
+func is_love_mode() -> bool:
+	return _love
+
+
 ## The weapon shown on the weapon button; count < 0 means unlimited.
 func set_weapon(item_id: String, count: int) -> void:
 	_weapon_chip.set_entry(item_id, tr("ITEM_" + item_id.to_upper()), HudChip.count_text(count))
@@ -512,6 +530,8 @@ func get_weapon_popup() -> WeaponPopup:
 
 ## Usable items the player owns: [{id, count}]. The ITEMS toggle hides when there are none.
 func set_items(entries: Array[Dictionary]) -> void:
+	if _love:
+		entries = [] as Array[Dictionary]
 	_items.set_items(entries)
 	_item_total = _items.item_count()
 	if _item_total == 0:
@@ -545,7 +565,7 @@ func _refresh_items_toggle() -> void:
 
 ## Fuel readout and move buttons; hidden when fuel_total is 0.
 func set_fuel(fuel_total: int) -> void:
-	_moves.set_fuel(fuel_total)
+	_moves.set_fuel(0 if _love else fuel_total)
 
 
 func get_move_controls() -> MoveControls:
