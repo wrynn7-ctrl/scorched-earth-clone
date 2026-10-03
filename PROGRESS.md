@@ -5,7 +5,7 @@
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
 | M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; edge + scrollbar fixes confirmed on device) |
-| M4 — AI opponents | ✅ Done 2026-10-03 (owner phone test pending) |
+| M4 — AI opponents | ✅ Done 2026-10-03 (owner: very good; Easy too sharp → retune; angle buttons → screen-relative) |
 | M5 — Polish, sound, effects | 🟡 In progress (started while owner tests M4) |
 | M6 — Local pass-and-play | ⬜ Not started |
 | M7 — Online multiplayer | ⬜ Not started |
@@ -63,6 +63,8 @@
 | Task | Agent | Status |
 |---|---|---|
 | M5 contract (ARCHITECTURE §32–§35: entitlement + free/full table, audio, themes, skins) | lead | ✅ written |
+| M4-T Owner feedback: Easy CPU dials in too fast → weaker/inconsistent correction | ai-dev | 🟡 running |
+| M5-ANGLE Owner feedback: ◀/▶ move the barrel toward screen left/right; readout = elevation on facing side + facing marker | show-ui-dev | 🟡 running |
 | M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | ✅ reviewed |
 | M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | 🟡 running |
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | 🟡 running |

@@ -1,0 +1,72 @@
+# Builds the pinned Google Play Billing plugin for Godot from its exact upstream commit and attaches it to a Release on
+# THIS repository (tag `tools-billing-<version>`), so the cloud dev environment, which can only download from this repo,
+# can fetch a copy. The upstream project publishes no checksums, so there is nothing to mirror byte-for-byte: we build
+# from the pinned commit instead (tools/billing/pin.env) and compare the result with the SHA-256 pins that are committed
+# next to the vendored files (tools/billing/SHA256SUMS). The game build itself uses the vendored files in game/addons.
+name: Mirror plugins
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/mirror-plugins.yml"
+      - "tools/billing/**"
+      - "tools/setup_billing_plugin.sh"
+
+permissions:
+  contents: write
+
+jobs:
+  billing:
+    name: Billing plugin (pinned build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The plugin compiles against platforms;android-36 (the runner image normally has it; install it if not).
+      - name: Make sure the Android platform is installed
+        run: |
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          if [ ! -d "$sdk/platforms/android-36" ]; then
+            (set +o pipefail; yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" "platforms;android-36" >/dev/null)
+          fi
+          test -d "$sdk/platforms/android-36"
+
+      - name: Rebuild the plugin from the pinned commit
+        id: build
+        run: |
+          set +e
+          tools/setup_billing_plugin.sh --rebuild --zip "$RUNNER_TEMP/billing-out"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 3 ]; then
+            echo "::warning::Rebuilt AARs differ from tools/billing/SHA256SUMS (different toolchain?). Review before updating the pins."
+          elif [ "$rc" -ne 0 ]; then
+            exit "$rc"
+          fi
+          cp tools/billing/pin.env tools/billing/SHA256SUMS "$RUNNER_TEMP/billing-out/"
+          cat "$RUNNER_TEMP/billing-out/SHA256SUMS.txt"
+
+      - name: Publish as a release in this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          . tools/billing/pin.env
+          tag="tools-billing-${BILLING_PLUGIN_VERSION}"
+          title="Tools: Google Play Billing plugin ${BILLING_PLUGIN_VERSION} (pinned build)"
+          notes="godot-sdk-integrations/godot-google-play-billing ${BILLING_PLUGIN_VERSION} built from commit ${BILLING_PLUGIN_COMMIT}. The same files are vendored in game/addons/GodotGooglePlayBilling. Not a game release."
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "$RUNNER_TEMP"/billing-out/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "$RUNNER_TEMP"/billing-out/* --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --prerelease --title "$title" --notes "$notes"
+          fi

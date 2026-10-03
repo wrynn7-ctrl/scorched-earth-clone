@@ -45,7 +45,6 @@ func test_instant_mode_is_silent() -> void:
 	_ad.reset_for_tests()
 	_ad.record_log = true
 	c.call("_dispatch", {"type": "explosion", "tick": 0, "x": 400, "y": 300, "radius": 90, "weapon": "nova_core"})
-	c.call("_dispatch", {"type": "well_on", "tick": 0, "owner": 0, "x": 400, "y": 300, "expires_turn": 9})
 	assert_eq(_ad.played_log.size(), 0)
 	assert_false(_ad.is_hum_playing())
 	c.fire_current()

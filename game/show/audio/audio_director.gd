@@ -178,7 +178,7 @@ static func sound_for_event(e: Dictionary, match_over: bool = false) -> String:
 		"explosion":
 			return explosion_key(int(e.get("radius", 0)))
 		"terrain_settle":
-			return "terrain_crumble" if int(e.get("falls", 0)) > 0 else ""
+			return "terrain_crumble" if _has_falls(e.get("falls", null)) else ""
 		"tunnel":
 			return "terrain_crumble"
 		"terrain_add":
@@ -217,6 +217,13 @@ static func sound_for_event(e: Dictionary, match_over: bool = false) -> String:
 	# projectile, projectile_end, terrain_carve, wind, beam (its sound is the fire event's), tank_fall,
 	# tank_move, well_on/off (the hum loop), flames (the crackle loop), ready, repulsor_down, round_start.
 	return ""
+
+
+## The settle event's `falls` (an Array of per-column falls; a count also works): did any ground move?
+static func _has_falls(falls: Variant) -> bool:
+	if falls is Array:
+		return not (falls as Array).is_empty()
+	return (falls is int or falls is float) and float(falls) > 0.0
 
 
 ## Explosion radius -> "explosion_small" / "_medium" / "_large" / "_nuke".

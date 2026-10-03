@@ -39,7 +39,7 @@ const AMBIENT_SPORES: String = "spores"
 
 const STRATA_COUNT: int = 15
 ## Extra brightness the aurora may add to the sky (also the shader's `aurora_peak`).
-const AURORA_PEAK: float = 0.16
+const AURORA_PEAK: float = 0.13
 ## The part of the sky gradient (0 = top, 1 = horizon) behind the tanks that the contrast
 ## tests cover; above it the horizon glow band is a bright accent, like the terrain rim.
 const GLOW_BAND_START: float = 0.72
@@ -226,7 +226,7 @@ static func _sunset_grid() -> Dictionary:
 		"city": 0.0, "city_glow": Color(1.0, 0.4, 0.2),
 		"strata": _colors([
 			[0.30, 0.12, 0.45], [0.24, 0.12, 0.50], [0.18, 0.14, 0.52], [0.13, 0.18, 0.52],
-			[0.10, 0.24, 0.50], [0.08, 0.30, 0.48], [0.08, 0.34, 0.44], [0.10, 0.36, 0.38],
+			[0.10, 0.24, 0.50], [0.074, 0.276, 0.442], [0.074, 0.313, 0.405], [0.092, 0.331, 0.35],
 			[0.30, 0.16, 0.40], [0.36, 0.12, 0.34], [0.40, 0.10, 0.28], [0.28, 0.10, 0.26],
 			[0.20, 0.10, 0.30], [0.14, 0.09, 0.28], [0.10, 0.08, 0.24],
 		]),
