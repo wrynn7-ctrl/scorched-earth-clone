@@ -119,22 +119,22 @@ func test_new_match_performance_and_duplicate() -> void:
 
 # Pinned values: any change to terrain generation, placement, ballistics, damage, economy or
 # the serialization order changes these. Update them only for an intentional rules change
-# (and bump saves/replays accordingly). Regenerated for M4 (controllers, last_fire_*).
+# (and bump saves/replays accordingly). Regenerated for M4 (controllers, last_fire_*) and for Love Edition (mode, love).
 func test_pinned_golden_fingerprints() -> void:
 	var st := MatchSettings.new()
 	st.seed = 42
 	st.num_tanks = 3
 	st.rounds = 2
 	var s: MatchState = Simulation.new_match(st)
-	assert_eq(Simulation.fingerprint(s), "9186671868f672ce")
+	assert_eq(Simulation.fingerprint(s), "bf70a16bc169cf24")
 	for t: TankState in s.tanks:
 		Simulation.apply_action(s, {"kind": "buy", "tank": t.id, "item": "pulse_missile", "qty": 2})
 	Simulation.apply_action(s, {"kind": "buy", "tank": 1, "item": "glow_shield", "qty": 1})
 	SimTestUtil.begin_round(s)
-	assert_eq(Simulation.fingerprint(s), "000acb798f99f534")
+	assert_eq(Simulation.fingerprint(s), "1cd4005ebc97c24d")
 	Simulation.apply_action(s, SimTestUtil.fire(0, 450, 700))
 	Simulation.apply_action(s, SimTestUtil.fire(1, 1350, 650))
-	assert_eq(Simulation.fingerprint(s), "70ee4591734d9f2c")
+	assert_eq(Simulation.fingerprint(s), "be53e5acd5f9a17b")
 
 
 func test_fingerprint_covers_every_new_field() -> void:
