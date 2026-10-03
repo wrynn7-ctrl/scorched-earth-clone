@@ -56,7 +56,8 @@
 | M4-C Controllers in settings + `last_fire_*` AI memory in TankState | core-sim-dev | ✅ reviewed |
 | M4-A AiPlayer: aim solver, error model, weapon/item/shop/target choice, 4 levels + statistical tests | ai-dev | ✅ reviewed (retuned to human-like bands) |
 | M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CPU turn speed | show-ui-dev | ✅ reviewed (230 show+ui tests) |
-| M4-Q AI fuzz, determinism across save/load, AiFlight drift guard, adversarial situations | qa-tester | 🟡 running |
+| M4-Q AI fuzz, determinism across save/load, AiFlight drift guard, adversarial situations | qa-tester | ✅ reviewed (0 crashes/invalid actions in 7,179 turns; 4 issues found) |
+| M4-F AI fixes: self-damage guard (all levels + teammates), Easy/Normal ammo buying (pacing), Expert/Hard repair at ≤ 20 HP, AiFlight sub-step terrain + real sky height | ai-dev | 🟡 running |
 
 ## Decisions / notes
 - **S26 Ultra HUD edge bug — root cause confirmed** from the owner's in-battle diagnostics: the BattleHud root (a Control under a CanvasLayer) was left at a stale rect when the battle laid out before the Android window settled. LayoutGuard corrected it once ("layout corrections: HUD 1") and the HUD is 1950×900 afterwards. Keep LayoutGuard + diagnostics as a permanent safety net.
@@ -73,6 +74,7 @@
 ## Carry-overs for M3 (from QA) — all ✅ done in M3
 
 ## Notes for later milestones
+- Team mode (if added later): AI already guards teammates from splash after M4-F; ally-lob verification exists but is unexercised while team == id.
 - Aim adjustments made before an autosave aren't restored (aim isn't in sim state); tank returns to its stored angle/power.
 - Shop buys 1 bundle / sells 1 unit per tap; consider quantity steppers in M5 polish.
 - Seeds for golden fixtures v2 were searched for full weapon/item coverage; re-search if the QA bot changes.
