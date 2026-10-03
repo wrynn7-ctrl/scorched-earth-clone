@@ -5,7 +5,7 @@
 | M1 — Clarifying questions → PLAN.md → approval | ✅ Approved 2026-10-02 |
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
 | M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; edge + scrollbar fixes confirmed on device) |
-| M4 — AI opponents | 🟡 In progress |
+| M4 — AI opponents | ✅ Done 2026-10-03 (owner phone test pending) |
 | M5 — Polish, sound, effects | ⬜ Not started |
 | M6 — Local pass-and-play | ⬜ Not started |
 | M7 — Online multiplayer | ⬜ Not started |
@@ -57,7 +57,7 @@
 | M4-A AiPlayer: aim solver, error model, weapon/item/shop/target choice, 4 levels + statistical tests | ai-dev | ✅ reviewed (retuned to human-like bands) |
 | M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CPU turn speed | show-ui-dev | ✅ reviewed (230 show+ui tests) |
 | M4-Q AI fuzz, determinism across save/load, AiFlight drift guard, adversarial situations | qa-tester | ✅ reviewed (0 crashes/invalid actions in 7,179 turns; 4 issues found) |
-| M4-F AI fixes: self-damage guard (all levels + teammates), Easy/Normal ammo buying (pacing), Expert/Hard repair at ≤ 20 HP, AiFlight sub-step terrain + real sky height | ai-dev | 🟡 running |
+| M4-F AI fixes: self-damage guard (all levels + teammates), Easy/Normal ammo buying (pacing), Expert/Hard repair at ≤ 20 HP, AiFlight sub-step terrain + real sky height | ai-dev | ✅ reviewed (0 self-hits in 6,194 shots; max round 116 turns; 0 drift; 1,038 tests green) |
 
 ## Decisions / notes
 - **S26 Ultra HUD edge bug — root cause confirmed** from the owner's in-battle diagnostics: the BattleHud root (a Control under a CanvasLayer) was left at a stale rect when the battle laid out before the Android window settled. LayoutGuard corrected it once ("layout corrections: HUD 1") and the HUD is 1950×900 afterwards. Keep LayoutGuard + diagnostics as a permanent safety net.
