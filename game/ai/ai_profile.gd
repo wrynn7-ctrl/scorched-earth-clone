@@ -108,7 +108,7 @@ const EXPERT_RESERVE: int = 1500
 ## Items a random Easy shopper picks from (all cheap, free tier).
 const SHOP_EASY_POOL: PackedStringArray = [
 	"pulse_missile", "pulse_missile", "pulse_missile", "mound_mortar", "glide_orb",
-	"drift_chute", "fuel_cell", "glow_shield", "bore_shell", "hyperpulse",
+	"drift_chute", "fuel_cell", "glow_shield", "bore_shell",
 ]
 
 

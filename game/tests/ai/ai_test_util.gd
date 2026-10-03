@@ -34,6 +34,22 @@ static func duel(seed_value: int, level: int, dist: int, wind: int, stock: Dicti
 	return state
 
 
+## A hand-built duel on perfectly flat ground (see SimTestUtil.flat_state): the AI shooter
+## (tank 0) at x = 300 and the idle target (tank 1) `dist` cells to its right. `stock` as in duel().
+static func flat_duel(level: int, dist: int, wind: int, stock: Dictionary) -> MatchState:
+	var state: MatchState = SimTestUtil.flat_state(2)
+	state.settings.controllers = PackedInt32Array([level, SimConstants.CTRL_HUMAN])
+	state.tanks[SHOOTER].x = 300
+	state.tanks[TARGET].x = 300 + dist
+	state.tanks[SHOOTER].set_stock("pulse_missile", 0)
+	state.tanks[TARGET].set_stock("pulse_missile", 0)
+	for id: String in stock.keys():
+		state.tanks[SHOOTER].set_stock(id, stock[id])
+	state.wind = wind
+	state.current_tank = SHOOTER
+	return state
+
+
 static func _place(state: MatchState, tank_id: int, cx: int) -> void:
 	var terrain: Terrain = state.terrain
 	terrain.flatten(cx - 14, cx + 13, terrain.surface_y(cx))
@@ -129,3 +145,104 @@ static func percentile(values: Array[int], p: int) -> int:
 static func params(i: int, tag: int) -> Vector2i:
 	var r: Rng = Rng.derive(i * 7919 + tag, 4242)
 	return Vector2i(r.range_int(300, 1200), r.range_int(-100, 100))
+
+
+## Plays a whole match where every tank is run by the AI (`controllers`, one SimConstants.CTRL_*
+## per tank). Returns {state, errors: Array[String] (illegal actions / failed starts),
+## turns, max_calls (most AI calls in one turn), stalled (hit the safety limit),
+## traces_max (most real traces in one decision)}.
+static func run_match(seed_value: int, controllers: PackedInt32Array, rounds: int) -> Dictionary:
+	var settings := MatchSettings.new()
+	settings.seed = seed_value
+	settings.num_tanks = controllers.size()
+	settings.rounds = rounds
+	settings.controllers = controllers
+	var state: MatchState = Simulation.new_match(settings)
+	var errors: Array[String] = []
+	var turns: int = 0
+	var calls: int = 0
+	var max_calls: int = 0
+	var traces_max: int = 0
+	var last_turn_key: int = -1
+	var guard: int = 0
+	while state.phase != SimConstants.PHASE_MATCH_OVER and guard < 6000:
+		guard += 1
+		if state.phase == SimConstants.PHASE_SHOP:
+			for t: TankState in state.tanks:
+				for a: Dictionary in AiPlayer.shop_actions(state, t.id):
+					var err: String = Simulation.validate_action(state, a)
+					if err != "":
+						errors.append("shop %s: %s" % [str(a), err])
+					Simulation.apply_action(state, a)
+			if Simulation.start_round(state).is_empty():
+				errors.append("start_round failed")
+				break
+			last_turn_key = -1
+			continue
+		var tank: int = state.current_tank
+		var key: int = state.round_index * 100000 + state.turn_number
+		calls = calls + 1 if key == last_turn_key else 1
+		last_turn_key = key
+		max_calls = maxi(max_calls, calls)
+		var action: Dictionary = AiPlayer.next_action(state, tank)
+		traces_max = maxi(traces_max, AimSolver.trace_count)
+		var verr: String = Simulation.validate_action(state, action)
+		if verr != "":
+			errors.append("aim %s: %s" % [str(action), verr])
+			break
+		Simulation.apply_action(state, action)
+		turns += 1
+	return {"state": state, "errors": errors, "turns": turns, "max_calls": max_calls,
+			"stalled": guard >= 6000, "traces_max": traces_max}
+
+
+## A varied mid-round state for fuzzing: 2..6 tanks with random AI levels, random stock of every
+## weapon and item, random shields, health, fuel and wells, a random wind, and a few AI turns
+## already played (so TankState.last_fire_* is filled in). Always in the aim phase.
+static func random_state(i: int) -> MatchState:
+	for attempt: int in range(4):
+		var s: MatchState = _random_state_try(i * 4 + attempt, attempt == 0)
+		if s.phase == SimConstants.PHASE_AIM:
+			return s
+	return duel(9000 + i, SimConstants.CTRL_NORMAL, 600, 0)
+
+
+static func _random_state_try(i: int, play: bool) -> MatchState:
+	var r: Rng = Rng.derive(i * 31 + 5, 99)
+	var n: int = r.range_int(2, 6)
+	var settings := MatchSettings.new()
+	settings.seed = 5000 + i
+	settings.num_tanks = n
+	settings.rounds = 3
+	settings.start_money = r.range_int(0, 30000)
+	var ctrl := PackedInt32Array()
+	for _k: int in range(n):
+		ctrl.append(r.range_int(1, 4))
+	settings.controllers = ctrl
+	var state: MatchState = Simulation.new_match(settings)
+	SimTestUtil.begin_round(state)
+	for t: TankState in state.tanks:
+		for id: String in Catalog.IDS:
+			if id != Catalog.SPARK_DART and r.chance(1, 2):
+				t.set_stock(id, r.range_int(1, 4))
+		t.fuel = r.range_int(0, 2) * 60
+		t.health = r.range_int(8, 100)
+	if play:
+		for _k: int in range(r.range_int(0, 6)):
+			if state.phase == SimConstants.PHASE_AIM:
+				play_turn(state, state.current_tank)
+	if state.phase != SimConstants.PHASE_AIM:
+		return state
+	for t: TankState in state.tanks:
+		if t.alive and r.chance(1, 4):
+			var shields: Array[String] = ["glow_shield", "ion_shield", "fortress_field"]
+			var id: String = shields[r.range_int(0, 2)]
+			t.shield_type = Catalog.index_of(id)
+			t.shield_hp = r.range_int(5, ItemDefs.get_def(id)["hp"] as int)
+		if r.chance(1, 8):
+			t.repulsor_charge = r.range_int(10, 100)
+	state.wind = r.range_int(-100, 100)
+	if state.wells.is_empty() and r.chance(1, 4):
+		state.wells.append({"owner": r.range_int(0, n - 1), "x": r.range_int(300, 1300), "y": r.range_int(200, 600),
+				"expires_turn": state.turn_number + 5})
+	return state

@@ -22,11 +22,18 @@ extends RefCounted
 const CORRECTABLE: PackedStringArray = ["explode", "splitter", "dirt"]
 const PIT_DEPTH: int = 25
 const CLUSTER_RADIUS: int = 110
+## Ticks a roller is followed when judging whether it reaches the target.
+const ROLL_LOOKAHEAD: int = 160
+## Beyond this many real traces in one decision, plans are no longer confirmed by a trace
+## (the hard limit is AimSolver.TRACE_BUDGET).
+const SOFT_TRACE_CAP: int = 8
+## A Seeker steers itself onto the target, so its aim may be this far off (cells).
+const SEEKER_TOL: int = 40
 
 
 static func choose_and_plan(sit: AiSituation) -> Dictionary:
 	for id: String in _candidates(sit):
-		var plan: Dictionary = _plan_for(sit, id)
+		var plan: Dictionary = plan_for(sit, id)
 		if not plan.is_empty() and plan["ok"]:
 			return plan
 	# Nothing aimed cleanly: shoot the best-effort plain solution with a basic missile.
@@ -71,6 +78,7 @@ static func _normal(sit: AiSituation, out: Array[String]) -> void:
 		_add_if_owned(sit, out, "nova_core")
 	if absi(sit.state.wind) >= 50 and sit.target.id == sit.nearest_id:
 		_add_if_owned(sit, out, "seeker")
+	# At long range a spread of shells forgives some of its own error.
 	if sit.dist >= 700:
 		_add_if_owned(sit, out, "prism_splitter")
 	if hp > 55:
@@ -105,7 +113,9 @@ static func _expert_or_hard(sit: AiSituation, out: Array[String]) -> void:
 		_add_if_owned(sit, out, "prism_cascade")
 		_add_if_owned(sit, out, "prism_splitter")
 	_plain_by_health(sit, out, expert)
-	if not _has_damage_weapon(sit):
+	# Burying a tank makes its next shot explode in its own barrel; worth a try when there is
+	# no real missile in the rack (a Spark Dart only scratches a healthy target).
+	if not _has_damage_weapon(sit) and t.health >= 60 and sit.rng.chance(1, 3):
 		_add_if_owned(sit, out, "landslide")
 		_add_if_owned(sit, out, "mound_mortar")
 
@@ -143,15 +153,15 @@ static func _clustered(sit: AiSituation) -> bool:
 	return false
 
 
-## True when the target sits in a hollow: the ground 50 cells towards us is clearly higher.
+## True when the target sits in a hollow: the ground 70 cells towards us is clearly higher.
 static func _in_pit(sit: AiSituation) -> bool:
-	var rim_x: int = clampi(sit.target.x - sit.ctx.dir * 50, 0, sit.state.terrain.width - 1)
+	var rim_x: int = clampi(sit.target.x - sit.ctx.dir * 70, 0, sit.state.terrain.width - 1)
 	return sit.flight.surface(rim_x) <= sit.target.y - PIT_DEPTH
 
 
 # --- planning per weapon ------------------------------------------------------------------------------
 
-static func _plan_for(sit: AiSituation, id: String) -> Dictionary:
+static func plan_for(sit: AiSituation, id: String) -> Dictionary:
 	var def: Dictionary = WeaponDefs.get_def(id)
 	var behavior: String = def.get("behavior", "")
 	match behavior:
@@ -174,12 +184,23 @@ static func _plan_for(sit: AiSituation, id: String) -> Dictionary:
 	return {}
 
 
-static func _plan(id: String, base: Dictionary, corrected: bool, prev_power: int) -> Dictionary:
+## Confirms a plan with the real trace when the model might be wrong (AimSolver.needs_verify).
+static func _check(sit: AiSituation, plan: Dictionary, phys: String, aim_x: int,
+		mode: int = AimSolver.MODE_LAND, extra: int = 0) -> Dictionary:
+	if AimSolver.trace_count >= SOFT_TRACE_CAP or not AimSolver.needs_verify(sit.ctx, sit.target.id, aim_x, phys):
+		return plan
+	return AimSolver.verify(sit.ctx, plan, phys, sit.target.id, aim_x, mode, extra)
+
+
+static func _plan(id: String, base: Dictionary, corrected: bool, prev_power: int,
+		tol: int = AimSolver.TOL_ACCEPT) -> Dictionary:
 	var ok: bool = false
-	if base.get("verified", false):
-		ok = base["hit"] or absi(base["real_err"] as int) <= AimSolver.TOL_ACCEPT
+	if base.has("tunnel_ok"):
+		ok = base["tunnel_ok"]
+	elif base.get("verified", false):
+		ok = base["hit"] or absi(base["real_err"] as int) <= tol
 	else:
-		ok = absi(base["err"] as int) <= AimSolver.TOL_ACCEPT
+		ok = absi(base["err"] as int) <= tol
 	return {"weapon": id, "angle": base["angle"], "power": base["power"], "ok": ok,
 			"corrected": corrected, "prev_power": prev_power}
 
@@ -187,64 +208,85 @@ static func _plan(id: String, base: Dictionary, corrected: bool, prev_power: int
 ## Ordinary arc onto `aim_x`. With `use_corr` the aim is shifted by the last miss at this
 ## target (when there is one and the weapon's flight matches).
 static func _plain_plan(sit: AiSituation, id: String, aim_x: int, phys: String, use_corr: bool) -> Dictionary:
+	var tol: int = SEEKER_TOL if phys == "seeker" else AimSolver.TOL_ACCEPT
 	if use_corr and not sit.corr.is_empty():
 		var corrected: Dictionary = _corrected_plan(sit, id, phys)
 		if not corrected.is_empty():
 			return corrected
-	var base: Dictionary = sit.direct if aim_x == sit.target.x else \
-			AimSolver.solve_direct(sit.ctx, aim_x, sit.a0)
-	var checked: Dictionary = AimSolver.verify(sit.ctx, base, phys, sit.target.id, aim_x)
-	return _plan(id, checked, false, 0)
+	var key: String = "%d/%s" % [aim_x, phys]
+	if not sit.memo.has(key):
+		var base: Dictionary = sit.direct if aim_x == sit.target.x else \
+				AimSolver.solve_direct(sit.ctx, aim_x, sit.a0)
+		sit.memo[key] = _check(sit, base, phys, aim_x)
+	return _plan(id, sit.memo[key], false, 0, tol)
 
 
 ## Same angle as the last shot, aimed so that last shot's observed error is cancelled.
 static func _corrected_plan(sit: AiSituation, id: String, phys: String) -> Dictionary:
-	var aim_x: int = sit.target.x - (sit.corr["d"] as int)
-	var plan: Dictionary = AimSolver.solve_power(sit.ctx, sit.corr["angle"], aim_x)
-	if absi(plan["err"] as int) > AimSolver.TOL_ACCEPT:
+	var key: String = "corr/%s" % phys
+	if not sit.memo.has(key):
+		var aim_x: int = sit.target.x - (sit.corr["d"] as int)
+		var plan: Dictionary = AimSolver.solve_power(sit.ctx, sit.corr["angle"], aim_x)
+		var checked: Dictionary = {}
+		if absi(plan["err"] as int) <= AimSolver.TOL_ACCEPT:
+			checked = _check(sit, plan, phys, aim_x)
+		sit.memo[key] = checked
+	var cached: Dictionary = sit.memo[key]
+	if cached.is_empty():
 		return {}
-	var checked: Dictionary = AimSolver.verify(sit.ctx, plan, phys, sit.target.id, aim_x)
-	var out: Dictionary = _plan(id, checked, true, sit.corr["power"])
-	if not out["ok"]:
-		return {}
-	return out
+	var out: Dictionary = _plan(id, cached, true, sit.corr["power"])
+	return out if out["ok"] else {}
 
 
 static func _plan_well(sit: AiSituation, id: String) -> Dictionary:
 	# Land on the target itself: the well then bends our later shells in onto it.
-	var base: Dictionary = AimSolver.verify(sit.ctx, sit.direct, "pulse_missile", sit.target.id, sit.target.x)
+	var base: Dictionary = _check(sit, sit.direct, "pulse_missile", sit.target.x)
 	return _plan(id, base, false, 0)
 
 
 static func _plan_roller(sit: AiSituation, id: String, def: Dictionary) -> Dictionary:
 	if not _in_pit(sit):
 		return {}
-	for off: int in [35, 60]:
+	var saved_row: int = sit.ctx.row
+	sit.ctx.row = -1  # a roller is judged by where it touches the ground
+	var result: Dictionary = {}
+	for off: int in [22, 35, 55, 80]:
 		var aim_x: int = clampi(sit.target.x - sit.ctx.dir * off, 0, sit.state.terrain.width - 1)
-		var plan: Dictionary = AimSolver.solve_direct(sit.ctx, aim_x, sit.a0)
-		if not plan["ok"]:
-			continue
-		var rolled: Dictionary = RollerBehavior.roll(sit.state, plan["impact_x"], def["speed"], def["max_roll"],
-				PackedInt32Array())
+		# Would a roller put down on this column roll into the target? (cheap: no flight yet)
+		var rolled: Dictionary = RollerBehavior.roll(sit.state, aim_x, def["speed"],
+				mini(def["max_roll"] as int, ROLL_LOOKAHEAD), PackedInt32Array())
 		if not rolled["started"]:
 			continue
-		if rolled["contact"] or absi((rolled["x"] as int) - sit.target.x) <= 14:
-			var checked: Dictionary = AimSolver.verify(sit.ctx, plan, "pulse_missile", sit.target.id, aim_x)
-			return _plan(id, checked, false, 0)
-	return {}
+		if not (rolled["contact"] or absi((rolled["x"] as int) - sit.target.x) <= 14):
+			continue
+		var plan: Dictionary = AimSolver.solve_direct(sit.ctx, aim_x, sit.a0)
+		if plan["ok"]:
+			result = _plan(id, _check(sit, plan, "pulse_missile", aim_x), false, 0)
+			break
+	sit.ctx.row = saved_row
+	return result
 
 
-## Only for a target no lob reaches: bore into the hill and let the tunnel carry on.
+## Only for a target no lob reaches: bore into the hill and let the tunnel carry on. After a
+## first bore at this target the same angle is kept and the power corrected, like any bracket.
 static func _plan_tunneler(sit: AiSituation, id: String, def: Dictionary) -> Dictionary:
 	if sit.direct["ok"]:
 		return {}
-	var plan: Dictionary = AimSolver.solve_direct(sit.ctx, sit.target.x, sit.a0, AimSolver.MODE_TUNNEL,
-			def["length"], AimSolver.TOL_ACCEPT + 6)
-	if not plan["ok"]:
+	if not sit.corr.is_empty() and _last_was_tunneler(sit):
+		var a_dir: int = sit.corr["angle"] if sit.ctx.dir > 0 else SimConstants.MAX_ANGLE - (sit.corr["angle"] as int)
+		var same: Dictionary = AimSolver.solve_tunnel(sit.ctx, sit.target.x, sit.target.y, def["length"],
+				def["r"], [a_dir] as Array[int])
+		if same["tunnel_ok"]:
+			return _plan(id, same, true, sit.corr["power"], def["r"])
+	var plan: Dictionary = AimSolver.solve_tunnel(sit.ctx, sit.target.x, sit.target.y, def["length"], def["r"])
+	if not plan["tunnel_ok"]:
 		return {}
-	var checked: Dictionary = AimSolver.verify(sit.ctx, plan, "pulse_missile", sit.target.id, sit.target.x,
-			AimSolver.MODE_TUNNEL, def["length"])
-	return _plan(id, checked, false, 0)
+	return _plan(id, plan, false, 0, def["r"])
+
+
+static func _last_was_tunneler(sit: AiSituation) -> bool:
+	var last: Dictionary = WeaponDefs.get_def(Catalog.id_at(sit.me.last_fire_weapon))
+	return last.get("behavior", "") == "tunneler"
 
 
 ## Photon Lance: aim the straight line at the target's middle; it only counts if the first
@@ -276,11 +318,14 @@ static func _plan_anchor(sit: AiSituation, id: String, def: Dictionary) -> Dicti
 			best_x = ix
 	if best_x < 0:
 		return {}
+	var saved_row: int = sit.ctx.row
+	sit.ctx.row = -1  # the anchor needs a ground impact at that column
 	var plan: Dictionary = AimSolver.solve_direct(sit.ctx, best_x, sit.a0)
-	if not plan["ok"]:
-		return {}
-	var checked: Dictionary = AimSolver.verify(sit.ctx, plan, "pulse_missile", sit.target.id, best_x)
-	return _plan(id, checked, false, 0)
+	var result: Dictionary = {}
+	if plan["ok"]:
+		result = _plan(id, _check(sit, plan, "pulse_missile", best_x), false, 0)
+	sit.ctx.row = saved_row
+	return result
 
 
 ## Fall damage the target would take if it were dragged towards column `ix` (mirrors

@@ -23,6 +23,9 @@ var corr: Dictionary = {}
 var dist: int = 0
 ## Id of the enemy closest to this tank (a Seeker locks on to that one).
 var nearest_id: int = -1
+## Verified aim solutions already worked out in this decision, by "aim_x/physics/corrected", so
+## that weapons with the same flight do not search (or trace) twice.
+var memo: Dictionary = {}
 
 
 func owns(weapon_id: String) -> bool:

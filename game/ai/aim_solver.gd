@@ -28,8 +28,16 @@ const VERIFY_TICKS: int = 700
 const TOL_ACCEPT: int = 14
 const TOL_SEARCH: int = 3
 const VERIFY_TOL: int = 6
-const MAX_VERIFY: int = 3
+const MAX_VERIFY: int = 2
 const MAX_EVALS: int = 8
+## A plan is only preferred if the shell still comes down near the aim point when the power is
+## off by +-ROBUST_PM per-mille: this avoids shots that just clear a crest and would
+## land far short if the power were a hair lower.
+const ROBUST_PM: int = 8
+## Model flights one decision may spend (about 0.3 ms each): a hopeless target (out of range,
+## walled in) stops the angle search instead of grinding through every angle.
+const MODEL_BUDGET: int = 45
+const ROBUST_TOL: int = 45
 
 ## What the power search measures.
 const MODE_LAND: int = 0  # where the shell comes down
@@ -38,6 +46,8 @@ const MODE_TUNNEL: int = 1  # where a tunneler's bore ends (extra = bore length)
 ## Steeper alternatives tried (tenths of a degree away from the horizontal) when the preferred
 ## angle cannot reach the aim point.
 const FALLBACK_ANGLES: Array[int] = [640, 720, 800, 860, 340]
+## Angles tried for a tunneler (flat enough that the bore runs on towards the target).
+const TUNNEL_ANGLES: Array[int] = [180, 300, 420]
 
 ## Debug counters, read by the tests.
 static var trace_count: int = 0
@@ -57,6 +67,12 @@ class Ctx extends RefCounted:
 	var flight: AiFlight = null
 	## x where the model's last evaluated shot came down (not the tunnel end).
 	var impact_x: int = 0
+	## Row (y) a shot is also judged at: the model ends a flight when the shell, on its way
+	## down, reaches it, if that happens before it hits the ground. -1 = judge by the ground
+	## only. For a tank target this is the middle of its hit box, so craters and pits around
+	## the target do not fool the aim (the shell is meant to pass through the box, not to dig in
+	## below it).
+	var row: int = -1
 
 
 static func reset_budget() -> void:
@@ -106,7 +122,7 @@ static func actual_angle(ctx: Ctx, a_dir: int) -> int:
 
 static func _objective(ctx: Ctx, angle: int, power: int, mode: int, extra: int) -> int:
 	var fl: AiFlight = ctx.flight
-	fl.fly_shot(ctx.sx, ctx.sy, angle, power, ctx.wind, MODEL_TICKS)
+	fl.fly_shot(ctx.sx, ctx.sy, angle, power, ctx.wind, MODEL_TICKS, -1 if mode == MODE_TUNNEL else ctx.row)
 	model_count += 1
 	ctx.impact_x = fl.r_x
 	if mode == MODE_TUNNEL and fl.r_reason == AiFlight.REASON_TERRAIN:
@@ -181,18 +197,105 @@ static func solve_power(ctx: Ctx, angle: int, aim_x: int, mode: int = MODE_LAND,
 static func solve_direct(ctx: Ctx, aim_x: int, a0_dir: int, mode: int = MODE_LAND, extra: int = 0,
 		tol: int = TOL_ACCEPT) -> Dictionary:
 	var best: Dictionary = {}
+	var first_ok: Dictionary = {}
+	var robust: bool = false
 	var order: Array[int] = [a0_dir]
 	for a: int in FALLBACK_ANGLES:
 		if absi(a - a0_dir) >= 40:
 			order.append(a)
 	for a_dir: int in order:
+		if not best.is_empty() and model_count >= MODEL_BUDGET:
+			break
 		var plan: Dictionary = solve_power(ctx, actual_angle(ctx, a_dir), aim_x, mode, extra)
 		if best.is_empty() or absi(plan["err"] as int) < absi(best["err"] as int):
 			best = plan
 		if absi(plan["err"] as int) <= tol:
-			break
+			if first_ok.is_empty():
+				first_ok = plan
+			if _is_robust(ctx, plan, aim_x, mode, extra):
+				best = plan
+				robust = true
+				break
+	if not first_ok.is_empty() and not robust:
+		best = first_ok  # nothing was robust: settle for the first one that works
 	best["ok"] = absi(best["err"] as int) <= tol
 	return best
+
+
+## True if the same angle with the power a little lower and a little higher still lands within
+## ROBUST_TOL of the aim point.
+static func _is_robust(ctx: Ctx, plan: Dictionary, aim_x: int, mode: int, extra: int) -> bool:
+	var p: int = plan["power"]
+	var delta: int = maxi(2, p * ROBUST_PM / 1000)
+	for q: int in [maxi(1, p - delta), mini(SimConstants.MAX_POWER, p + delta)]:
+		var land: int = _objective(ctx, plan["angle"], q, mode, extra)
+		if absi(land - aim_x) > ROBUST_TOL:
+			return false
+	return true
+
+
+## Aim for a tunneler (Bore Shell / Deep Bore): it digs on along its flight direction after it
+## hits the ground, so a good shot is one whose bore comes out at the target. The bore end
+## depends on both the angle and the power, so this scans a few flat-to-medium angles with a
+## coarse power sweep and then refines the best one. Returns {angle, power, err, tunnel_ok}: err is
+## the distance from the bore end to the target's box (cells); tunnel_ok when <= blast_r - 2.
+static func solve_tunnel(ctx: Ctx, tx: int, ty: int, length: int, blast_r: int,
+		angles: Array[int] = TUNNEL_ANGLES) -> Dictionary:
+	var best_d: int = 1 << 30
+	var best_angle: int = 0
+	var best_p: int = 1
+	for a_dir: int in angles:
+		var angle: int = actual_angle(ctx, a_dir)
+		for p: int in range(250, SimConstants.MAX_POWER + 1, 100):
+			var d: int = _bore_miss(ctx, angle, p, tx, ty, length)
+			if d < best_d:
+				best_d = d
+				best_angle = angle
+				best_p = p
+	var centre: int = best_p
+	for p: int in range(maxi(1, centre - 100), mini(SimConstants.MAX_POWER, centre + 100) + 1, 12):
+		var d: int = _bore_miss(ctx, best_angle, p, tx, ty, length)
+		if d < best_d:
+			best_d = d
+			best_p = p
+	return {"angle": best_angle, "power": best_p, "err": best_d, "impact_x": 0, "land_x": 0,
+			"tunnel_ok": best_d <= blast_r - 2}
+
+
+## Distance (cells) from where a bore would end to the target's hit box; huge if the shell
+## never reaches the ground.
+static func _bore_miss(ctx: Ctx, angle: int, power: int, tx: int, ty: int, length: int) -> int:
+	var fl: AiFlight = ctx.flight
+	fl.fly_shot(ctx.sx, ctx.sy, angle, power, ctx.wind, MODEL_TICKS)
+	model_count += 1
+	if fl.r_reason != AiFlight.REASON_TERRAIN:
+		return 1 << 20
+	var end: Vector2i = TunnelerBehavior.bore_end(ctx.state, fl.r_px, fl.r_py, fl.r_vx, fl.r_vy, length)
+	var dx: int = maxi(absi(end.x - tx) - SimConstants.TANK_W / 2, 0)
+	var dy: int = maxi(absi(end.y - (ty - SimConstants.TANK_H / 2)) - SimConstants.TANK_H / 2, 0)
+	return FixedMath.isqrt(dx * dx + dy * dy)
+
+
+## True when the cheap model could be wrong about this shot: somebody's repulsor field is
+## near the line of fire, a teammate stands in it (a real shell would stop there), or the
+## weapon steers itself. Otherwise the model is exact (the same physics, gravity wells
+## included) and the real trace is skipped to save time. (An enemy standing in the way is not
+## a reason: the shell would just hit that enemy instead.)
+static func needs_verify(ctx: Ctx, target_id: int, aim_x: int, phys_weapon: String) -> bool:
+	var state: MatchState = ctx.state
+	if phys_weapon != "pulse_missile":
+		return true
+	var me_team: int = state.tanks[ctx.me].team
+	var lo: int = mini(ctx.sx, aim_x) - 40
+	var hi: int = maxi(ctx.sx, aim_x) + 40
+	for t: TankState in state.tanks:
+		if not t.alive or t.id == ctx.me:
+			continue
+		if t.repulsor_charge > 0 and t.x >= lo - 60 and t.x <= hi + 60:
+			return true
+		if t.id != target_id and t.team == me_team and t.x >= lo and t.x <= hi:
+			return true
+	return false
 
 
 ## Confirms `plan` with the real trace of `phys_weapon` (a weapon id whose flight matches the
@@ -236,8 +339,8 @@ static func verify(ctx: Ctx, plan: Dictionary, phys_weapon: String, target_id: i
 ## wind the AI believed at that time. Used to read how far off an old shot was without being
 ## confused by the crater it left behind.
 static func model_x_at_row(flight: AiFlight, sx: int, sy: int, angle: int, power: int, wind: int,
-		y: int) -> int:
-	flight.fly_shot(sx, sy, angle, power, wind, MODEL_TICKS, y)
+		y: int, split_dvx: int = 0) -> int:
+	flight.fly_shot(sx, sy, angle, power, wind, MODEL_TICKS, y, split_dvx)
 	model_count += 1
 	return flight.r_x
 

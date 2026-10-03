@@ -23,7 +23,7 @@ extends RefCounted
 
 const SHIELDS: Array[String] = ["fortress_field", "ion_shield", "glow_shield"]
 ## Last-shot weapon behaviours whose landing point is a fair reading of the aim error.
-const CORRECTABLE_LAST: PackedStringArray = ["explode", "tunneler", "dirt"]
+const CORRECTABLE_LAST: PackedStringArray = ["explode", "tunneler", "dirt", "splitter"]
 const MAX_CORRECTION: int = 400
 
 
@@ -94,11 +94,11 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	var prep: Dictionary = _prepare(state, me, prof, level, enemies)
 	if not prep.is_empty():
 		return prep
-	var sit: AiSituation = _situation(state, me, level, prof, enemies)
+	var sit: AiSituation = situation(state, me, level, prof, enemies)
 	var walk: Dictionary = _maybe_move(sit)
 	if not walk.is_empty():
 		return walk
-	return _finalize(sit, AiWeapons.choose_and_plan(sit))
+	return finalize(sit, AiWeapons.choose_and_plan(sit))
 
 
 # --- items ---------------------------------------------------------------------------------------------
@@ -134,7 +134,7 @@ static func _prepare(state: MatchState, me: TankState, prof: Dictionary, level: 
 
 # --- aiming ----------------------------------------------------------------------------------------------
 
-static func _situation(state: MatchState, me: TankState, level: int, prof: Dictionary,
+static func situation(state: MatchState, me: TankState, level: int, prof: Dictionary,
 		enemies: Array[TankState]) -> AiSituation:
 	var sit := AiSituation.new()
 	sit.state = state
@@ -148,8 +148,9 @@ static func _situation(state: MatchState, me: TankState, level: int, prof: Dicti
 	sit.dist = absi(sit.target.x - me.x)
 	var dir: int = 1 if sit.target.x >= me.x else -1
 	var wind: int = state.wind * (prof["wind_use"] as int) / 1000
-	sit.flight = AiFlight.new(state.terrain)
+	sit.flight = AiFlight.new(state.terrain, state.wells)
 	sit.ctx = AimSolver.new_ctx(state, me.id, me.x, me.y, wind, dir, sit.flight)
+	sit.ctx.row = sit.target.y - SimConstants.TANK_H / 2
 	sit.a0 = 450 + sit.rng.range_int(-70, 70)
 	sit.direct = AimSolver.solve_direct(sit.ctx, sit.target.x, sit.a0)
 	sit.corr = correction_for(sit)
@@ -163,9 +164,14 @@ static func correction_for(sit: AiSituation) -> Dictionary:
 	var me: TankState = sit.me
 	if me.last_fire_weapon < 0 or me.last_fire_x < 0 or me.last_fire_y < 0:
 		return {}
-	var behavior: String = WeaponDefs.get_def(Catalog.id_at(me.last_fire_weapon)).get("behavior", "")
+	var last_def: Dictionary = WeaponDefs.get_def(Catalog.id_at(me.last_fire_weapon))
+	var behavior: String = last_def.get("behavior", "")
 	if not CORRECTABLE_LAST.has(behavior):
 		return {}
+	# A splitter reports where its first child landed; the model flies that child.
+	var split_dvx: int = 0
+	if behavior == "splitter":
+		split_dvx = Ballistics.child_vx(0, 0, last_def["children"], last_def["spread"])
 	var last_dir: int = 1 if me.last_fire_angle < 900 else -1
 	if me.last_fire_angle != 900 and last_dir != sit.ctx.dir:
 		return {}
@@ -173,7 +179,7 @@ static func correction_for(sit: AiSituation) -> Dictionary:
 		return {}
 	var wind_then: int = me.last_fire_wind * (sit.prof["wind_use"] as int) / 1000
 	var model_x: int = AimSolver.model_x_at_row(sit.flight, me.x, me.y, me.last_fire_angle,
-			me.last_fire_power, wind_then, me.last_fire_y)
+			me.last_fire_power, wind_then, me.last_fire_y, split_dvx)
 	if absi(sit.flight.r_y - me.last_fire_y) > 15:
 		return {}
 	var d: int = me.last_fire_x - model_x
@@ -184,7 +190,7 @@ static func correction_for(sit: AiSituation) -> Dictionary:
 
 ## Turns the exact plan into the shot the AI actually fires: bias and noise on the first shot
 ## at a target, a partial correction on later ones.
-static func _finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
+static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 	var me: TankState = sit.me
 	var prof: Dictionary = sit.prof
 	var bias: int = round_bias(sit.state, me.id, prof)
@@ -193,7 +199,13 @@ static func _finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 	var power: int = plan["power"]
 	if plan.get("beam", false):
 		# A straight beam has no power: the same inner error shows up as a small angle error.
-		angle = clampi(angle + (bias + noise) / 8, 0, SimConstants.MAX_ANGLE)
+		var err: int = (bias + noise) / 8
+		var flat: bool = angle < 12 or angle > SimConstants.MAX_ANGLE - 12
+		if flat:
+			# Level with the target the beam can only err away from the box's top edge; a
+			# human would aim along the ground, so the error is folded towards the horizontal.
+			err = -absi(err) if angle < 900 else absi(err)
+		angle = clampi(angle + err, 0, SimConstants.MAX_ANGLE)
 	elif plan["corrected"]:
 		var prev: int = plan["prev_power"]
 		power = prev + (power - prev) * (prof["correction"] as int) / 1000
@@ -226,6 +238,7 @@ static func _maybe_move(sit: AiSituation) -> Dictionary:
 			continue
 		var dir: int = 1 if sit.target.x >= dest.x else -1
 		var ctx: AimSolver.Ctx = AimSolver.new_ctx(sit.state, me.id, dest.x, dest.y, sit.ctx.wind, dir, sit.flight)
+		ctx.row = sit.ctx.row
 		var plan: Dictionary = AimSolver.solve_direct(ctx, sit.target.x, sit.a0)
 		if plan["ok"]:
 			return {"kind": "move", "tank": me.id, "dx": dx}
