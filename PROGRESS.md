@@ -69,7 +69,7 @@
 | M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | ✅ reviewed (31 sfx, 1.4 MB; needs ear-check on device) |
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | ✅ reviewed (327 show+ui tests) |
 | M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | ✅ reviewed (APK 79 MB arm64; AAB 53 MB both ABIs; CI to verify) |
-| M5-E Entitlement service, free/full gating UI, Unlock screen, Play Billing setup guide | show-ui-dev | 🟡 running |
+| M5-E Entitlement service, free/full gating UI, Unlock screen, Play Billing setup guide | show-ui-dev | ✅ reviewed (real purchases need Play Console setup) |
 | M5-S Skin Studio (editor, local skins, image import for full) | show-ui-dev | ✅ reviewed (Android picker untested on device) |
 | M5-P Polish: shop quantity steppers, left-handed layout, multi-touch, camera-follow toggle in Settings + persistence, overlay fade-out, smoother Ice Circuit moon, Skin Studio preview framing + phone slider scrolling | show-ui-dev | ⬜ wave 3 |
 | M5-Q QA pass | qa-tester | ⬜ end |
@@ -89,12 +89,15 @@
 ## Carry-overs for M3 (from QA) — all ✅ done in M3
 
 ## Notes for later milestones
+- Possible stalemate: two CPUs that can't reach each other (e.g. Spark Dart only, far apart, headwind) never move. Consider a CPU 'move closer' fallback or a round turn limit (sudden death) in a later polish pass.
 - Team mode (if added later): AI already guards teammates from splash after M4-F; ally-lob verification exists but is unexercised while team == id.
 - Aim adjustments made before an autosave aren't restored (aim isn't in sim state); tank returns to its stored angle/power.
 - Shop buys 1 bundle / sells 1 unit per tap; consider quantity steppers in M5 polish.
 - Seeds for golden fixtures v2 were searched for full weapon/item coverage; re-search if the QA bot changes.
 
 ## Open items for the owner
+- Test builds now start in the **free** version. Debug toggle: Settings → tap version 5× → "Debug: full version".
+- Play Billing: follow `docs/PLAY_BILLING_SETUP.md` once the Play developer account exists (product id `full_unlock`).
 - Pick a final title (PLAN.md §2); "Craterline" is the working title.
 - ✅ Network domains added (GitHub release downloads still blocked by per-repo policy; mirror workaround planned).
 - Create a new Google Play developer account during M2–M3; line up 12+ testers for the 14-day closed test (start ~M5–M6).
