@@ -12,6 +12,7 @@ const REQUIRED: Array[String] = [
 	"shield_up", "shield_hit", "shield_break", "repulsor_pulse",
 	"chute_pop", "repair_chime", "money_gain", "money_loss", "tank_destroyed", "round_win", "match_win",
 	"ui_tap", "ui_back", "ui_purchase", "ui_locked", "cpu_think_tick", "turn_blip",
+	"love_fire", "heart_burst", "love_win", "love_found",
 ]
 const PATH: String = "user://test_audio_settings.cfg"
 
@@ -140,9 +141,10 @@ func _event_table() -> Array:
 		[{"type": "explosion", "radius": 90}, "explosion_large"],
 		[{"type": "explosion", "radius": 160}, "explosion_nuke"],
 		[{"type": "terrain_carve", "radius": 20}, ""],
-		# Love mode (docs/ARCHITECTURE.md section 37): silent until the Love Edition sound effects exist.
-		[{"type": "heart_burst", "radius": 30}, ""],
-		[{"type": "love", "tank": 1, "amount": 34}, ""],
+		# Love mode (docs/ARCHITECTURE.md section 37).
+		[{"type": "heart_burst", "radius": 30}, "heart_burst"],
+		[{"type": "love", "tank": 1, "amount": 34}, "love_fire"],
+		[{"type": "fire", "weapon": "heart"}, "love_fire"],
 		[{"type": "terrain_settle", "falls": [{"x": 3, "from": 10, "to": 14}]}, "terrain_crumble"],
 		[{"type": "terrain_settle", "falls": []}, ""],
 		[{"type": "tunnel"}, "terrain_crumble"],

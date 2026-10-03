@@ -71,25 +71,60 @@ static func draw(item: CanvasItem, center: Vector2, size: float, color: Color, f
 	item.draw_polyline(closed, color.lightened(0.25) if fill >= 1.0 else color, maxf(1.0, size * 0.14), true)
 
 
+## Anti-aliased coverage (0..1 per pixel, row-major) of a heart of half-width `size` px centred in a
+## `px` x `px` image, from 3x3 samples per pixel against the outline polygon.
+static func coverage(px: int, size: float) -> PackedFloat32Array:
+	var poly: PackedVector2Array = outline(Vector2(float(px) * 0.5, float(px) * 0.5), size)
+	var out := PackedFloat32Array()
+	out.resize(px * px)
+	for y: int in range(px):
+		for x: int in range(px):
+			var hits: int = 0
+			for sy: int in range(3):
+				for sx: int in range(3):
+					if Geometry2D.is_point_in_polygon(Vector2(float(x) + (float(sx) + 0.5) / 3.0, float(y) + (float(sy) + 0.5) / 3.0), poly):
+						hits += 1
+			out[y * px + x] = float(hits) / 9.0
+	return out
+
+
+## `src` blurred with a box of `radius` px, `passes` times (a cheap soft glow).
+static func blur(src: PackedFloat32Array, px: int, radius: int, passes: int = 2) -> PackedFloat32Array:
+	var cur: PackedFloat32Array = src.duplicate()
+	var tmp := PackedFloat32Array()
+	tmp.resize(px * px)
+	for _p: int in range(passes):
+		for y: int in range(px):
+			for x: int in range(px):
+				var acc: float = 0.0
+				for k: int in range(-radius, radius + 1):
+					acc += cur[y * px + clampi(x + k, 0, px - 1)]
+				tmp[y * px + x] = acc / float(radius * 2 + 1)
+		for y: int in range(px):
+			for x: int in range(px):
+				var acc: float = 0.0
+				for k: int in range(-radius, radius + 1):
+					acc += tmp[clampi(y + k, 0, px - 1) * px + x]
+				cur[y * px + x] = acc / float(radius * 2 + 1)
+	return cur
+
+
 ## A crisp heart as a texture for Button.icon (cached per colour and size).
 static func icon_texture(color: Color, px: int = 64) -> ImageTexture:
 	var key: String = "%s_%d" % [color.to_html(true), px]
 	if _icons.has(key):
 		return _icons[key] as ImageTexture
+	var cov: PackedFloat32Array = coverage(px, float(px) * 0.47)
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
-	var half: float = float(px) * 0.5
 	for y: int in range(px):
 		for x: int in range(px):
-			var f: float = implicit(Vector2((float(x) + 0.5 - half) / half, (float(y) + 0.5 - half) / half))
-			var a: float = clampf(0.5 - f * float(px) * 0.09, 0.0, 1.0)
-			img.set_pixel(x, y, Color(color, color.a * a))
+			img.set_pixel(x, y, Color(color, color.a * cov[y * px + x]))
 	var tex: ImageTexture = ImageTexture.create_from_image(img)
 	_icons[key] = tex
 	return tex
 
 
-## The implicit heart function on a -1..1 box (negative inside), shared by the textures. The box is
-## stretched to 1.3 so the heart leaves room for a halo.
+## The implicit heart function on a -1..1 box (negative inside); the sky shader uses the same curve.
 static func implicit(u: Vector2) -> float:
 	var x: float = u.x * 1.3
 	var y: float = -u.y * 1.3 + 0.12

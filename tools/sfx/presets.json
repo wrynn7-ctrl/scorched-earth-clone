@@ -149,6 +149,27 @@
     "turn_blip": {"seed": 66, "layers": [
       {"wave": "triangle", "notes": [[72, 0.0, 0.05], [79, 0.07, 0.07]], "attack": 0.003, "decay": 0.1, "lp": 5000},
       {"wave": "sine", "notes": [[84, 0.07, 0.05]], "attack": 0.003, "decay": 0.1, "gain": 0.2}
+    ]},
+
+    "love_fire": {"seed": 71, "layers": [
+      {"wave": "sine", "notes": [[81, 0.0, 0.05], [88, 0.07, 0.09]], "attack": 0.004, "decay": 0.35, "curve": 2.0, "gain": 0.9},
+      {"wave": "triangle", "notes": [[93, 0.0, 0.05], [100, 0.07, 0.09]], "attack": 0.003, "decay": 0.22, "gain": 0.2}
+    ]},
+    "heart_burst": {"seed": 72, "layers": [
+      {"wave": "sine", "notes": [[88, 0.0, 0.04], [91, 0.05, 0.04], [95, 0.1, 0.04], [100, 0.15, 0.04], [103, 0.2, 0.04], [107, 0.25, 0.06]], "attack": 0.002, "decay": 0.28, "curve": 2.0, "gain": 0.7},
+      {"wave": "triangle", "notes": [[100, 0.03, 0.04], [105, 0.09, 0.04], [108, 0.16, 0.04]], "attack": 0.002, "decay": 0.2, "gain": 0.3},
+      {"wave": "noise", "freq": 0, "hp": 6000, "attack": 0.001, "sustain": 0.02, "decay": 0.18, "gain": 0.12, "am_rate": 22, "am_depth": 0.5}
+    ]},
+    "love_win": {"seed": 73, "layers": [
+      {"wave": "sine", "notes": [[72, 0.0, 0.12], [76, 0.14, 0.12], [79, 0.28, 0.12], [84, 0.42, 0.12], [88, 0.56, 0.12], [91, 0.7, 0.12], [96, 0.84, 0.55]], "attack": 0.004, "decay": 0.3, "curve": 2.0},
+      {"wave": "triangle", "notes": [[79, 0.84, 0.55], [84, 0.84, 0.55], [88, 0.84, 0.55]], "attack": 0.01, "decay": 0.5, "gain": 0.35},
+      {"wave": "triangle", "notes": [[48, 0.0, 0.4], [55, 0.42, 0.4], [48, 0.84, 0.6]], "attack": 0.01, "decay": 0.4, "lp": 900, "gain": 0.45},
+      {"wave": "sine", "notes": [[103, 0.84, 0.5], [108, 1.0, 0.4]], "attack": 0.004, "decay": 0.5, "gain": 0.16}
+    ]},
+    "love_found": {"seed": 74, "layers": [
+      {"wave": "sine", "notes": [[88, 0.0, 0.08], [95, 0.12, 0.08], [100, 0.24, 0.3]], "attack": 0.004, "decay": 0.6, "curve": 2.0, "gain": 0.85},
+      {"wave": "triangle", "notes": [[100, 0.0, 0.08], [107, 0.12, 0.08], [112, 0.24, 0.3]], "attack": 0.003, "decay": 0.45, "gain": 0.22},
+      {"wave": "noise", "freq": 0, "hp": 7000, "attack": 0.001, "sustain": 0.03, "decay": 0.3, "delay": 0.24, "gain": 0.1, "am_rate": 18, "am_depth": 0.6}
     ]}
   }
 }

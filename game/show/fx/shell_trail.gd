@@ -12,7 +12,7 @@ const TAIL_POINTS: int = 28
 const TAIL_SPAN: float = 36.0
 const SPARKLE_COUNT: int = 8
 ## Heart head: world-unit size and the spin per path sample (radians).
-const HEART_HEAD_SCALE: float = 0.3
+const HEART_HEAD_SCALE: float = 0.42
 const HEART_SPIN: float = 0.03
 
 var samples_per_second: float = 120.0

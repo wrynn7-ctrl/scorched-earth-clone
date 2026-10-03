@@ -42,16 +42,13 @@ static func ring() -> Texture2D:
 static func heart() -> Texture2D:
 	if _heart == null:
 		var n: int = 96
+		var core: PackedFloat32Array = HeartShape.coverage(n, float(n) * 0.3)
+		var halo: PackedFloat32Array = HeartShape.blur(core, n, 6, 2)
 		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
-		var half: float = float(n) * 0.5
 		for y: int in range(n):
 			for x: int in range(n):
-				var u := Vector2((float(x) + 0.5 - half) / half, (float(y) + 0.5 - half) / half)
-				var f: float = HeartShape.implicit(u)
-				var core: float = clampf(0.5 - f * 6.0, 0.0, 1.0)
-				var halo: float = exp(-maxf(f, 0.0) * 3.0) * 0.5
-				var edge: float = 1.0 - smoothstep(0.72, 1.0, u.length())
-				img.set_pixel(x, y, Color(1, 1, 1, maxf(core, halo * edge) * edge))
+				var i: int = y * n + x
+				img.set_pixel(x, y, Color(1, 1, 1, clampf(maxf(core[i], halo[i] * 1.6), 0.0, 1.0)))
 		_heart = ImageTexture.create_from_image(img)
 	return _heart
 

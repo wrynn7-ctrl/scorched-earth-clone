@@ -19,6 +19,8 @@ static var controllers: PackedInt32Array = _human_slots()
 static var watch: bool = false
 ## Terrain theme (a ThemeDefs id or "random"). Visual only.
 static var theme: String = ThemeDefs.DEFAULT_ID
+## The Love Edition's player 2 (SimConstants.CTRL_*), remembered separately from the standard setup.
+static var love_cpu: int = 0
 
 
 static func _human_slots() -> PackedInt32Array:
@@ -37,6 +39,7 @@ static func reset() -> void:
 	controllers = _human_slots()
 	watch = false
 	theme = ThemeDefs.DEFAULT_ID
+	love_cpu = 0
 
 
 ## Stores the setup screen's choices (called on START).

@@ -31,9 +31,9 @@ const HIT_FLASH_SECONDS: float = 0.7
 ## Love Edition (ARCHITECTURE section 37): the meter replaces the health bar. The heart sits next to the
 ## emblem, the small bar under them where the health bar was.
 const LOVE_PINK: Color = Color(1.0, 0.38, 0.62)
-const LOVE_HEART_SIZE: float = 7.5
-const LOVE_HEART_POS: Vector2 = Vector2(4.0, -47.0)
-const LOVE_EMBLEM_POS: Vector2 = Vector2(-13.0, -47.0)
+const LOVE_HEART_SIZE: float = 9.0
+const LOVE_HEART_POS: Vector2 = Vector2(5.0, -48.0)
+const LOVE_EMBLEM_POS: Vector2 = Vector2(-14.0, -48.0)
 const LOVE_PULSE_SECONDS: float = 0.8
 ## How fast the displayed fill follows the real value (fraction of the meter per second).
 const LOVE_FILL_SPEED: float = 1.1

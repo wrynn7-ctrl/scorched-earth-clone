@@ -641,6 +641,7 @@ func _enter_phase() -> void:
 			_show_match_over()
 		_:
 			_hud.visible = true
+			_hud.set_wind(state.wind)  # a love match (and a restored one) starts without a wind event
 			_set_busy(false)
 			_begin_turn_ui()
 			_run_start_hooks()
@@ -666,6 +667,10 @@ func _begin_turn_ui() -> void:
 ## Money, weapon button, item tray and fuel readout for tank `id`.
 func _refresh_loadout(id: int) -> void:
 	var t: TankState = state.tanks[id]
+	if _love:
+		# One weapon, nothing to buy, use or drive: the HUD shows "Heart ∞" and hides the rest.
+		_hud.set_weapon(Catalog.HEART, -1)
+		return
 	_hud.set_money(t.money)
 	var w: String = _selected[id]
 	_hud.set_weapon(w, _weapon_count(t, w))
@@ -830,7 +835,7 @@ func get_selected_weapon() -> String:
 func select_weapon(item_id: String) -> String:
 	if _busy:
 		return "busy"
-	if not WeaponDefs.has(item_id):
+	if not WeaponDefs.has(item_id) or (item_id == Catalog.HEART) != _love:
 		return "unknown_weapon"
 	var id: int = state.current_tank
 	if _weapon_count(state.tanks[id], item_id) == 0:
@@ -844,13 +849,16 @@ func select_weapon(item_id: String) -> String:
 ## Falls back to the Spark Dart when the chosen weapon ran out.
 func _ensure_selection(id: int) -> void:
 	var w: String = _selected[id]
-	if not WeaponDefs.has(w) or _weapon_count(state.tanks[id], w) == 0:
+	if _love:
+		_selected[id] = Catalog.HEART  # the only weapon of a love match
+		return
+	if not WeaponDefs.has(w) or w == Catalog.HEART or _weapon_count(state.tanks[id], w) == 0:
 		_selected[id] = Catalog.SPARK_DART
 
 
 ## Opens the weapon picker with the weapons the current tank owns.
 func open_weapon_picker() -> void:
-	if _busy or state.phase != SimConstants.PHASE_AIM:
+	if _busy or state.phase != SimConstants.PHASE_AIM or _love:  # a love match has only the heart
 		return
 	var t: TankState = state.tanks[state.current_tank]
 	var entries: Array[Dictionary] = []
@@ -1036,6 +1044,9 @@ func check_consistency() -> bool:
 		var v: TankView = _tank_views[t.id]
 		var want := Vector2(float(t.x), float(t.y))
 		var want_shield: int = t.shield_hp if t.has_shield() else 0
+		if _love and v.get_love() != t.love:
+			ok = false
+			push_error("BattleController: tank %d love meter shows %d but the state has %d" % [t.id, v.get_love(), t.love])
 		if v.position != want or v.get_health() != t.health or v.is_dead() == t.alive \
 				or v.get_shield_hp() != want_shield or v.is_repulsor_on() != (t.repulsor_charge > 0 and t.alive):
 			ok = false
@@ -1327,7 +1338,7 @@ func _finish_playback() -> void:
 func _dispatch(e: Dictionary) -> void:
 	var type: String = e["type"]
 	if not _instant:
-		AudioDirector.on_event(e, state.phase == SimConstants.PHASE_MATCH_OVER)
+		AudioDirector.on_event(e, state.phase == SimConstants.PHASE_MATCH_OVER, _love)
 	if not _pour.is_empty() and not VISUAL_TYPES.has(type):
 		_flush_pour()  # the next terrain event builds on the finished pour
 	match type:
@@ -1401,9 +1412,15 @@ func _dispatch(e: Dictionary) -> void:
 			_hud.set_angle_tenths(_aim_angle[id])
 			_hud.set_power(_aim_power[id])
 			_refresh_loadout(id)
+		"heart_burst":
+			_on_heart_burst(e)
+		"love":
+			_on_love(e)
 		"round_end":
 			_round_ended = true
 			_round_winner = e["winner"]
+			if _love and _round_winner >= 0:
+				_love_celebrate(_round_winner)
 		# "ready" has no presentation of its own.
 
 
@@ -1440,6 +1457,7 @@ func _start_shell(e: Dictionary) -> void:
 		pts[1] = pts[0]
 	var trail: ShellTrail = _acquire_trail()
 	trail.play(pts)  # self-driven start sets the path; we then drive it by the playhead
+	trail.set_heart_style(_love)
 	trail.set_process(false)
 	trail.set_progress(0.0)
 	_shells[e["id"] as int] = {"trail": trail, "start": e["tick"] as int, "points": pts.size(),
@@ -1790,6 +1808,8 @@ func _update_overlays() -> void:
 		_add_rect(rects, xf, f.get_world_rect())
 	for p: PullRings in _pulls:
 		_add_rect(rects, xf, p.get_world_rect())
+	for hb: HeartBurst in _bursts:
+		_add_rect(rects, xf, hb.get_world_rect())
 	for b: BeamFx in _beams:
 		if b.is_active():
 			var ends: PackedVector2Array = b.get_endpoints()
@@ -1981,6 +2001,168 @@ func drive_cpu(max_actions: int = 1) -> int:
 
 
 # ======================================================================================
+# Love Edition (ARCHITECTURE section 37): presentation only
+# ======================================================================================
+
+func is_love_mode() -> bool:
+	return _love
+
+
+func get_flowers() -> FlowerField:
+	return _flowers
+
+
+func get_love_overlay() -> LoveWinOverlay:
+	return _love_overlay
+
+
+func get_smiley() -> LoveSmiley:
+	return _smiley
+
+
+func get_confetti() -> HeartConfetti:
+	return _confetti
+
+
+func get_heart_bursts() -> Array[HeartBurst]:
+	return _bursts
+
+
+func get_love_popups() -> Array[LovePopup]:
+	return _love_pops
+
+
+## Where the hearts landed so far (what a save keeps, [[x, y, radius], ...]).
+func get_love_impacts() -> Array:
+	return _love_impacts
+
+
+## Builds the love-only nodes once (the first love match of this battle scene).
+func _ensure_love_nodes() -> void:
+	if _flowers != null:
+		_raise_love_nodes()
+		return
+	_flowers = FlowerField.new()
+	_flowers.name = "Flowers"
+	_world.add_child(_flowers)
+	for i: int in range(BURST_POOL):
+		var b := HeartBurst.new()
+		b.name = "HeartBurst%d" % i
+		_world.add_child(b)
+		_bursts.append(b)
+	for i: int in range(LOVE_POPUP_POOL):
+		var p := LovePopup.new()
+		p.name = "LovePopup%d" % i
+		_world.add_child(p)
+		_love_pops.append(p)
+	_smiley = LoveSmiley.new()
+	_smiley.name = "Smiley"
+	_world.add_child(_smiley)
+	_confetti = HeartConfetti.new()
+	_confetti.name = "Confetti"
+	_overlay_layer.add_child(_confetti)
+	_love_overlay = LoveWinOverlay.new()
+	_love_overlay.rematch_pressed.connect(restart_match)
+	_love_overlay.title_pressed.connect(quit_to_title)
+	_overlay_layer.add_child(_love_overlay)
+	_raise_love_nodes()
+
+
+## Keeps the flowers just above the terrain (under shells and tanks) and the effects above the
+## tanks, whatever order the tank views were (re)created in.
+func _raise_love_nodes() -> void:
+	_world.move_child(_flowers, _terrain_view.get_index() + 1)
+	for b: HeartBurst in _bursts:
+		_world.move_child(b, -1)
+	for p: LovePopup in _love_pops:
+		_world.move_child(p, -1)
+	_world.move_child(_smiley, -1)
+
+
+## A new match (or a restore): nothing of the last one stays on screen.
+func _love_reset() -> void:
+	_love_epoch += 1
+	_love_impacts.clear()
+	if _flowers == null:
+		return
+	_flowers.clear()
+	_smiley.hide_smiley()
+	_confetti.stop()
+	_love_overlay.close_now()
+
+
+func _restore_flowers(saved: Variant) -> void:
+	if typeof(saved) != TYPE_ARRAY or display_terrain == null:
+		return
+	for entry: Variant in saved as Array:
+		if typeof(entry) == TYPE_ARRAY and (entry as Array).size() >= 3:
+			var a: Array = entry
+			_love_impacts.append([int(a[0]), int(a[1]), int(a[2])])
+	_flowers.restore(_love_impacts, display_terrain, _tank_columns())
+
+
+func _tank_columns() -> PackedInt32Array:
+	var xs := PackedInt32Array()
+	for t: TankState in state.tanks:
+		xs.append(t.x)
+	return xs
+
+
+## `heart_burst`: the sparkle burst, then the flowers. The impact is remembered for the save. No shake.
+func _on_heart_burst(e: Dictionary) -> void:
+	var x: int = e["x"]
+	var y: int = e["y"]
+	var radius: int = e["radius"]
+	_love_impacts.append([x, y, radius])
+	while _love_impacts.size() > FlowerField.MAX_FLOWERS:
+		_love_impacts.pop_front()
+	if _instant:
+		_flowers.sprout(display_terrain, x, y, radius, _tank_columns(), false)
+		return
+	_bursts[_burst_next].play(Vector2(float(x), float(y)), float(radius))
+	_burst_next = (_burst_next + 1) % _bursts.size()
+	var epoch: int = _love_epoch
+	get_tree().create_timer(SPROUT_DELAY / maxf(_speed, 0.5)).timeout.connect(func() -> void:
+		if epoch == _love_epoch and display_terrain != null:
+			_flowers.sprout(display_terrain, x, y, radius, _tank_columns(), true))
+
+
+## `love`: the receiving tank's meter fills with a pulse, a "+N" popup and a haptic tick.
+func _on_love(e: Dictionary) -> void:
+	var id: int = e["tank"]
+	var v: TankView = _tank_views[id]
+	v.set_love(e["love"], not _instant)
+	if _instant:
+		return
+	v.pulse_love()
+	_love_pops[_love_pop_next].pop(e["amount"], v.position + Vector2(0.0, -112.0))
+	_love_pop_next = (_love_pop_next + 1) % _love_pops.size()
+	_haptic(18)
+
+
+## The match is won: the winner's smiley floats up and heart confetti rains.
+func _love_celebrate(winner: int) -> void:
+	var v: TankView = _tank_views[winner]
+	_smiley.show_over(v.position, not _instant)
+	_confetti.start()
+	_haptic(60)
+
+
+func _show_love_win() -> void:
+	_hud.visible = false
+	_world.visible = state.terrain != null
+	var winner: int = _round_winner
+	if winner < 0:
+		var order: Array[int] = Simulation.standings(state)
+		winner = order[0] if not order.is_empty() else 0
+	if not _smiley.is_showing():
+		_love_celebrate(winner)
+	var xf: Transform2D = get_viewport().get_canvas_transform()
+	var share: float = (xf * _tank_views[winner].position).x / maxf(get_viewport().get_visible_rect().size.x, 1.0)
+	_love_overlay.show_win(winner, share)
+
+
+# ======================================================================================
 # Round summary, match over
 # ======================================================================================
 
@@ -2028,6 +2210,9 @@ func _show_match_over() -> void:
 	_save_dirty = false
 	if _autosave_path != "":
 		SaveStore.delete(_autosave_path)  # nothing to continue
+	if _love:
+		_show_love_win()
+		return
 	var rows: Array[Dictionary] = _summary_rows()
 	_match_overlay.show_standings(Simulation.standings(state), rows)
 
@@ -2046,8 +2231,11 @@ func _make_meta() -> Dictionary:
 		for it: Dictionary in entry["items"] as Array[Dictionary]:
 			items.append([it["id"], it["units"]])
 		buys.append({"tank": entry["tank"], "level": entry["level"], "items": items})
-	return {"looks": PlayerLooks.to_dict(state.tanks.size()), "round_money": money,
+	var meta: Dictionary = {"looks": PlayerLooks.to_dict(state.tanks.size()), "round_money": money,
 			"summary_pending": _summary_pending, "cpu_buys": buys, "theme": _theme_choice}
+	if _love:
+		meta["flowers"] = _love_impacts.duplicate(true)
+	return meta
 
 
 ## Restores the CPU purchases shown on the round summary from a save's meta (JSON numbers are
@@ -2112,6 +2300,8 @@ func _set_busy(b: bool, quiet: bool = false) -> void:
 func _close_overlays() -> void:
 	_round_overlay.close()
 	_match_overlay.close()
+	if _love_overlay != null:
+		_love_overlay.close_now()
 
 
 func _show_toast(text: String) -> void:

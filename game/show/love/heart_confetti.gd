@@ -31,8 +31,8 @@ func _ready() -> void:
 	_particles.angle_max = 30.0
 	_particles.angular_velocity_min = -60.0
 	_particles.angular_velocity_max = 60.0
-	_particles.scale_amount_min = 0.14
-	_particles.scale_amount_max = 0.34
+	_particles.scale_amount_min = 0.2
+	_particles.scale_amount_max = 0.5
 	var pick := Gradient.new()
 	var offsets := PackedFloat32Array()
 	for i: int in range(COLORS.size()):

@@ -57,6 +57,11 @@ const SOUNDS: Dictionary = {
 	"ui_locked": {"s": preload("res://assets/sfx/ui_locked.wav"), "db": -7.0, "pri": 6, "gap": 120},
 	"fire_crackle": {"s": preload("res://assets/sfx/fire_crackle.wav"), "db": -6.0, "pri": 3, "gap": 0},
 	"well_hum": {"s": preload("res://assets/sfx/well_hum.wav"), "db": -12.0, "pri": 3, "gap": 0},
+	# Love Edition (docs/ARCHITECTURE.md section 37).
+	"love_fire": {"s": preload("res://assets/sfx/love_fire.wav"), "db": -7.0, "pri": 4, "gap": 60},
+	"heart_burst": {"s": preload("res://assets/sfx/heart_burst.wav"), "db": -6.0, "pri": 6, "gap": 80},
+	"love_win": {"s": preload("res://assets/sfx/love_win.wav"), "db": -4.0, "pri": 10, "gap": 500},
+	"love_found": {"s": preload("res://assets/sfx/love_found.wav"), "db": -5.0, "pri": 10, "gap": 500},
 }
 
 ## Music tracks (none yet): name -> "res://assets/music/<file>.ogg". See the header.
@@ -150,8 +155,9 @@ func _ready() -> void:
 # ======================================================================================
 
 ## One timeline event of a played-back timeline (ARCHITECTURE sections 10, 20, 21, 25). `match_over` is true
-## when the match is decided by this timeline, so its round_end plays the match jingle instead.
-func on_event(e: Dictionary, match_over: bool = false) -> void:
+## when the match is decided by this timeline, so its round_end plays the match jingle instead. `love` is true
+## in a Love Edition match (its win has its own jingle).
+func on_event(e: Dictionary, match_over: bool = false, love: bool = false) -> void:
 	match e.get("type", ""):
 		"round_start":
 			_wells.clear()
@@ -165,18 +171,22 @@ func on_event(e: Dictionary, match_over: bool = false) -> void:
 			_update_hum()
 		"flames":
 			_start_crackle()
-	var key: String = sound_for_event(e, match_over)
+	var key: String = sound_for_event(e, match_over, love)
 	if key != "":
 		play_sfx(key)
 
 
 ## The sound key an event plays ("" = silent). Pure, so the mapping is testable.
-static func sound_for_event(e: Dictionary, match_over: bool = false) -> String:
+static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool = false) -> String:
 	match e.get("type", ""):
 		"fire":
 			return fire_key(e.get("weapon", "") as String)
 		"explosion":
 			return explosion_key(int(e.get("radius", 0)))
+		"heart_burst":
+			return "heart_burst"
+		"love":
+			return "love_fire"  # the soft chime again, as the receiving heart fills
 		"terrain_settle":
 			return "terrain_crumble" if _has_falls(e.get("falls", null)) else ""
 		"tunnel":
@@ -213,6 +223,8 @@ static func sound_for_event(e: Dictionary, match_over: bool = false) -> String:
 		"round_end":
 			if int(e.get("winner", -1)) < 0:
 				return ""
+			if love:
+				return "love_win"
 			return "match_win" if match_over else "round_win"
 	# projectile, projectile_end, terrain_carve, wind, beam (its sound is the fire event's), tank_fall,
 	# tank_move, well_on/off (the hum loop), flames (the crackle loop), ready, repulsor_down, round_start.
@@ -252,6 +264,8 @@ static func fire_key(weapon_id: String) -> String:
 			return "fire_light" if radius < 40 else "fire_medium"
 		"static":
 			return "fire_light"
+		"love":
+			return "love_fire"
 		"dirt":
 			return "fire_medium" if radius < 60 else "fire_heavy"
 		"fire":

@@ -7,12 +7,18 @@ const DEFAULT_PATH: String = "user://settings.cfg"
 const SECTION: String = "show"
 ## The last-used match setup (SetupPrefs) lives in its own section.
 const SETUP_SECTION: String = "setup"
+## The Love Edition's own little setup (player 2).
+const LOVE_SECTION: String = "love"
 
 ## Where load/save go. Tests point this at a scratch file.
 static var path: String = DEFAULT_PATH
 ## Headless runs (the test suite) must not read the developer's real settings, so
 ## ensure_loaded() does nothing there unless a test sets this.
 static var allow_headless_load: bool = false
+
+## The Love Edition secret was found (ARCHITECTURE section 37). It lives here, not in ShowSettings,
+## so "reset settings" can never hide the button again.
+static var love_found: bool = false
 
 static var _loaded: bool = false
 
@@ -60,8 +66,12 @@ static func load_into(file_path: String = "") -> bool:
 	ShowSettings.music_on = _bool(cfg, "music_on", ShowSettings.music_on)
 	ShowSettings.ui_sounds = _bool(cfg, "ui_sounds", ShowSettings.ui_sounds)
 	ShowSettings.left_handed = _bool(cfg, "left_handed", ShowSettings.left_handed)
+	love_found = _bool(cfg, "love_found", love_found)
 	CameraSettings.load_from(cfg)
 	_load_setup(cfg)
+	var love_cpu: Variant = cfg.get_value(LOVE_SECTION, "cpu", SetupPrefs.love_cpu)
+	if typeof(love_cpu) == TYPE_INT or typeof(love_cpu) == TYPE_FLOAT:
+		SetupPrefs.love_cpu = clampi(int(love_cpu), SimConstants.CTRL_HUMAN, SimConstants.CTRL_MAX)
 	_apply_audio()
 	return true
 
@@ -83,7 +93,10 @@ static func save(file_path: String = "") -> bool:
 	cfg.set_value(SECTION, "music_on", ShowSettings.music_on)
 	cfg.set_value(SECTION, "ui_sounds", ShowSettings.ui_sounds)
 	cfg.set_value(SECTION, "left_handed", ShowSettings.left_handed)
+	cfg.set_value(SECTION, "love_found", love_found)
 	CameraSettings.save_to(cfg)
+	if SetupPrefs.love_cpu != 0:
+		cfg.set_value(LOVE_SECTION, "cpu", SetupPrefs.love_cpu)
 	if SetupPrefs.has_saved:
 		cfg.set_value(SETUP_SECTION, "players", SetupPrefs.players)
 		cfg.set_value(SETUP_SECTION, "rounds", SetupPrefs.rounds)

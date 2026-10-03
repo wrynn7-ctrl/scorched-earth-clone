@@ -350,7 +350,7 @@ static func _midnight_chrome() -> Dictionary:
 static func _love_theme() -> Dictionary:
 	return {
 		"id": LOVE_THEME, "name_key": "LOVE_BUTTON", "tier": TIER_FREE,
-		"sky_top": Color(0.10, 0.02, 0.13), "sky_mid": Color(0.40, 0.10, 0.25), "sky_low": Color(1.0, 0.62, 0.55),
+		"sky_top": Color(0.10, 0.02, 0.13), "sky_mid": Color(0.36, 0.08, 0.22), "sky_low": Color(1.0, 0.58, 0.52),
 		"ground_far": Color(0.09, 0.02, 0.10), "ground_near": Color(0.34, 0.08, 0.23),
 		"sun_style": SUN_HEART, "sun_a": Color(1.0, 0.86, 0.76), "sun_b": Color(1.0, 0.24, 0.50),
 		"sun_pos": Vector2(0.58, 0.36), "sun_radius": 0.15, "halo": Color(1.0, 0.45, 0.62),

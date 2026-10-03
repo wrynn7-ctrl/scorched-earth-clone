@@ -73,8 +73,8 @@ func _restyle() -> void:
 		_particles.gravity = Vector2(2.0, -3.0)
 		_particles.initial_velocity_min = 14.0
 		_particles.initial_velocity_max = 30.0
-		_particles.scale_amount_min = 0.1
-		_particles.scale_amount_max = 0.22
+		_particles.scale_amount_min = 0.16
+		_particles.scale_amount_max = 0.34
 		_particles.angle_min = -18.0
 		_particles.angle_max = 18.0
 		ramp.colors = PackedColorArray([Color(_color, 0.0), Color(_color, 0.42), Color(_color, 0.0)])

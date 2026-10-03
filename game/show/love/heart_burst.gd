@@ -115,7 +115,7 @@ func _float_heart(h: Sprite2D, i: int, r: float) -> void:
 	var rise: float = _rng.randf_range(55.0, 105.0) * (0.6 if ShowSettings.reduce_motion else 1.0)
 	var sway: float = _rng.randf_range(-16.0, 16.0)
 	var delay: float = 0.08 * float(i)
-	var size: float = _rng.randf_range(0.13, 0.22)
+	var size: float = _rng.randf_range(0.2, 0.32)
 	h.visible = true
 	h.position = start
 	h.scale = Vector2.ZERO

@@ -15,7 +15,7 @@ const GROW_SECONDS: float = 0.75
 const TANK_CLEAR: float = 20.0
 const PALETTE: Array[Color] = [
 	Color(1.0, 0.45, 0.72), Color(1.0, 0.72, 0.52), Color(0.82, 0.58, 1.0),
-	Color(1.0, 0.88, 0.94), Color(1.0, 0.42, 0.52),
+	Color(1.0, 0.62, 0.8), Color(1.0, 0.42, 0.52),
 ]
 const STEM: Color = Color(0.4, 1.0, 0.7)
 const CENTER: Color = Color(1.0, 0.92, 0.5)
@@ -163,7 +163,7 @@ func _grow(i: int) -> float:
 
 
 func _head(i: int, g: float) -> Vector2:
-	var h: float = _size[i] * 17.0 * g
+	var h: float = _size[i] * 24.0 * g
 	return _base[i] + Vector2(_lean[i] * h * 0.5, -h)
 
 
@@ -182,9 +182,10 @@ func _draw() -> void:
 			stem.append(foot.lerp(mid, t).lerp(mid.lerp(top, t), t))
 		draw_polyline(stem, Color(STEM, 0.9), 1.7, true)
 		var leaf: Vector2 = foot.lerp(top, 0.35)
-		var lr: float = 3.2 * _size[i] * g
-		draw_colored_polygon(PackedVector2Array([leaf, leaf + Vector2(lr * 1.6, -lr * 0.9), leaf + Vector2(lr * 0.4, -lr * 1.5)]), Color(STEM, 0.85))
-		var pr: float = 3.0 * _size[i] * g
+		var lr: float = 4.4 * _size[i] * g
+		if lr > 0.5:  # a leaf thinner than that cannot be triangulated
+			draw_colored_polygon(PackedVector2Array([leaf, leaf + Vector2(lr * 1.6, -lr * 0.9), leaf + Vector2(lr * 0.4, -lr * 1.5)]), Color(STEM, 0.85))
+		var pr: float = 4.2 * _size[i] * g
 		var col: Color = PALETTE[_kind[i]]
 		for p: int in range(5):
 			var a: float = TAU * float(p) / 5.0 - PI / 2.0
@@ -200,8 +201,7 @@ func _draw_glow() -> void:
 		if g <= 0.0:
 			continue
 		var top: Vector2 = _head(i, g)
-		var r: float = 3.0 * _size[i] * g
+		var r: float = 4.2 * _size[i] * g
 		var col: Color = PALETTE[_kind[i]]
-		_glow.draw_circle(top, r * 3.2, Color(col, 0.13))
-		_glow.draw_circle(top, r * 1.9, Color(col, 0.18))
-		_glow.draw_circle(top + (_base[i] - top) * 0.0, r * 0.7, Color(1.0, 0.95, 0.8, 0.25))
+		_glow.draw_circle(top, r * 3.0, Color(col, 0.07))
+		_glow.draw_circle(top, r * 1.8, Color(col, 0.07))

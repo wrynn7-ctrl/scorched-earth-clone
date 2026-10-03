@@ -4,9 +4,9 @@ extends Node2D
 ## gently, and has a ring of little hearts orbiting it. Drawn from arcs and circles (no assets).
 ## With reduced motion it simply appears in place, with the hearts still. Visual only.
 
-const RADIUS: float = 34.0
+const RADIUS: float = 46.0
 ## Where it settles above the tank's ground point (world units).
-const HOVER: float = 150.0
+const HOVER: float = 165.0
 const RISE_SECONDS: float = 1.2
 const ORBIT_HEARTS: int = 6
 const FACE: Color = Color(1.0, 0.86, 0.5)
@@ -33,7 +33,7 @@ func _ready() -> void:
 		h.name = "Orbit%d" % i
 		h.texture = FxTextures.heart()
 		h.material = FxTextures.additive()
-		h.scale = Vector2.ONE * 0.2
+		h.scale = Vector2.ONE * 0.3
 		h.modulate = Color(1.0, 0.5 + 0.07 * float(i % 3), 0.7 + 0.06 * float(i % 2))
 		add_child(h)
 		_hearts.append(h)
@@ -107,7 +107,7 @@ func _place_hearts() -> void:
 		var depth: float = 0.5 + 0.5 * sin(a)
 		var p := Vector2(cos(a) * RADIUS * 1.75, sin(a) * RADIUS * 0.55 - RADIUS * 0.2 + _bob())
 		_hearts[i].position = p
-		_hearts[i].scale = Vector2.ONE * (0.15 + 0.09 * depth)
+		_hearts[i].scale = Vector2.ONE * (0.24 + 0.14 * depth)
 		_hearts[i].rotation = cos(a) * 0.35
 		_hearts[i].z_index = 1 if depth > 0.5 else -1
 	_glow.position = Vector2(0.0, _bob())

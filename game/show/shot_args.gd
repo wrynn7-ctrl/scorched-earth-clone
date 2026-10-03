@@ -47,6 +47,8 @@ extends RefCounted
 ##   --theme=<id>        battle: terrain theme (sunset_grid, ice_circuit, magma_city, toxic_marsh,
 ##                       midnight_chrome, or random)
 ##   --left-handed       battle: the left-handed HUD layout (power + FIRE on the left)
+##   --love              battle: a Love Edition match (2 tanks, hearts only)
+##   --love-found        title: show the Love Edition button without the secret taps (nothing is saved)
 ##   --place=<i>:<x>     battle: move tank i to column x (0-based tank, simulation x) right after
 ##                       the round starts; the tank rests on the ground there (screenshots)
 
@@ -81,6 +83,8 @@ static var freeze_tick: int = -1
 static var freeze_hold: float = 0.25
 static var freeze_shot: int = 1
 static var places: Array[String] = []
+static var love: bool = false
+static var love_found: bool = false
 static var theme: String = ""
 static var resize_to: Vector2i = Vector2i.ZERO
 static var resize_after: float = 0.6
@@ -184,5 +188,9 @@ static func parse() -> void:
 			freeze_hold = a.substr(14).to_float()
 		elif a.begins_with("--theme="):
 			theme = a.substr(8)
+		elif a == "--love":
+			love = true
+		elif a == "--love-found":
+			love_found = true
 		elif a.begins_with("--place="):
 			places.append(a.substr(8))
