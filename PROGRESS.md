@@ -55,7 +55,7 @@
 | M4 contract (ARCHITECTURE §27–§30) | lead | ✅ written |
 | M4-C Controllers in settings + `last_fire_*` AI memory in TankState | core-sim-dev | ✅ reviewed |
 | M4-A AiPlayer: aim solver, error model, weapon/item/shop/target choice, 4 levels + statistical tests | ai-dev | 🟡 running |
-| M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CPU turn speed | show-ui-dev | 🟡 running |
+| M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CPU turn speed | show-ui-dev | ✅ reviewed (230 show+ui tests) |
 | M4-Q AI fuzz, determinism across save/load, balance table | qa-tester | ⬜ after U |
 
 ## Decisions / notes
