@@ -89,8 +89,11 @@ func test_new_match_clamps_values_and_num_tanks_first() -> void:
 
 
 func test_free_tier_clamps_hard_and_expert_to_normal() -> void:
+	# Free matches hold at most 4 tanks (section 32), so the fifth controller is trimmed too.
 	var st: MatchState = Simulation.new_match(_settings(5, [0, 1, 2, 3, 4], false))
-	assert_eq(st.settings.controllers, PackedInt32Array([0, 1, 2, 2, 2]))
+	assert_eq(st.settings.controllers, PackedInt32Array([0, 1, 2, 2]))
+	var four: MatchState = Simulation.new_match(_settings(4, [4, 3, 2, 1], false))
+	assert_eq(four.settings.controllers, PackedInt32Array([2, 2, 2, 1]))
 	var unlocked: MatchState = Simulation.new_match(_settings(5, [0, 1, 2, 3, 4], true))
 	assert_eq(unlocked.settings.controllers, PackedInt32Array([0, 1, 2, 3, 4]))
 

@@ -24,8 +24,11 @@ func test_hard_and_expert_are_clamped_to_normal_by_new_match() -> void:
 	assert_eq(s.settings.controllers, PackedInt32Array([2, 2]))
 	assert_eq(AiProfile.level_of(s, 0), SimConstants.CTRL_NORMAL)
 	assert_eq(AiProfile.level_of(s, 1), SimConstants.CTRL_NORMAL)
-	var mixed: MatchState = _locked([3, 4, 0, 1, 4, 2], 2)
-	assert_eq(mixed.settings.controllers, PackedInt32Array([2, 2, 0, 1, 2, 2]), "only 3 and 4 are lowered")
+	var mixed: MatchState = _locked([3, 4, 0, 1], 2)
+	assert_eq(mixed.settings.controllers, PackedInt32Array([2, 2, 0, 1]), "only 3 and 4 are lowered")
+	# The free version also caps a match at 4 tanks (ARCHITECTURE §32), trimming extra controllers.
+	var six: MatchState = _locked([3, 4, 0, 1, 4, 2], 2)
+	assert_eq(six.settings.controllers, PackedInt32Array([2, 2, 0, 1]), "free matches are capped at 4 tanks")
 	# The unlocked game keeps them.
 	var st := MatchSettings.new()
 	st.seed = 3

@@ -42,7 +42,7 @@ func test_clamped_is_a_copy_and_keeps_other_fields() -> void:
 	s.seed = -123456789012
 	var c: MatchSettings = s.clamped()
 	assert_eq(s.num_tanks, 99, "the original is untouched")
-	assert_eq(c.num_tanks, 8)
+	assert_eq(c.num_tanks, SimConstants.FREE_MAX_TANKS)
 	assert_false(c.full_unlocked)
 	assert_eq(c.seed, -123456789012)
 	assert_ne(c, s)

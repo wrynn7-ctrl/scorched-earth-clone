@@ -345,7 +345,8 @@ Flight paths are produced by `Ballistics` (the same code as `trace`), so the pre
 
 ## 23. Settings validation
 `new_match` clamps a copy of the settings before use (num_tanks 2..8, rounds 1..20, wind_max 0..100, start_money
-0..1,000,000). The **clamped** values are what's stored and fingerprinted.
+0..1,000,000). In the free version (`full_unlocked == false`), num_tanks is capped at 4 and rounds at 5
+(`SimConstants.FREE_MAX_TANKS/FREE_MAX_ROUNDS`, M5). The **clamped** values are what's stored and fingerprinted.
 
 ## 24. Fingerprint additions
 All new `TankState` fields, `MatchState.wells` and anything else added to state **must** be included in
