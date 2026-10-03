@@ -63,7 +63,7 @@
 | Task | Agent | Status |
 |---|---|---|
 | M5 contract (ARCHITECTURE §32–§35: entitlement + free/full table, audio, themes, skins) | lead | ✅ written |
-| M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | 🟡 running |
+| M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | ✅ reviewed |
 | M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | 🟡 running |
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | 🟡 running |
 | M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | 🟡 running |
