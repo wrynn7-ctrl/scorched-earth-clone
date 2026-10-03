@@ -237,3 +237,139 @@ HUD_ANGLE_RIGHT,Turn barrel right 0.1°
 HUD_FACING_RIGHT,facing right
 HUD_FACING_LEFT,facing left
 HUD_FACING_UP,straight up
+UNLOCK_TITLE,UNLOCK THE FULL GAME
+UNLOCK_TITLE_DONE,FULL GAME UNLOCKED!
+UNLOCK_SUB,One purchase. No ads. No subscription.
+UNLOCK_F_TANKS,Up to 8 tanks and 8 players on one device
+UNLOCK_F_CPU,Hard and Expert computer opponents
+UNLOCK_F_WEAPONS,All 21 weapons including Singularity Seed and Riptide Anchor
+UNLOCK_F_THEMES,All 5 terrain themes
+UNLOCK_F_SKINS,Import your own images as tank skins
+UNLOCK_F_ROUNDS,Long matches: 10 and 20 rounds
+UNLOCK_F_RULES,Custom starting money and wind
+UNLOCK_F_ONLINE,Host online matches (coming soon)
+UNLOCK_BUY,UNLOCK
+UNLOCK_BUY_FMT,UNLOCK  %s
+UNLOCK_BUY_PENDING,PURCHASE PENDING
+UNLOCK_RESTORE,RESTORE PURCHASE
+UNLOCK_CLOSE,CLOSE
+UNLOCK_CONTINUE,CONTINUE
+UNLOCK_LOADING,Contacting the store…
+UNLOCK_WAITING,Waiting for the store…
+UNLOCK_THANKS,Thank you! Everything is unlocked.
+UNLOCK_ALREADY,You own the full game. Thank you!
+UNLOCK_CTX_PLAYERS,More than 4 players needs the full game.
+UNLOCK_CTX_HUMANS,More than 2 human players on one device needs the full game.
+UNLOCK_CTX_ROUNDS,Matches of 10 or 20 rounds need the full game.
+UNLOCK_CTX_MONEY,Custom starting money needs the full game.
+UNLOCK_CTX_WIND,Custom wind needs the full game.
+UNLOCK_CTX_THEME,That terrain theme is part of the full game.
+UNLOCK_CTX_CPU,Hard and Expert computer opponents need the full game.
+UNLOCK_CTX_ITEM,That weapon is part of the full game.
+UNLOCK_CTX_SKIN,Importing your own images needs the full game.
+UNLOCK_CTX_SAVE,This match uses full-game features. Unlock the full game to continue it.
+ENT_SUCCESS,Full game unlocked.
+ENT_PENDING,Purchase pending. The full game unlocks as soon as the payment completes.
+ENT_CANCELLED,Purchase cancelled. You were not charged.
+ENT_UNAVAILABLE,Store unavailable
+ENT_NETWORK,Can't reach the store. Check your connection and try again.
+ENT_NOT_FOUND,No earlier purchase found for this Google account.
+ENT_ERROR,Something went wrong. You were not charged.
+LOCK_FULL_FMT,%s (full game)
+TITLE_UNLOCK,UNLOCK FULL GAME
+SET_FULL_GAME,Full game
+SET_RESTORE,Restore purchase
+SET_FULL_OWNED,Unlocked
+DIAG_DEBUG_FULL_FMT,Debug: full version %s
+TITLE_SKINS,SKINS
+SKIN_TITLE,SKIN STUDIO
+SKIN_MY_SKINS,MY SKINS
+SKIN_COUNT,%d of %d skins
+SKIN_PRIVATE,Only you can see your skins.
+SKIN_NEW,NEW SKIN
+SKIN_LIMIT,SKIN LIMIT REACHED
+SKIN_DEFAULT_NAME,Skin %d
+SKIN_NAME_HINT,Name your skin
+SKIN_UNNAMED,Unnamed
+SKIN_USED_BY,Used by %s
+SKIN_TAB_BODY,BODY
+SKIN_TAB_COLOURS,COLOURS
+SKIN_TAB_PATTERN,PATTERN
+SKIN_TAB_DECAL,DECAL
+SKIN_TAB_GLOW,GLOW
+SKIN_TAB_IMAGE,IMAGE
+SKIN_HULL,HULL
+SKIN_TURRET,TURRET
+SKIN_BODY_CLASSIC,Classic
+SKIN_BODY_SPIRE,Spire
+SKIN_BODY_DOME,Dome
+SKIN_BODY_BLOCK,Block
+SKIN_TURRET_CLASSIC,Classic
+SKIN_TURRET_TWIN,Twin
+SKIN_TURRET_CANNON,Cannon
+SKIN_TURRET_LONG,Longshot
+SKIN_PATTERN_NONE,None
+SKIN_PATTERN_STRIPES,Stripes
+SKIN_PATTERN_CIRCUIT,Circuit
+SKIN_PATTERN_CAMO,Camo
+SKIN_PATTERN_GRID,Grid
+SKIN_PATTERN_CHEVRONS,Chevrons
+SKIN_DECAL_BOLT,Bolt
+SKIN_DECAL_STAR,Star
+SKIN_DECAL_BONES,Bones
+SKIN_DECAL_WING,Wing
+SKIN_DECAL_FLAME,Flame
+SKIN_DECAL_EYE,Eye
+SKIN_DECAL_CROWN,Crown
+SKIN_DECAL_WAVE,Wave
+SKIN_DECAL_TARGET,Target
+SKIN_DECAL_HEART,Heart
+SKIN_COLOR_BASE,BASE
+SKIN_COLOR_ACCENT,ACCENT
+SKIN_COLOR_PATTERN,PATTERN
+SKIN_HUE,HUE
+SKIN_SAT,SATURATION
+SKIN_BRIGHT,BRIGHTNESS
+SKIN_GLOW_LABEL,GLOW
+SKIN_GLOW_HINT,How strongly your skin's colour glows around the tank. Your player colour outline always stays.
+SKIN_PREVIEW_HINT,Tap the tank to try another player colour
+SKIN_PLAYER_PREVIEW,PLAYER %d - %s
+SKIN_IDENTITY_NOTE,"Your player colour, emblem and tag always stay on top, so tanks stay easy to tell apart."
+SKIN_SAVE,SAVE
+SKIN_USE_FOR,USE FOR...
+SKIN_DUPLICATE,DUPLICATE
+SKIN_DELETE,DELETE
+SKIN_BACK,BACK
+SKIN_SAVED,Skin saved
+SKIN_COPIED,Copy saved
+SKIN_DELETED,Skin deleted
+SKIN_AT_LIMIT,You can keep up to %d skins.
+SKIN_SAVE_FAILED,Could not save the skin.
+SKIN_DELETE_CONFIRM,Delete this skin? Players using it go back to the standard look.
+SKIN_DISCARD_CONFIRM,Leave without saving? Your changes will be lost.
+SKIN_USE_TITLE,USE THIS SKIN FOR
+SKIN_USE_PLAYER,PLAYER %d
+SKIN_USE_THIS,THIS SKIN
+SKIN_USE_OTHER,ANOTHER SKIN
+SKIN_USE_DEFAULT,STANDARD LOOK
+SKIN_USE_NOTE,Used by Human players on this device. CPUs and online opponents always show the standard look.
+SKIN_USE_DONE,DONE
+SKIN_IMAGE_IMPORT,Import picture...
+SKIN_IMAGE_REMOVE,REMOVE PICTURE
+SKIN_IMAGE_FULL,FULL GAME
+SKIN_IMAGE_LOCKED_BODY,"Put your own picture on your tank with the full game. The picture is shrunk and given a neon look on this device, and it is never uploaded."
+SKIN_IMAGE_UNLOCK,UNLOCK
+SKIN_IMAGE_NOTE,Only you can see your skins.
+SKIN_IMAGE_NONE,No picture on this skin yet.
+SKIN_IMAGE_HAS,Your picture is on the hull.
+SKIN_IMAGE_ERROR,That file could not be read as a picture.
+SKIN_IMAGE_PICK_TITLE,Choose a picture
+SKIN_IMAGE_FILTER,Pictures
+SKIN_IMAGE_ADDED,Picture added
+SKIN_UNLOCK_TOAST,Unlock the full game to import pictures.
+SKIN_CROP_TITLE,FRAME YOUR PICTURE
+SKIN_CROP_HINT,Drag to move. Pinch or use the slider to zoom.
+SKIN_CROP_ZOOM,ZOOM
+SKIN_CROP_USE,USE PICTURE
+SKIN_CROP_CANCEL,CANCEL
+SKIN_PATTERN_HINT,The pattern colour is set on the COLOURS tab.

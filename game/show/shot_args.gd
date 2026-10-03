@@ -38,6 +38,7 @@ extends RefCounted
 ##   --shop-tab=<n>      battle: shop tab to show (0 weapons, 1 items)
 ##   --shop-select=<id>  battle: shop entry to select (opens the detail popup on phones)
 ##   --open-settings     title/battle: open the settings screen shortly after start
+##   --open-unlock       title: open the Unlock screen shortly after start
 ##   --freeze-tick=<n>   battle: stop the first shot's playback at tick n and take the --shot then
 ##                       (instead of after --shot-time); shows one moment of a weapon
 ##   --freeze-shot=<n>   with --freeze-tick: which shot (1 = the first fire action), default 1
@@ -73,6 +74,7 @@ static var select_weapon: String = ""
 static var shop_tab: int = 0
 static var shop_select: String = ""
 static var open_settings: bool = false
+static var open_unlock: bool = false
 static var open_diag: bool = false
 static var freeze_tick: int = -1
 static var freeze_hold: float = 0.25
@@ -167,6 +169,8 @@ static func parse() -> void:
 			shop_tab = a.substr(11).to_int()
 		elif a.begins_with("--shop-select="):
 			shop_select = a.substr(14)
+		elif a == "--open-unlock":
+			open_unlock = true
 		elif a == "--open-settings":
 			open_settings = true
 		elif a.begins_with("--freeze-tick="):

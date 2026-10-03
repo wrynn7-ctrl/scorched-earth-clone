@@ -239,6 +239,7 @@ func _ready() -> void:
 	_hud.item_pressed.connect(func(id: String) -> void: use_item(id))
 	_hud.move_pressed.connect(func(dir: int) -> void: move_current(dir))
 	_hud.set_speed(_speed)
+	Entitlement.hub().changed.connect(_on_entitlement_changed)
 	LayoutWatch.attach(self, _frame_camera)
 	_frame_camera()
 	_start_match(resume)
@@ -408,6 +409,7 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 		v.name = "Tank%d" % i
 		_world.add_child(v)
 		_tank_views.append(v)
+	_apply_skins()
 	mismatch_count = 0
 	_round_winner = -1
 	_rebuild_display()
@@ -416,10 +418,24 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 	_enter_phase()
 
 
+## Skin Studio looks (docs/ARCHITECTURE.md section 35): a Human tank on this device wears the skin assigned to its
+## slot; CPU tanks and slots without an assignment keep the default look. Purely local: the skin is
+## not part of the match state, the save or the settings, and online opponents (M7) never see
+## skins because nothing here is ever sent anywhere.
+func _apply_skins() -> void:
+	for t: TankState in state.tanks:
+		var skin: SkinData = null
+		if not is_cpu_tank(t.id):
+			skin = SkinStore.skin_for_slot(t.id)
+		_tank_views[t.id].set_skin(skin)
+
+
 func _new_settings() -> MatchSettings:
 	var base: MatchSettings = BattleConfig.settings if (BattleConfig.settings != null and not _configured) else null
 	var settings: MatchSettings = base.duplicate_settings() if base != null else MatchSettings.new()
 	if base == null:
+		# Quick matches (screenshots, tests, the demo) carry the player's real entitlement.
+		settings.full_unlocked = Entitlement.is_full()
 		settings.num_tanks = _players
 		settings.rounds = _rounds
 		settings.wind_max = 100
@@ -429,8 +445,18 @@ func _new_settings() -> MatchSettings:
 			settings.controllers = ShotArgs.controllers.duplicate()
 	if not _configured_controllers.is_empty():
 		settings.controllers = _configured_controllers.duplicate()
+	if base != null and Entitlement.is_full():
+		settings.full_unlocked = true  # bought since the setup screen (a restart picks it up)
 	settings.seed = _seed if _seed != 0 else (settings.seed if settings.seed != 0 else int(randi()))
 	return settings
+
+
+## The player bought the full game during this match (from the shop's lock or Settings): the match
+## is upgraded so the locked weapons open up at once. It is an entitlement, not a game outcome, so
+## the show layer may flip it; it only ever upgrades.
+func _on_entitlement_changed() -> void:
+	if state != null and Entitlement.is_full() and not state.settings.full_unlocked:
+		state.settings.full_unlocked = true
 
 
 ## Debug hook (--give=id:n): a screenshot/test aid that fills inventories without a shop visit.

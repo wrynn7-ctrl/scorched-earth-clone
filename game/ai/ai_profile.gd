@@ -17,6 +17,11 @@ extends RefCounted
 ##   overshoot / ignore  per-mille chance that a correction goes the wrong way: past the target by
 ##               about the size of the miss (factor overshoot_min..max), or hardly at all
 ##               (factor 0..ignore_max, "didn't notice"). Only Easy has them.
+##   veteran_*  a beginner gets the hang of it in a long round: once about `veteran_shots` of its own
+##               shots have been fired this round (estimated from the turn number, so it needs no
+##               memory), an ordinary correction is the stronger veteran_corr_min..max and the shot noise
+##               drops to veteran_noise. Early shots (the accuracy bands) are not touched; it only keeps
+##               an Easy-vs-Easy round from dragging on for hundreds of turns. 0 = never.
 ##   lost_cut_min/max  after a LOST shell (off the map) the next shot's power is simply cut by this
 ##               much of the lost shot's power, per-mille, with no look at the exact solution (a
 ##               big but crude reaction). 0 means "use the ordinary correction" (the M4-F bracketing).
@@ -49,6 +54,7 @@ const PROFILES: Dictionary = {
 		"overshoot": 250, "overshoot_min": 1700, "overshoot_max": 2300,
 		"ignore": 150, "ignore_max": 30,
 		"lost_cut_min": 150, "lost_cut_max": 400,
+		"veteran_shots": 8, "veteran_corr_min": 250, "veteran_corr_max": 450, "veteran_noise": 35,
 		"target": TARGET_NEAREST,
 		"shield": SHIELD_NEVER, "shield_below": 0,
 		"repulsor": false,
@@ -65,6 +71,7 @@ const PROFILES: Dictionary = {
 		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
 		"ignore": 0, "ignore_max": 0,
 		"lost_cut_min": 0, "lost_cut_max": 0,
+		"veteran_shots": 0, "veteran_corr_min": 0, "veteran_corr_max": 0, "veteran_noise": 0,
 		"target": TARGET_REVENGE,
 		"shield": SHIELD_WHEN_HURT, "shield_below": 50,
 		"repulsor": false,
@@ -81,6 +88,7 @@ const PROFILES: Dictionary = {
 		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
 		"ignore": 0, "ignore_max": 0,
 		"lost_cut_min": 0, "lost_cut_max": 0,
+		"veteran_shots": 0, "veteran_corr_min": 0, "veteran_corr_max": 0, "veteran_noise": 0,
 		"target": TARGET_WEAKEST,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
 		"repulsor": false,
@@ -97,6 +105,7 @@ const PROFILES: Dictionary = {
 		"overshoot": 0, "overshoot_min": 0, "overshoot_max": 0,
 		"ignore": 0, "ignore_max": 0,
 		"lost_cut_min": 0, "lost_cut_max": 0,
+		"veteran_shots": 0, "veteran_corr_min": 0, "veteran_corr_max": 0, "veteran_noise": 0,
 		"target": TARGET_VALUE,
 		"shield": SHIELD_ALWAYS, "shield_below": 101,
 		"repulsor": true,

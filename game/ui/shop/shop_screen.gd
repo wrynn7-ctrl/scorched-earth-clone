@@ -10,6 +10,9 @@ extends Control
 signal ready_pressed
 ## A message for the shop toast (already translated).
 signal message(text: String)
+## BUY was pressed on an entry that needs the full game (`kind` is "item"): the host opens the
+## Unlock screen.
+signal locked_tapped(kind: String, id: String)
 
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 const TABLET_MIN_DP: float = 520.0
@@ -434,6 +437,10 @@ func is_popup_open() -> bool:
 
 
 func _on_buy(id: String) -> void:
+	if is_locked(id):
+		AudioDirector.play_ui("locked")
+		locked_tapped.emit("item", id)
+		return
 	var err: String = buy_error(id)
 	if err == "":
 		err = _submit.call(_buy_action(id))

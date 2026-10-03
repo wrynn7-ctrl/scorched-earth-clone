@@ -61,12 +61,10 @@ const REQUIRED_KEYS: PackedStringArray = [
 	"ambient", "ambient_color",
 ]
 
-## Test hook: -1 = ask Entitlement (when that class exists), 0 = locked, 1 = full.
+## Test hook: -1 = ask Entitlement, 0 = locked, 1 = full.
 static var full_override: int = -1
 
 static var _defs: Dictionary = {}
-static var _entitlement: Script = null
-static var _entitlement_checked: bool = false
 
 
 static func ids() -> PackedStringArray:
@@ -104,19 +102,11 @@ static func is_locked(id: String, full: bool) -> bool:
 	return not full and id != RANDOM and not is_free(id)
 
 
-## Does this device own the full game? Uses Entitlement.is_full() when that class exists
-## (a later task adds it); until then every theme is available.
+## Does this device own the full game? Asks Entitlement (full_override is the test hook).
 static func is_full_game() -> bool:
 	if full_override >= 0:
 		return full_override == 1
-	if not _entitlement_checked:
-		_entitlement_checked = true
-		for entry: Dictionary in ProjectSettings.get_global_class_list():
-			if entry.get("class", "") == "Entitlement":
-				_entitlement = load(entry["path"] as String) as Script
-	if _entitlement != null and _entitlement.has_method("is_full"):
-		return _entitlement.call("is_full") as bool
-	return true
+	return Entitlement.is_full()
 
 
 ## The concrete theme for a round. A fixed theme returns itself (falling back to the first

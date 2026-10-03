@@ -43,10 +43,22 @@ func save(path: String) -> bool:
 	return SaveStore.save(state, actions, path, meta)
 
 
-## Restores a session from `path`, or null if there is no valid save.
+## True when the save at `path` was made with the full game but this device does not own it now
+## (a refund, a debug toggle, a restored phone). Such a save would hand out the full game for
+## free, so restore() refuses it; the title explains why instead (Unlock screen, "save" reason).
+static func needs_full(path: String) -> bool:
+	if Entitlement.is_full():
+		return false
+	var res: Dictionary = SaveStore.load_save(path)
+	return (res["ok"] as bool) and (res["state"] as MatchState).settings.full_unlocked
+
+
+## Restores a session from `path`, or null if there is no valid save (or it needs the full game).
 static func restore(path: String) -> MatchSession:
 	var res: Dictionary = SaveStore.load_save(path)
 	if not (res["ok"] as bool):
+		return null
+	if not Entitlement.is_full() and (res["state"] as MatchState).settings.full_unlocked:
 		return null
 	var s := MatchSession.new()
 	s.state = res["state"] as MatchState

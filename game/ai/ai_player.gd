@@ -273,7 +273,8 @@ static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 	var me: TankState = sit.me
 	var prof: Dictionary = sit.prof
 	var bias: int = round_bias(sit.state, me.id, prof)
-	var noise: int = _noise(sit.rng, prof["noise"])
+	var vet: bool = is_veteran(sit.state, prof)
+	var noise: int = _noise(sit.rng, prof["veteran_noise"] if vet else prof["noise"])
 	var angle: int = plan["angle"]
 	var power: int = plan["power"]
 	if plan.get("beam", false):
@@ -289,10 +290,17 @@ static func finalize(sit: AiSituation, plan: Dictionary) -> Dictionary:
 		var factor: int = -1
 		var lost: bool = sit.corr.get("lost", false)
 		if plan["corrected"]:
-			factor = correction_factor(prof, sit.rng, lost)
+			factor = correction_factor(prof, sit.rng, lost, false, vet)
 		power = clampi(_with_error(plan, prof, bias, noise, factor, crude_lost(prof, lost)),
 				SimConstants.MIN_POWER, SimConstants.MAX_POWER)
 	return {"kind": "fire", "tank": me.id, "angle": angle, "power": power, "weapon": plan["weapon"]}
+
+
+## True once the shooter has (about) had `veteran_shots` turns of its own this round. The turn number
+## counts everybody's turns, so the share of it that is "mine" is turn_number / number of tanks.
+static func is_veteran(state: MatchState, prof: Dictionary) -> bool:
+	var need: int = prof["veteran_shots"]
+	return need > 0 and state.turn_number / maxi(1, state.tanks.size()) >= need
 
 
 ## True if the next shot follows a lost shell and this level reacts to that crudely (see
@@ -306,8 +314,9 @@ static func crude_lost(prof: Dictionary, lost: bool) -> bool:
 ## are unchanged). Easy is a beginner: usually a weak, varying fraction, sometimes it overshoots
 ## to the other side of the target ("over-corrects"), sometimes it barely moves ("didn't notice").
 ## After a LOST shell (crude_lost) the number is instead how much of the lost shot's power is cut:
-## big, but blind to where the target is. `nominal` skips the dice (used for safety checks).
-static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: bool = false) -> int:
+## big, but blind to where the target is. A `veteran` (see is_veteran) corrects harder. `nominal`
+## skips the dice (used for safety checks).
+static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: bool = false, veteran: bool = false) -> int:
 	if crude_lost(prof, lost):
 		if nominal:
 			return ((prof["lost_cut_min"] as int) + (prof["lost_cut_max"] as int)) / 2
@@ -321,6 +330,8 @@ static func correction_factor(prof: Dictionary, rng: Rng, lost: bool, nominal: b
 		return rng.range_int(prof["overshoot_min"], prof["overshoot_max"])
 	if roll < over + ignore:
 		return rng.range_int(0, prof["ignore_max"])
+	if veteran:
+		return rng.range_int(prof["veteran_corr_min"], prof["veteran_corr_max"])
 	return rng.range_int(prof["corr_min"], prof["corr_max"])
 
 

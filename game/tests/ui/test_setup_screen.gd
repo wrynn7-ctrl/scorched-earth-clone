@@ -45,7 +45,7 @@ func test_defaults() -> void:
 	assert_eq(m.rounds, 3)
 	assert_eq(m.start_money, 10000)
 	assert_eq(m.wind_max, 70)
-	assert_true(m.full_unlocked, "the full game is unlocked until billing exists")
+	assert_eq(m.full_unlocked, Entitlement.is_full(), "matches carry the player's entitlement (full in headless runs)")
 
 
 func test_choices_become_match_settings() -> void:
@@ -316,7 +316,8 @@ func test_hard_and_expert_are_locked_without_the_full_game() -> void:
 	s.get_kind_button(2).pressed.emit()
 	var picker: KindPicker = s.get_kind_popup()
 	for level: int in [3, 4]:
-		assert_true(picker.get_option(level).disabled, "level %d is locked" % level)
+		assert_false(picker.get_option(level).disabled, "level %d stays tappable (it opens the Unlock screen)" % level)
+		assert_true(picker.is_locked(level))
 		assert_string_contains(picker.get_option(level).text, "FULL GAME")
 		assert_true(picker.get_option(level).get_node("Lock").visible, "with a lock icon")
 	for level: int in [0, 1, 2]:

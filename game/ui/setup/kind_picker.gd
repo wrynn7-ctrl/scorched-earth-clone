@@ -3,13 +3,16 @@ extends OverlayPanel
 ## The "who controls this slot" chooser on the setup screen: Human, CPU Easy, CPU Normal, CPU
 ## Hard, CPU Expert, laid out as a 2-column grid of big (56 dp) touch targets in a centred panel.
 ## A phone in landscape is only ~320 dp high, so the grid keeps the panel short. Hard and Expert
-## carry a lock icon and the words "FULL GAME" while the full game is not unlocked (the text is
-## the cue; colour is never the only one).
+## (and Human, once two humans already share the device) carry a lock icon and the words "FULL
+## GAME" while the full game is not unlocked (the text is the cue; colour is never the only one).
+## A locked entry stays tappable: it reports `locked_chosen` so the Unlock screen can open.
 ##
 ## Tapping outside the panel or BACK closes it without a choice.
 
 ## `level` is a SimConstants.CTRL_* value.
 signal chosen(level: int)
+## A locked entry was tapped (the picker closes first).
+signal locked_chosen(level: int)
 
 const TARGET_HEIGHT_DP: float = 56.0
 
@@ -54,14 +57,17 @@ func _make_lock(b: Button) -> Control:
 
 
 ## Opens the picker for `player` (0-based). `current` is highlighted; levels above
-## SimConstants.CTRL_FREE_MAX are locked when `full_unlocked` is false.
-func open_for(player: int, current: int, full_unlocked: bool) -> void:
+## SimConstants.CTRL_FREE_MAX are locked when `full_unlocked` is false, and so is Human when
+## `human_locked` (the free version allows two humans per device).
+func open_for(player: int, current: int, full_unlocked: bool, human_locked: bool = false) -> void:
 	_player = player
 	_title.text = tr("SETUP_PICK_TITLE") % (player + 1)
 	for level: int in range(_options.size()):
 		var b: Button = _options[level]
 		var locked: bool = not full_unlocked and level > SimConstants.CTRL_FREE_MAX
-		b.disabled = locked
+		if level == SimConstants.CTRL_HUMAN and human_locked and current != SimConstants.CTRL_HUMAN:
+			locked = true
+		b.disabled = false
 		b.text = tr("SETUP_PICK_LOCKED_FMT") % CpuNames.full_name(level) if locked else CpuNames.full_name(level)
 		b.set_pressed_no_signal(level == current)
 		_locks[level].visible = locked
@@ -98,9 +104,17 @@ func apply_scale() -> void:
 		_locks[i].offset_right = 6.0 + UiScale.dp(28.0)
 
 
+func is_locked(level: int) -> bool:
+	return _locks[level].visible
+
+
 func _on_option(level: int) -> void:
+	var locked: bool = _locks[level].visible
 	close()
-	chosen.emit(level)
+	if locked:
+		locked_chosen.emit(level)
+	else:
+		chosen.emit(level)
 
 
 ## A tap on the dimmed area outside the panel dismisses the picker.

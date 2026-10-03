@@ -2,8 +2,12 @@ class_name SetupScreen
 extends Control
 ## Match setup (from the title's START): players 2-8, who controls each slot (Human or a CPU
 ## from Easy to Expert), rounds, starting money, wind, and each player's colour and emblem.
-## START creates the match settings (full game unlocked) and loads the battle, which opens the
-## first shop. The last-used setup is remembered (SetupPrefs / SettingsStore).
+## START creates the match settings (with `full_unlocked` = the player's Entitlement) and loads the
+## battle, which opens the first shop. The last-used setup is remembered (SetupPrefs / SettingsStore).
+##
+## Free version (ARCHITECTURE section 32): 4 players, 2 humans, CPU Easy/Normal, rounds 1/3/5,
+## Normal money and wind, the two free themes. Locked options stay visible with a padlock; tapping
+## one opens the Unlock screen, and a purchase unlocks them live (no restart).
 ##
 ## At least one slot must be human, unless "Watch CPUs play" is ticked.
 ##
@@ -14,8 +18,9 @@ const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
 const TITLE_SCENE: String = "res://ui/title/title_screen.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 
-## Reported when a theme that needs the full game is tapped without it (a later task opens the
-## Unlock screen from here).
+## Reported when an option that needs the full game is tapped without it. `kind` is one of
+## "players", "human", "rounds", "money", "wind", "theme", "cpu" (UnlockScreen.CONTEXT_KEYS); the
+## Unlock screen opens from here.
 signal locked_tapped(kind: String, id: String)
 
 const ROUND_CHOICES: Array[int] = [1, 3, 5, 10, 20]
@@ -28,6 +33,8 @@ const WIND_KEYS: Array[String] = ["SETUP_OFF", "SETUP_LOW", "SETUP_NORMAL", "SET
 const DEFAULT_ROUNDS: int = 3
 const DEFAULT_MONEY_LEVEL: int = 1
 const DEFAULT_WIND_LEVEL: int = 2
+## Humans sharing one device without the full game.
+const FREE_MAX_HUMANS: int = 2
 
 ## Chip colour per level (the chip also spells the level out, so colour is never the only cue).
 const LEVEL_COLORS: Array[Color] = [Color.WHITE, NeonPalette.GOOD, NeonPalette.CYAN, NeonPalette.WARN, NeonPalette.MAGENTA]
@@ -42,7 +49,7 @@ var _emblems: PackedInt32Array = PackedInt32Array()
 ## player count keeps the choices).
 var _controllers: PackedInt32Array = PackedInt32Array()
 var _watch: bool = false
-## False locks CPU Hard and Expert and the full-game themes (follows Entitlement once it exists).
+## False locks everything section 32 reserves for the full game. Follows Entitlement live.
 var _full_unlocked: bool = true
 ## Terrain theme: a ThemeDefs id or "random" (visual only, applied in the battle).
 var _theme: String = ThemeDefs.DEFAULT_ID
@@ -76,6 +83,7 @@ var _chip_labels: Array[Label] = []
 var _picker: KindPicker = null
 var _theme_button: Button = null
 var _theme_picker: ThemePicker = null
+var _unlock: UnlockScreen = null
 var _header: HBoxContainer = null
 var _watch_box: Button = null
 var _hint: Label = null
@@ -101,6 +109,7 @@ func _init() -> void:
 		_players = clampi(ShotArgs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
 	for i: int in range(mini(ShotArgs.controllers.size(), SimConstants.MAX_TANKS)):
 		_controllers[i] = _allowed_level(ShotArgs.controllers[i])
+	_enforce_free_rules()
 	_build()
 
 
@@ -108,6 +117,7 @@ func _ready() -> void:
 	get_tree().set_quit_on_go_back(false)
 	apply_scale()
 	LayoutWatch.attach(self, apply_scale)
+	Entitlement.hub().changed.connect(_on_entitlement_changed)
 	_refresh()
 	ShotHook.attach(self)
 	if ShotArgs.setup_picker > 0:
@@ -116,7 +126,9 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if _theme_picker != null and _theme_picker.visible:
+		if _unlock != null and _unlock.visible:
+			_unlock.close()
+		elif _theme_picker != null and _theme_picker.visible:
 			_theme_picker.close()
 		elif _picker != null and _picker.visible:
 			_picker.close()  # Android back closes the picker first
@@ -136,6 +148,7 @@ func _load_prefs() -> void:
 	_theme = SetupPrefs.theme if _theme_allowed(SetupPrefs.theme) else ThemeDefs.DEFAULT_ID
 	for i: int in range(SimConstants.MAX_TANKS):
 		_controllers[i] = _allowed_level(SetupPrefs.controllers[i] if i < SetupPrefs.controllers.size() else 0)
+	_enforce_free_rules()
 	_enforce_human_rule()
 
 
@@ -162,6 +175,10 @@ func _build() -> void:
 	_theme_picker.chosen.connect(choose_theme)
 	_theme_picker.locked_chosen.connect(_on_theme_locked)
 	add_child(_theme_picker)
+	_picker.locked_chosen.connect(_on_kind_locked)
+	_unlock = UnlockScreen.new()
+	add_child(_unlock)
+	locked_tapped.connect(_on_locked_tapped)
 
 
 func _panel(panel_name: String) -> Array:
@@ -387,7 +404,14 @@ func _build_player_row(i: int) -> void:
 
 
 func _open_kind_popup(index: int) -> void:
-	_picker.open_for(index, _controllers[index], _full_unlocked)
+	_picker.open_for(index, _controllers[index], _full_unlocked, _human_locked(index))
+
+
+func _on_kind_locked(level: int) -> void:
+	if level == SimConstants.CTRL_HUMAN:
+		_lock_tapped("human", "")
+	else:
+		_lock_tapped("cpu", str(level))
 
 
 func _on_kind_chosen(level: int) -> void:
@@ -453,32 +477,121 @@ func apply_scale() -> void:
 	_back.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
 	_start.custom_minimum_size = Vector2(UiScale.dp(120.0), UiScale.dp(56.0))
 	_start.add_theme_font_size_override("font_size", UiScale.hud_font(22.0))
+	_refresh_locks()
 
 
 # ======================================================================================
 # State
 # ======================================================================================
 
-func set_players(n: int) -> void:
-	_players = clampi(n, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+## Sets the player count. Returns false when 5..8 is asked for without the full game (the Unlock
+## screen opens instead). Extra humans beyond FREE_MAX_HUMANS become CPUs in the free version.
+func set_players(n: int) -> bool:
+	var want: int = clampi(n, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
+	if players_locked(want):
+		_lock_tapped("players", str(want))
+		return false
+	_players = want
 	_hint.text = ""
+	_enforce_free_rules()
 	_enforce_human_rule()
 	_refresh()
+	return true
 
 
-func set_rounds(n: int) -> void:
+func set_rounds(n: int) -> bool:
+	if rounds_locked(n):
+		_lock_tapped("rounds", str(n))
+		return false
 	_rounds = n if ROUND_CHOICES.has(n) else DEFAULT_ROUNDS
 	_refresh()
+	return true
 
 
-func set_money_level(level: int) -> void:
-	_money_level = clampi(level, 0, MONEY_CHOICES.size() - 1)
+func set_money_level(level: int) -> bool:
+	var want: int = clampi(level, 0, MONEY_CHOICES.size() - 1)
+	if money_locked(want):
+		_lock_tapped("money", str(want))
+		return false
+	_money_level = want
+	_refresh()
+	return true
+
+
+func set_wind_level(level: int) -> bool:
+	var want: int = clampi(level, 0, WIND_CHOICES.size() - 1)
+	if wind_locked(want):
+		_lock_tapped("wind", str(want))
+		return false
+	_wind_level = want
+	_refresh()
+	return true
+
+
+# --- what the free version may not do (ARCHITECTURE section 32) ---
+
+func players_locked(n: int) -> bool:
+	return not _full_unlocked and n > SimConstants.FREE_MAX_TANKS
+
+
+func rounds_locked(n: int) -> bool:
+	return not _full_unlocked and n > SimConstants.FREE_MAX_ROUNDS
+
+
+func money_locked(level: int) -> bool:
+	return not _full_unlocked and level != DEFAULT_MONEY_LEVEL
+
+
+func wind_locked(level: int) -> bool:
+	return not _full_unlocked and level != DEFAULT_WIND_LEVEL
+
+
+## Choosing Human for slot `i` would exceed FREE_MAX_HUMANS on this device.
+func _human_locked(i: int) -> bool:
+	return not _full_unlocked and i < _players and _humans_without(i) >= FREE_MAX_HUMANS
+
+
+## Brings every choice inside the free limits (used when the tier drops, and on load).
+func _enforce_free_rules() -> void:
+	if _full_unlocked:
+		return
+	_players = mini(_players, SimConstants.FREE_MAX_TANKS)
+	if rounds_locked(_rounds):
+		_rounds = DEFAULT_ROUNDS
+	_money_level = DEFAULT_MONEY_LEVEL
+	_wind_level = DEFAULT_WIND_LEVEL
+	var humans: int = 0
+	for i: int in range(_controllers.size()):
+		_controllers[i] = _allowed_level(_controllers[i])
+		if i < _players and _controllers[i] == SimConstants.CTRL_HUMAN:
+			humans += 1
+			if humans > FREE_MAX_HUMANS:
+				_controllers[i] = SimConstants.CTRL_FREE_MAX
+	if not _theme_allowed(_theme):
+		_theme = ThemeDefs.DEFAULT_ID
+
+
+## A locked option was tapped: say why and let the host open the Unlock screen.
+func _lock_tapped(kind: String, id: String) -> void:
+	var key: String = UnlockScreen.CONTEXT_KEYS.get(kind, "UNLOCK_CTX_THEME") as String
+	_hint.text = tr(key)
+	_refresh()
+	locked_tapped.emit(kind, id)
+
+
+func _on_locked_tapped(kind: String, _id: String) -> void:
+	_unlock.open_for(kind)
+
+
+## The player bought (or lost) the full game while this screen is up.
+func _on_entitlement_changed() -> void:
+	set_full_unlocked(ThemeDefs.is_full_game())
+	_hint.text = ""
 	_refresh()
 
 
-func set_wind_level(level: int) -> void:
-	_wind_level = clampi(level, 0, WIND_CHOICES.size() - 1)
-	_refresh()
+func get_unlock_screen() -> UnlockScreen:
+	return _unlock
 
 
 ## Chooses who controls slot `i`: SimConstants.CTRL_HUMAN or a CPU level. Returns false (and
@@ -488,6 +601,10 @@ func set_controller(i: int, level: int) -> bool:
 	if i < 0 or i >= SimConstants.MAX_TANKS or level < SimConstants.CTRL_HUMAN or level > SimConstants.CTRL_MAX:
 		return false
 	if _allowed_level(level) != level:
+		_lock_tapped("cpu", str(level))
+		return false
+	if level == SimConstants.CTRL_HUMAN and _human_locked(i):
+		_lock_tapped("human", "")
 		return false
 	_hint.text = ""
 	if level != SimConstants.CTRL_HUMAN and i < _players and not _watch and _humans_without(i) == 0:
@@ -528,14 +645,11 @@ func _allowed_level(level: int) -> int:
 	return clampi(level, SimConstants.CTRL_HUMAN, top)
 
 
-## Test/billing hook: lock or unlock CPU Hard and Expert. Locking also demotes slots that
-## already use them.
+## Billing / test hook: switch the whole tier. Locking also pulls every choice back inside the
+## free limits (players, humans, CPU levels, rounds, money, wind, theme).
 func set_full_unlocked(unlocked: bool) -> void:
 	_full_unlocked = unlocked
-	for i: int in range(_controllers.size()):
-		_controllers[i] = _allowed_level(_controllers[i])
-	if not _theme_allowed(_theme):
-		_theme = ThemeDefs.DEFAULT_ID
+	_enforce_free_rules()
 	_refresh()
 
 
@@ -642,6 +756,24 @@ func _refresh() -> void:
 	_watch_box.set_pressed_no_signal(_watch)
 	_watch_box.text = "%s: %s" % [tr("SETUP_WATCH"), tr("SET_ON") if _watch else tr("SET_OFF")]
 	_hint.visible = _hint.text != ""
+	_refresh_locks()
+
+
+## Padlocks on every option the free version cannot use. They stay visible and tappable.
+func _refresh_locks() -> void:
+	if _players_plus == null:
+		return
+	LockBadge.mark(_players_plus, players_locked(_players + 1) and _players < SimConstants.MAX_TANKS,
+			tr("LOCK_FULL_FMT") % tr("SETUP_PLAYERS"), tr("SETUP_PLAYERS"))
+	for i: int in range(_round_buttons.size()):
+		var n: int = ROUND_CHOICES[i]
+		LockBadge.mark(_round_buttons[i], rounds_locked(n), tr("LOCK_FULL_FMT") % str(n), str(n))
+	for i: int in range(_money_buttons.size()):
+		var label: String = tr(MONEY_KEYS[i])
+		LockBadge.mark(_money_buttons[i], money_locked(i), tr("LOCK_FULL_FMT") % label, label)
+	for i: int in range(_wind_buttons.size()):
+		var label: String = tr(WIND_KEYS[i])
+		LockBadge.mark(_wind_buttons[i], wind_locked(i), tr("LOCK_FULL_FMT") % label, label)
 
 
 ## Slot i's picker button, level chip and tooltip.
@@ -673,8 +805,10 @@ func _chip_style(level: int) -> StyleBoxFlat:
 # Start / back
 # ======================================================================================
 
-## The settings START would use (full game unlocked until billing exists).
+## The settings START would use. `full_unlocked` follows the player's entitlement; the free caps
+## are applied here too (the core clamps them again).
 func build_settings() -> MatchSettings:
+	_enforce_free_rules()
 	var s := MatchSettings.new()
 	s.num_tanks = _players
 	s.rounds = _rounds

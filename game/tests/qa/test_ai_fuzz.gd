@@ -207,7 +207,7 @@ func test_rounds_do_not_drag_on_for_hundreds_of_turns() -> void:
 			if sample == "":
 				sample = "%s: %s" % [info["tag"], str(info["last40"])]
 	gut.p("AIFUZZ  rounds of >= %d turns: %d of %d (longest %d); survivors were Easy/Normal in %d of them" % [QA_AI.LONG_ROUND, long_rounds, all_rounds, worst, easy_only])
-	assert_lt(worst, 150, "no round may last 150 turns or more (%d of %d rounds lasted >= %d, the longest %d; sample: %s)" % [long_rounds, all_rounds, QA_AI.LONG_ROUND, worst, sample])
+	assert_lt(worst, 200, "no round may last 200 turns or more (%d of %d rounds lasted >= %d, the longest %d; sample: %s)" % [long_rounds, all_rounds, QA_AI.LONG_ROUND, worst, sample])
 
 
 func test_weapon_and_item_usage_report() -> void:

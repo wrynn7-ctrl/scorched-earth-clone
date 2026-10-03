@@ -145,6 +145,43 @@ func test_easy_correction_factors_follow_the_profile() -> void:
 	assert_eq(rng.get_state(), before, "and rolls no dice (its stream is unchanged)")
 
 
+## A beginner gets the hang of it in a long round: once an Easy tank has had ~8 turns of its own, it
+## corrects harder and is steadier (stateless: estimated from the turn number). This is what keeps an
+## Easy-vs-Easy round from lasting for hundreds of turns; shots 1-6 above are not affected.
+func test_easy_gets_better_in_a_long_round_but_not_in_the_first_shots() -> void:
+	var prof: Dictionary = AiProfile.for_level(SimConstants.CTRL_EASY)
+	var state: MatchState = AiTestUtil.duel(3, SimConstants.CTRL_EASY, 800, 0)
+	state.turn_number = 2 * (prof["veteran_shots"] as int) - 2
+	assert_false(AiPlayer.is_veteran(state, prof), "not yet after veteran_shots - 1 own turns (2 tanks)")
+	state.turn_number = 2 * (prof["veteran_shots"] as int)
+	assert_true(AiPlayer.is_veteran(state, prof))
+	for level: int in [SimConstants.CTRL_NORMAL, SimConstants.CTRL_HARD, SimConstants.CTRL_EXPERT]:
+		assert_false(AiPlayer.is_veteran(state, AiProfile.for_level(level)), "only Easy has a veteran phase")
+	# Mean miss of the LANDED shots in shots 10..14 of a long duel (no hits are possible to stop it: the
+	# target is revived), against shots 2..6.
+	var early: Array[int] = []
+	var late: Array[int] = []
+	for i: int in range(60):
+		var p: Vector2i = AiTestUtil.params(i, 21)
+		var duel: MatchState = AiTestUtil.duel(8000 + i, SimConstants.CTRL_EASY, p.x, 0)
+		for shot: int in range(1, 15):
+			AiTestUtil.give_turn_back(duel)
+			duel.tanks[AiTestUtil.TARGET].health = SimConstants.MAX_HEALTH
+			var turn: Dictionary = AiTestUtil.play_turn(duel, AiTestUtil.SHOOTER)
+			var m: int = AiTestUtil.impact_miss(duel, turn["events"])
+			if m >= 100000:
+				continue
+			if shot >= 2 and shot <= 6:
+				early.append(m)
+			elif shot >= 10:
+				late.append(m)
+	var early_med: int = AiTestUtil.median(early)
+	var late_med: int = AiTestUtil.median(late)
+	gut.p("EASY     median miss, shots 2-6: %d cells; shots 10-14 (veteran): %d cells" % [early_med, late_med])
+	assert_gte(early_med, 60, "early shots stay sloppy")
+	assert_lt(late_med * 100, early_med * 70, "a long round makes it clearly better (at least 30%% closer)")
+
+
 ## After a lost shell Easy makes a big but crude adjustment (not an exact bracket), and the lost
 ## shots do not repeat: starting from a lost full-power shell, the shells land within a few shots.
 func test_easy_reacts_to_a_lost_shell_crudely_and_does_not_repeat_it() -> void:
@@ -181,18 +218,43 @@ func test_easy_reacts_to_a_lost_shell_crudely_and_does_not_repeat_it() -> void:
 	assert_gt(AiTestUtil.median(cut), 50, "but it does cut the power by a clear amount")
 
 
-func test_easy_misses_more_in_strong_wind_but_still_misses_without_wind() -> void:
+func test_easy_ignores_wind_so_wind_moves_its_shells_but_it_still_misses_without_wind() -> void:
 	var calm: Dictionary = _batch(SimConstants.CTRL_EASY, 11, 1, 0)
 	var windy: Dictionary = _batch(SimConstants.CTRL_EASY, 11, 1, 100)
 	var calm_hits: Array[int] = calm["hits"]
 	var windy_hits: Array[int] = windy["hits"]
 	var calm_median: int = AiTestUtil.median(calm["first_miss"])
-	var windy_median: int = AiTestUtil.median(windy["first_miss"])
 	gut.p("EASY     no wind: median miss %d, misses %s | wind 100: median miss %d, misses %s" % [
-			calm_median, _pct(N - calm_hits[1]), windy_median, _pct(N - windy_hits[1])])
-	assert_gt(windy_median, calm_median, "wind (which Easy ignores) makes it miss by more")
-	assert_gte((N - calm_hits[1]) * 100, 80 * N, "without wind Easy still misses (consistent bias)")
+			calm_median, _pct(N - calm_hits[1]), AiTestUtil.median(windy["first_miss"]), _pct(N - windy_hits[1])])
+	assert_gte((N - calm_hits[1]) * 100, 90 * N, "without wind Easy still misses (consistent bias)")
 	assert_gte(calm_median, 40, "the bias alone is a believable miss")
+	# Easy believes the wind is zero: it fires the very same shot in any wind (so the wind, not the AI,
+	# is what moves the shell and spoils or helps the aim).
+	var same: int = 0
+	var moved: int = 0
+	var landed: int = 0
+	for i: int in range(40):
+		var p: Vector2i = AiTestUtil.params(i, 12)
+		var a: MatchState = AiTestUtil.duel(2000 + i, SimConstants.CTRL_EASY, p.x, 0)
+		var b: MatchState = AiTestUtil.duel(2000 + i, SimConstants.CTRL_EASY, p.x, 100)
+		var ta: Dictionary = AiTestUtil.play_turn(a, AiTestUtil.SHOOTER)
+		var tb: Dictionary = AiTestUtil.play_turn(b, AiTestUtil.SHOOTER)
+		if ta["action"] == tb["action"]:
+			same += 1
+		if AiTestUtil.impact_miss(a, ta["events"]) < 100000 and AiTestUtil.impact_miss(b, tb["events"]) < 100000:
+			landed += 1
+			if _impact_x(ta["events"]) != _impact_x(tb["events"]):
+				moved += 1
+	gut.p("EASY     same shot in wind 0 and 100: %d/40; the wind moved the landing in %d of %d landed pairs" % [same, moved, landed])
+	assert_eq(same, 40, "Easy ignores the wind in its aim")
+	assert_gte(moved * 100, 80 * landed, "yet the real wind moves the shell")
+
+
+func _impact_x(events: Array[Dictionary]) -> int:
+	for e: Dictionary in events:
+		if e["type"] == "projectile_end" and e["reason"] != "lost" and e["reason"] != "timeout":
+			return e["x"]
+	return -1
 
 
 func test_levels_are_ordered_by_skill() -> void:

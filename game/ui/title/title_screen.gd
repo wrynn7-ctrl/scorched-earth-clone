@@ -5,6 +5,7 @@ extends Control
 
 const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
 const SETUP_SCENE: String = "res://ui/setup/setup_screen.tscn"
+const SKINS_SCENE: String = "res://ui/skins/skin_studio.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 ## Grid scroll speed on the title (the battle's sky uses the shader default, 0.35).
 const TITLE_GRID_SPEED: float = 0.16
@@ -20,8 +21,11 @@ var _subtitle: Label = null
 var _start: Button = null
 var _continue: Button = null
 var _settings: Button = null
+var _skins: Button = null
 var _row: HBoxContainer = null
 var _settings_overlay: SettingsOverlay = null
+var _unlock_chip: Button = null
+var _unlock: UnlockScreen = null
 var _confirm: ConfirmOverlay = null
 var _pulse: Tween = null
 var _pulse_b: Tween = null
@@ -41,9 +45,14 @@ func _ready() -> void:
 	apply_scale()
 	LayoutWatch.attach(self, apply_scale)
 	refresh_continue()
+	Entitlement.start()  # connects to the store (price, what is owned) in the background
+	Entitlement.hub().changed.connect(_refresh_unlock_chip)
+	_refresh_unlock_chip()
 	_start_pulse()
 	_start_drift()
 	ShotHook.attach(self)
+	if ShotArgs.open_unlock:
+		open_unlock("")
 	if ShotArgs.open_settings or ShotArgs.open_diag:
 		open_settings()
 	if ShotArgs.open_diag:
@@ -120,9 +129,27 @@ func _build() -> void:
 	_settings.focus_mode = Control.FOCUS_NONE
 	_settings.pressed.connect(open_settings)
 	_row.add_child(_settings)
+	_skins = Button.new()
+	_skins.name = "Skins"
+	_skins.text = tr("TITLE_SKINS")
+	_skins.focus_mode = Control.FOCUS_NONE
+	_skins.pressed.connect(open_skins)
+	_row.add_child(_skins)
+
+	# "UNLOCK FULL GAME": a small pill under the buttons, only while the full game is not owned.
+	_unlock_chip = Button.new()
+	_unlock_chip.name = "UnlockChip"
+	_unlock_chip.text = tr("TITLE_UNLOCK")
+	_unlock_chip.focus_mode = Control.FOCUS_NONE
+	_unlock_chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_unlock_chip.pressed.connect(open_unlock.bind(""))
+	_box.add_child(_unlock_chip)
 
 	_settings_overlay = SettingsOverlay.new()
 	add_child(_settings_overlay)
+	_unlock = UnlockScreen.new()
+	_unlock.closed.connect(_on_unlock_closed)
+	add_child(_unlock)
 	_confirm = ConfirmOverlay.new()
 	_confirm.confirmed.connect(_go_to_setup)
 	add_child(_confirm)
@@ -160,9 +187,14 @@ func apply_scale() -> void:
 	_row.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
 	_start.custom_minimum_size = Vector2(UiScale.dp(220.0), UiScale.dp(68.0))
 	_start.add_theme_font_size_override("font_size", UiScale.font(26.0))
-	for b: Button in [_continue, _settings]:
+	for b: Button in [_continue, _settings, _skins]:
 		b.custom_minimum_size = Vector2(UiScale.dp(150.0), UiScale.touch())
 		b.add_theme_font_size_override("font_size", UiScale.font(15.0))
+	_unlock_chip.custom_minimum_size = Vector2(UiScale.dp(210.0), UiScale.touch())
+	_unlock_chip.add_theme_font_size_override("font_size", UiScale.font(14.0))
+	_unlock_chip.add_theme_color_override("font_color", NeonPalette.HOT)
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		_unlock_chip.add_theme_stylebox_override(state, _chip_style(state == "pressed" or state == "hover"))
 
 
 ## A gentle logo glow: the wide magenta halo and the tight cyan one breathe out of step, and a
@@ -227,6 +259,51 @@ func get_logo_text() -> String:
 	return _logo.text
 
 
+## A pill with a magenta neon outline (the one place on the title that is not a standard button).
+func _chip_style(bright: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(NeonPalette.BG_DEEP, 0.78) if not bright else Color(NeonPalette.MAGENTA, 0.28)
+	sb.border_color = NeonPalette.MAGENTA
+	sb.set_border_width_all(maxi(2, roundi(UiScale.dp(1.5))))
+	sb.set_corner_radius_all(roundi(UiScale.touch() * 0.5))
+	sb.content_margin_left = UiScale.dp(16.0)
+	sb.content_margin_right = UiScale.dp(16.0)
+	sb.anti_aliasing = true
+	return sb
+
+
+func get_unlock_chip() -> Button:
+	return _unlock_chip
+
+
+func get_unlock_screen() -> UnlockScreen:
+	return _unlock
+
+
+## The chip shows only while the full game is not owned.
+func _refresh_unlock_chip() -> void:
+	_unlock_chip.visible = not Entitlement.is_full()
+
+
+func open_unlock(kind: String) -> void:
+	_unlock.open_for(kind)
+
+
+## After a "this match needs the full game" unlock, CONTINUE goes straight into the match.
+func _on_unlock_closed() -> void:
+	if _unlock.get_kind() == "save" and Entitlement.is_full():
+		continue_game()
+
+
+func get_skins_button() -> Button:
+	return _skins
+
+
+## SKINS: the Skin Studio (private, on-device tank looks).
+func open_skins() -> void:
+	Transition.go(get_tree(), SKINS_SCENE)
+
+
 func open_settings() -> void:
 	_settings_overlay.open()
 
@@ -245,6 +322,11 @@ func _go_to_setup() -> void:
 
 ## CONTINUE: the battle restores the autosave (mid-turn or mid-shop).
 func continue_game() -> void:
+	if MatchSession.needs_full(BattleConfig.autosave_path):
+		# Made with the full game, not owned on this device now: explain and offer the unlock.
+		# The save is kept, so unlocking (or a restore) brings the match back.
+		open_unlock("save")
+		return
 	BattleConfig.resume = true
 	BattleConfig.settings = null
 	Transition.go(get_tree(), BATTLE_SCENE)

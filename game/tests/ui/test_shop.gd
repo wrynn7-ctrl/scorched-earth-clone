@@ -180,7 +180,8 @@ func test_locked_full_tier_entries_show_a_badge_and_cannot_be_bought() -> void:
 	assert_eq(screen.buy_error("supernova"), "locked_item")
 	assert_true(screen.get_detail().get_buy_button().is_blocked())
 	screen.get_detail().get_buy_button().pressed.emit()
-	assert_eq(f.get_toast().get_text(), "Part of the full game")
+	assert_true(f.get_unlock_screen().visible, "BUY on a locked entry opens the Unlock screen")
+	assert_eq(f.get_unlock_screen().get_kind(), "item")
 	assert_eq(_state.tanks[0].stock_of("supernova"), 0)
 	# With the full game unlocked there is no badge at all.
 	_new_state(2, true)

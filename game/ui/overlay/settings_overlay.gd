@@ -17,6 +17,8 @@ var _size_minus: Button = null
 var _size_plus: Button = null
 var _version_btn: Button = null
 var _diag: DiagnosticsOverlay = null
+var _unlock: UnlockScreen = null
+var _full_btn: Button = null
 var _version_taps: int = 0
 var _last_tap_ms: int = 0
 ## "Sfx" / "Music" -> the volume slider, its value label and its ON/OFF button.
@@ -80,6 +82,10 @@ func _init() -> void:
 	_add_volume("Music", tr("SET_MUSIC"), ShowSettings.music_volume, ShowSettings.music_on, _on_music_volume, _on_music_on)
 	_ui_sounds_btn = add_toggle(tr("SET_UI_SOUNDS"), ShowSettings.ui_sounds, _on_ui_sounds)
 	_ui_sounds_btn.name = "UiSounds"
+	# "Full game: [Restore purchase]" (an "Unlocked" label once owned). Opens the Unlock screen and asks Play.
+	_full_btn = add_cycle(tr("SET_FULL_GAME"), tr("SET_RESTORE"), _on_restore_pressed)
+	_full_btn.name = "Restore"
+	_btn_dp[_full_btn] = [190.0, 13.0]
 	end_container()
 	# BACK and the (hidden-diagnostics) version number share a row to keep the panel short.
 	begin_row()
@@ -94,6 +100,9 @@ func _init() -> void:
 	end_container()
 	_diag = DiagnosticsOverlay.new()
 	add_child(_diag)
+	_unlock = UnlockScreen.new()
+	_unlock.closed.connect(_sync)  # a restore may have unlocked the game
+	add_child(_unlock)
 	_sync()
 
 
@@ -143,6 +152,8 @@ func _refit_settings_next_frame() -> void:
 func close() -> void:
 	if _diag.visible:
 		_diag.close()
+	if _unlock.visible:
+		_unlock.close()
 	if visible:
 		super.close()
 		closed.emit()
@@ -164,6 +175,19 @@ func get_version_button() -> Button:
 
 func get_diagnostics() -> DiagnosticsOverlay:
 	return _diag
+
+
+func get_unlock_screen() -> UnlockScreen:
+	return _unlock
+
+
+func get_restore_button() -> Button:
+	return _full_btn
+
+
+## Restore purchase: the Unlock screen opens and asks the store straight away (it shows the result).
+func _on_restore_pressed() -> void:
+	_unlock.open_for("", true)
 
 
 ## Hides without emitting `closed` (the pause menu is being torn down).
@@ -189,6 +213,9 @@ func _sync() -> void:
 
 
 func _refresh_texts() -> void:
+	var owned: bool = Entitlement.is_full()
+	_full_btn.text = tr("SET_FULL_OWNED") if owned else tr("SET_RESTORE")
+	_full_btn.disabled = owned
 	_preview_btn.text = tr("SET_PREVIEW_SHORT") if ShowSettings.trajectory_preview == ShowSettings.PREVIEW_SHORT else tr("SET_OFF")
 	_speed_btn.text = tr("HUD_SPEED_FMT") % (2 if ShowSettings.playback_speed >= 1.5 else 1)
 	_cpu_btn.text = tr(CPU_SPEED_KEYS[clampi(ShowSettings.cpu_turn_speed, 0, CPU_SPEED_KEYS.size() - 1)])

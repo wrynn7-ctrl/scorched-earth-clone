@@ -16,6 +16,7 @@ const FONT_DP: float = 9.0
 var _text: Label = null
 var _text_hud: Label = null
 var _frames: Control = null
+var _debug_full: Button = null
 var _since: float = 0.0
 
 
@@ -28,6 +29,14 @@ func _init() -> void:
 	_text = _text_label("Text")
 	_text_hud = _text_label("TextHud")
 	end_container()
+	# Debug builds only: pretend the full game is owned (or not) to test both modes before the Play
+	# listing exists. Release builds never show it, and Entitlement ignores the call there anyway.
+	_debug_full = add_button("", 260.0)
+	_debug_full.name = "DebugFull"
+	_debug_full.toggle_mode = true
+	_debug_full.toggled.connect(func(on: bool) -> void:
+		Entitlement.set_debug_full(on)
+		_sync_debug_full())
 	add_button(tr("DIAG_CLOSE"), 160.0).pressed.connect(close)
 	_buttons[_buttons.size() - 1].name = "Close"
 	_frames = Control.new()
@@ -77,8 +86,21 @@ func _process(delta: float) -> void:
 		refresh()
 
 
+func _sync_debug_full() -> void:
+	_debug_full.visible = Entitlement.is_debug_build()
+	_debug_full.set_pressed_no_signal(Entitlement.is_debug_full())
+	_debug_full.text = tr("DIAG_DEBUG_FULL_FMT") % (tr("SET_ON") if Entitlement.is_debug_full() else tr("SET_OFF"))
+
+
+func get_debug_full_button() -> Button:
+	return _debug_full
+
+
 func refresh() -> void:
-	var extra: String = "this screen: %s\nversion: %s" % [str(get_global_rect()), BuildInfo.VERSION]
+	_sync_debug_full()
+	var extra: String = "this screen: %s\nversion: %s\nfull game: %s (store: %s, debug override: %s)" % [
+			str(get_global_rect()), BuildInfo.VERSION, str(Entitlement.is_full()), Entitlement.backend_name(),
+			str(Entitlement.is_debug_full())]
 	_text.text = UiScale.diagnostics(get_viewport()) + "\n" + extra
 	var hud: BattleHud = _find_hud()
 	_text_hud.visible = hud != null

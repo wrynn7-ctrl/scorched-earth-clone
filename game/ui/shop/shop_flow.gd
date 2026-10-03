@@ -15,6 +15,7 @@ var _player: int = -1
 var _handover: HandoverScreen = null
 var _screen: ShopScreen = null
 var _toast: Toast = null
+var _unlock: UnlockScreen = null
 var _tab: int = 0
 var _select: String = ""
 ## What the CPUs bought when this flow opened: [{tank, level, items}] (see CpuShop.run).
@@ -34,11 +35,15 @@ func _init() -> void:
 	add_child(_handover)
 	_toast = Toast.new()
 	add_child(_toast)
+	_screen.locked_tapped.connect(_on_locked_tapped)
+	_unlock = UnlockScreen.new()
+	add_child(_unlock)  # last child: it covers the shop and the item popup
 	visible = false
 
 
 func _ready() -> void:
 	LayoutWatch.attach(self, func() -> void: LayoutGuard.fit(self), true)
+	Entitlement.hub().changed.connect(_on_entitlement_changed)
 
 
 ## Starts the flow with the first player who is not ready. `start_player` (>= 0) picks a
@@ -64,6 +69,7 @@ func open(state: MatchState, submit: Callable, start_player: int = -1, skip_hand
 
 func close() -> void:
 	visible = false
+	_unlock.close()
 	_handover.hide_screen()
 	_screen.visible = false
 	_screen.close_popup()
@@ -105,6 +111,24 @@ func get_handover() -> HandoverScreen:
 
 func get_toast() -> Toast:
 	return _toast
+
+
+func get_unlock_screen() -> UnlockScreen:
+	return _unlock
+
+
+func _on_locked_tapped(kind: String, _id: String) -> void:
+	_unlock.open_for(kind)
+
+
+## The player bought the full game while this match is in its shop: the match is upgraded (this is
+## an entitlement, not a game outcome) so the locked weapons open up at once, without a restart.
+## Only ever upgrades: a running match never loses what it started with.
+func _on_entitlement_changed() -> void:
+	if _state != null and Entitlement.is_full() and not _state.settings.full_unlocked:
+		_state.settings.full_unlocked = true
+	if _screen.visible:
+		_screen.refresh()
 
 
 func _show_handover() -> void:

@@ -4,6 +4,11 @@ extends Node2D
 ## plus the M3 overlays: shield bubble (flickers on hits, breaks), repulsor ring, chute canopy
 ## and a repair sparkle.
 ##
+## Skins (docs/ARCHITECTURE.md section 35): `set_skin()` swaps the hull and turret shapes and fills the hull with
+## a texture baked once (SkinBaker); there is no per-frame work. The player identity is drawn on top
+## of any skin from NeonPalette and cannot be changed by one: the outline in the player colour (on a
+## dark rim so it reads on any skin), the emblem and the health bar.
+##
 ## Local origin = bottom-centre of the tank footprint (24x12 world units, ARCHITECTURE §6),
 ## so the node's position is the simulation's (x, y) ground point. The whole visual is
 ## scaled up by VISUAL_SCALE for readability. Angles are tenths of a degree, 0 = right,
@@ -19,6 +24,8 @@ const BAR_H: float = 3.5
 const SHIELD_R: float = float(SimConstants.SHIELD_RADIUS) / VISUAL_SCALE
 const SHIELD_CY: float = -float(SimConstants.SHIELD_CENTER_DY) / VISUAL_SCALE
 const REPULSOR_R: float = float(SimConstants.REPULSOR_RADIUS) / VISUAL_SCALE
+## Emblem height in preview / thumbnail mode.
+const COMPACT_MARKER_Y: float = -33.0
 const CHUTE_SHOW_SECONDS: float = 1.0
 const HIT_FLASH_SECONDS: float = 0.7
 
@@ -42,7 +49,17 @@ var _hit_flicker: bool = false
 var _aura: Node2D = null
 var _sparkle: CPUParticles2D = null
 
+## The skin on this tank (null = the standard look) and its baked hull texture. Local to this
+## device: nothing in a match, a save or the network ever refers to it.
+var _skin: SkinData = null
+var _skin_tex: Texture2D = null
+## Studio previews and list thumbnails: the emblem sits close above the hull and the bars are left out.
+var _compact: bool = false
+## Pixels per hull unit for the baked skin texture (the studio's big preview asks for more).
+var skin_ppu: int = SkinBaker.DEFAULT_PPU
+
 var _glow: Node2D = null
+var _skin_glow: Node2D = null
 var _body: Node2D = null
 var _turret: Node2D = null
 var _turret_glow: Node2D = null
@@ -51,6 +68,7 @@ var _turret_glow: Node2D = null
 func _ready() -> void:
 	scale = Vector2(VISUAL_SCALE, VISUAL_SCALE)
 	_glow = _make_layer("Glow", true)
+	_skin_glow = _make_layer("SkinGlow", true)
 	_body = _make_layer("Body", false)
 	_turret = _make_layer("Turret", false)
 	_turret.position = Vector2(0, -TANK_H)
@@ -63,6 +81,7 @@ func _ready() -> void:
 	_build_sparkle()
 	set_process(false)
 	_glow.draw.connect(_draw_glow)
+	_skin_glow.draw.connect(_draw_skin_glow)
 	_body.draw.connect(_draw_body)
 	_turret.draw.connect(_draw_turret)
 	_turret_glow.draw.connect(_draw_turret_glow)
@@ -98,6 +117,50 @@ func get_color_index() -> int:
 
 func get_emblem_index() -> int:
 	return _emblem_index
+
+
+## Puts a skin on this tank (null = the standard look). `baked` lets many views share one texture;
+## without it the skin is baked here, once, at `skin_ppu`.
+func set_skin(skin: SkinData, baked: Texture2D = null) -> void:
+	_skin = skin
+	_skin_tex = null
+	if skin != null:
+		_skin_tex = baked if baked != null else SkinBaker.bake(skin, skin_ppu)
+	_redraw_all()
+
+
+func get_skin() -> SkinData:
+	return _skin
+
+
+func has_skin() -> bool:
+	return _skin != null
+
+
+## The baked hull texture of the current skin (null without one).
+func get_skin_texture() -> Texture2D:
+	return _skin_tex
+
+
+## The colour of the identity outline: always the player colour (dimmed when dead), whatever the skin.
+func outline_color() -> Color:
+	return _col()
+
+
+## Preview / thumbnail mode (see `_compact`).
+func set_compact(on: bool) -> void:
+	_compact = on
+	_redraw_all()
+
+
+func is_compact() -> bool:
+	return _compact
+
+
+## The skin's glow layer breathes between 0 and 1 (the studio preview pulses it).
+func set_skin_glow_pulse(k: float) -> void:
+	if _skin_glow != null:
+		_skin_glow.modulate.a = clampf(k, 0.0, 1.0)
 
 
 # --- shield / repulsor / chute / repair ---------------------------------------------------
@@ -284,6 +347,7 @@ func _redraw_all() -> void:
 	if _glow == null:
 		return
 	_glow.queue_redraw()
+	_skin_glow.queue_redraw()
 	_body.queue_redraw()
 	_turret.queue_redraw()
 	_turret_glow.queue_redraw()
@@ -296,11 +360,13 @@ func _col() -> Color:
 	return c
 
 
-static func _hull() -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(-12, 0), Vector2(12, 0), Vector2(12, -3.5), Vector2(8.5, -8.0),
-		Vector2(-8.5, -8.0), Vector2(-12, -3.5), Vector2(-12, 0),
-	])
+## The hull outline (open): the standard trapezoid or the skin's body style.
+func _hull_open() -> PackedVector2Array:
+	return SkinShapes.hull(_skin.body_style if _skin != null else 0)
+
+
+func _hull() -> PackedVector2Array:
+	return SkinShapes.closed(_hull_open())
 
 
 func _draw_glow() -> void:
@@ -312,10 +378,31 @@ func _draw_glow() -> void:
 		_glow.draw_circle(Vector2(0, -TANK_H), 5.0, Color(c, 0.22))
 
 
+## The skin's own glow: a halo in its accent colour, scaled by the glow setting. It sits under the
+## player-colour halo and the outline, so it can never hide them.
+func _draw_skin_glow() -> void:
+	if _skin == null or _dead or _skin.glow <= 0:
+		return
+	var g: float = float(_skin.glow) / float(SkinData.GLOW_MAX)
+	var h: PackedVector2Array = _hull()
+	_skin_glow.draw_polyline(h, Color(_skin.accent, 0.16 * g), 10.0, true)
+	_skin_glow.draw_polyline(h, Color(_skin.accent, 0.34 * g), 5.0, true)
+	_skin_glow.draw_colored_polygon(_hull_open(), Color(_skin.accent, 0.12 * g))
+	var tb: Rect2 = SkinShapes.turret_bounds(_skin.turret_style)
+	_skin_glow.draw_circle(Vector2(0, -TANK_H) + Vector2(tb.get_center().x * 0.5, 0.0), 6.5 * (0.5 + 0.5 * g), Color(_skin.accent, 0.2 * g))
+
+
 func _draw_body() -> void:
 	var c: Color = _col()
 	var h: PackedVector2Array = _hull()
-	_body.draw_colored_polygon(h.slice(0, 6), Color(NeonPalette.BG_DEEP, 0.92).lerp(c, 0.14))
+	var open: PackedVector2Array = _hull_open()
+	if _skin_tex != null:
+		var tint: Color = Color(0.4, 0.4, 0.45) if _dead else Color.WHITE
+		_body.draw_colored_polygon(open, tint, SkinShapes.hull_uvs(open), _skin_tex)
+		# A dark rim under the identity outline keeps it readable on any skin colour.
+		_body.draw_polyline(h, Color(NeonPalette.BG_DEEP, 0.9), 3.6, true)
+	else:
+		_body.draw_colored_polygon(open, Color(NeonPalette.BG_DEEP, 0.92).lerp(c, 0.14))
 	_body.draw_polyline(h, c, 1.4, true)
 	# Tread line + hub.
 	_body.draw_line(Vector2(-10, -1.4), Vector2(10, -1.4), Color(c, 0.6), 1.0, true)
@@ -325,6 +412,9 @@ func _draw_body() -> void:
 		return
 	_body.draw_circle(Vector2(0, -TANK_H + 1.0), 3.2, c)
 	# Floating marker: emblem (second cue besides colour) above a health bar.
+	if _compact:
+		NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), Vector2(0, COMPACT_MARKER_Y), 5.5, c)
+		return
 	NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), Vector2(0, -45), 5.5, c)
 	var frac: float = float(_health) / float(_max_health)
 	var bx: float = -BAR_W * 0.5
@@ -347,13 +437,29 @@ func _draw_shield_readout(bx: float) -> void:
 
 func _draw_turret() -> void:
 	var c: Color = _col()
+	if _skin != null:
+		_draw_skin_turret(c)
+		return
 	_turret.draw_rect(Rect2(0, -1.6, BARREL_LEN + 2.0, 3.2), Color(NeonPalette.BG_DEEP, 0.95))
 	_turret.draw_rect(Rect2(0, -1.6, BARREL_LEN + 2.0, 3.2), c, false, 1.2)
 	_turret.draw_line(Vector2(BARREL_LEN + 2.0, -1.6), Vector2(BARREL_LEN + 2.0, 1.6), NeonPalette.HOT, 1.6)
 
 
+func _draw_skin_turret(c: Color) -> void:
+	var fill: Color = Color(_skin.base.lerp(NeonPalette.BG_DEEP, 0.35), 0.96)
+	for poly: PackedVector2Array in SkinShapes.turret_polys(_skin.turret_style):
+		_turret.draw_colored_polygon(poly, fill)
+		_turret.draw_polyline(SkinShapes.closed(poly), c, 1.2, true)
+	_turret.draw_line(Vector2(3.0, 0.0), Vector2(BARREL_LEN - 1.0, 0.0), Color(_skin.accent, 0.85), 0.8, true)
+	var half: float = SkinShapes.turret_tip_half(_skin.turret_style)
+	_turret.draw_line(Vector2(SkinShapes.BARREL_TIP, -half), Vector2(SkinShapes.BARREL_TIP, half), NeonPalette.HOT, 1.6)
+
+
 func _draw_turret_glow() -> void:
 	var c: Color = _col()
+	if _skin != null:
+		_turret_glow.draw_rect(SkinShapes.turret_bounds(_skin.turret_style).grow(1.6), Color(c, 0.22))
+		return
 	_turret_glow.draw_rect(Rect2(-1, -3.2, BARREL_LEN + 4.0, 6.4), Color(c, 0.22))
 
 
@@ -386,7 +492,7 @@ func _draw_hit_flash() -> void:
 	var a: float = k * (0.55 if ShowSettings.reduce_flashing else 0.9)
 	if _hit_flicker:
 		a *= 0.55 + 0.45 * sin(_hit_t * 55.0)
-	var hull: PackedVector2Array = _hull().slice(0, 6)
+	var hull: PackedVector2Array = _hull_open()
 	_aura.draw_colored_polygon(hull, Color(_hit_color, a * 0.7))
 	_aura.draw_polyline(_hull(), Color(_hit_color, a), 3.0, true)
 	_aura.draw_circle(Vector2(0, -TANK_H * 0.6), 11.0 + 5.0 * (1.0 - k), Color(_hit_color, a * 0.35))
