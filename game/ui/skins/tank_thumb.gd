@@ -14,10 +14,20 @@ const TANK_VIEW: PackedScene = preload("res://show/tank_view.tscn")
 ## What has to fit: hull and barrel are about 36 units wide, the emblem sits 33 units up.
 const FIT_W: float = 40.0
 const FIT_H: float = 44.0
+## Everything the studio preview can draw, in the tank's own units (up is negative, the hull sits on y = 0): the hull
+## (+-12) with its player-colour and skin glow (up to 5 beyond the outline, plus a little for sharp corners), the
+## turret sweeping its full 0..180 degrees round the pivot at y = -12 (tip 16 away, up to 3.6 thick) and the emblem
+## marker at y = -33 (radius 5.5). The backdrop preview fits this box with PREVIEW_FILL.
+const BOX: Rect2 = Rect2(-19.5, -39.5, 39.0, 46.0)
+## Share of the control the box may take in the studio preview (the rest is margin, ~10% each way).
+const PREVIEW_FILL: float = 0.9
 ## Minimum seconds between two re-bakes while a slider is dragged.
 const REBAKE_GAP: float = 0.07
 
-var backdrop: bool = false
+var backdrop: bool = false:
+	set(v):
+		backdrop = v
+		_fit()
 var animated: bool = false
 
 var _holder: Node2D = null
@@ -27,6 +37,7 @@ var _has_pending: bool = false
 var _since_bake: float = 1.0
 var _t: float = 0.0
 var _texture: Texture2D = null
+var _ground: float = 0.0
 
 
 func _init() -> void:
@@ -135,17 +146,30 @@ func _animate() -> void:
 func _fit() -> void:
 	if _holder == null:
 		return
-	var ground: float = size.y * 0.84 if backdrop else size.y - 2.0
-	var s: float = minf(size.x / FIT_W, maxf(1.0, ground) / FIT_H)
-	_holder.scale = Vector2.ONE * maxf(0.05, s) / TankView.VISUAL_SCALE
-	_holder.position = Vector2(size.x * 0.5, ground)
+	if backdrop:
+		# The whole tank, raised turret and emblem included, centred with a margin on every side.
+		var k: float = maxf(0.05, minf(size.x * PREVIEW_FILL / BOX.size.x, size.y * PREVIEW_FILL / BOX.size.y))
+		_ground = size.y * 0.5 - (BOX.position.y + BOX.size.y * 0.5) * k
+		_holder.scale = Vector2.ONE * k / TankView.VISUAL_SCALE
+		_holder.position = Vector2(size.x * 0.5, _ground)
+	else:
+		_ground = size.y - 2.0
+		var s: float = minf(size.x / FIT_W, maxf(1.0, _ground) / FIT_H)
+		_holder.scale = Vector2.ONE * maxf(0.05, s) / TankView.VISUAL_SCALE
+		_holder.position = Vector2(size.x * 0.5, _ground)
 	queue_redraw()
+
+
+## The box that must stay on screen, in this control's coordinates (tests).
+func tank_box() -> Rect2:
+	var k: float = _holder.scale.x * TankView.VISUAL_SCALE
+	return Rect2(_holder.position + BOX.position * k, BOX.size * k)
 
 
 func _draw() -> void:
 	if not backdrop:
 		return
-	var ground: float = size.y * 0.84
+	var ground: float = _ground
 	draw_rect(Rect2(Vector2.ZERO, size), NeonPalette.BG_DEEP)
 	draw_rect(Rect2(0, size.y * 0.35, size.x, ground - size.y * 0.35), Color(NeonPalette.BG_MID, 0.55))
 	# A faint perspective grid under the tank: a neutral stage for any skin colour.

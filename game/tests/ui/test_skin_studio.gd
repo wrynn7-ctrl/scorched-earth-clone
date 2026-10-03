@@ -521,3 +521,99 @@ func test_the_title_has_a_skins_button_that_opens_the_studio() -> void:
 	if cur != null:
 		cur.queue_free()
 		await wait_process_frames(2)
+
+
+# --- preview framing ----------------------------------------------------------------------
+
+## The geometry TankThumb.BOX has to cover, in tank units: every hull and turret style (the turret turned through
+## 0..180 degrees round its pivot), the glow beyond the outline and the emblem marker.
+func test_preview_box_covers_every_hull_turret_and_the_emblem() -> void:
+	var box: Rect2 = TankThumb.BOX
+	for style: int in range(SkinData.BODY_STYLES):
+		for p: Vector2 in SkinShapes.hull(style):
+			assert_true(box.grow(-5.0).has_point(p), "hull %d point %s keeps room for the glow" % [style, p])
+	var pivot := Vector2(0.0, -TankView.TANK_H)
+	for style: int in range(SkinData.TURRET_STYLES):
+		for poly: PackedVector2Array in SkinShapes.turret_polys(style):
+			for p: Vector2 in poly:
+				for deg: int in range(0, 181, 5):
+					var q: Vector2 = pivot + Vector2(p.x, -p.y).rotated(-deg_to_rad(float(deg)))
+					assert_true(box.has_point(q), "turret %d point %s at %d deg" % [style, p, deg])
+	assert_true(box.has_point(Vector2(0.0, TankView.COMPACT_MARKER_Y - 5.5)), "emblem marker")
+
+
+func test_preview_fits_whole_tank_with_a_margin_at_every_resolution() -> void:
+	for case: Array in [[Vector2(3120, 1440), 560.0], [Vector2(2340, 1080), 535.0], [Vector2(2560, 1080), 450.0],
+			[Vector2(1280, 720), 240.0], [Vector2(2048, 1536), 264.0], [Vector2(2560, 1600), 280.0]]:
+		UiScale.dpi_override = case[1]
+		UiScale.window_px_override = case[0]
+		var vis: Vector2 = UiScale.visible_size(case[0])
+		var vp := SubViewport.new()
+		vp.size = Vector2i(roundi(vis.x), roundi(vis.y))
+		vp.disable_3d = true
+		add_child_autofree(vp)
+		var studio: SkinStudio = (load("res://ui/skins/skin_studio.tscn") as PackedScene).instantiate()
+		vp.add_child(studio)
+		studio.open_new()
+		await wait_process_frames(3)
+		var preview: TankThumb = studio.get_preview()
+		var r := Rect2(Vector2.ZERO, preview.size)
+		var box: Rect2 = preview.tank_box()
+		var label: String = "%s dpi %d" % [str(case[0]), int(case[1])]
+		assert_true(r.encloses(box), "%s: tank box %s inside the preview %s" % [label, box, r])
+		var mx: float = minf(box.position.x, r.size.x - box.end.x) / r.size.x
+		var my: float = minf(box.position.y, r.size.y - box.end.y) / r.size.y
+		assert_gte(maxf(mx, my), 0.045, "%s: a margin on the limiting side (~10%% total)" % label)
+		assert_almost_eq(box.get_center().x, r.get_center().x, 1.0, "%s: centred across" % label)
+		assert_almost_eq(box.get_center().y, r.get_center().y, 1.0, "%s: centred up/down" % label)
+		vp.queue_free()
+		await wait_process_frames(1)
+		UiScale.reset_overrides()
+
+
+# --- the COLOURS tab on phones ------------------------------------------------------------
+
+## [window px, dpi, label, must fit without scrolling]
+const COLOUR_TAB_CASES: Array = [
+	[Vector2(3120, 1440), 560.0, "19.5:9 (S26 Ultra)", true],
+	[Vector2(3360, 1440), 450.0, "21:9", true],
+	[Vector2(1600, 900), 320.0, "16:9 800 dp", true],
+	[Vector2(2048, 1536), 264.0, "4:3 tablet", true],
+	[Vector2(2560, 1600), 280.0, "16:10 tablet", true],
+	[Vector2(2340, 1080), 535.0, "narrowest phone (~700 dp): may scroll", false],
+]
+
+
+func test_colour_tab_fits_without_scrolling_where_there_is_room() -> void:
+	for case: Array in COLOUR_TAB_CASES:
+		UiScale.dpi_override = case[1]
+		UiScale.window_px_override = case[0]
+		var vis: Vector2 = UiScale.visible_size(case[0])
+		var vp := SubViewport.new()
+		vp.size = Vector2i(roundi(vis.x), roundi(vis.y))
+		vp.disable_3d = true
+		add_child_autofree(vp)
+		var studio: SkinStudio = (load("res://ui/skins/skin_studio.tscn") as PackedScene).instantiate()
+		vp.add_child(studio)
+		studio.open_new()
+		var editor: SkinEditor = studio.get_editor()
+		editor.select_tab(SkinEditor.Tab.COLOURS)
+		await wait_process_frames(4)
+		var scroll: TouchScroll = editor.get_scroll()
+		var content: float = editor.get_picker().get_combined_minimum_size().y
+		var label: String = str(case[2])
+		if case[3]:
+			assert_lte(content, scroll.size.y + 1.0, "%s: the colour tab needs %.0f of %.0f px" % [label, content, scroll.size.y])
+		# Always: nothing sticks out sideways and every control is a real touch target.
+		var picker: SkinColorPicker = editor.get_picker()
+		for i: int in range(3):
+			var sl: Rect2 = picker.get_slider(i).get_global_rect()
+			assert_gte(UiScale.canvas_to_dp(sl.size.y), 47.5, "%s: slider %d >= 48 dp" % [label, i])
+			assert_lte(sl.end.x, editor.get_global_rect().end.x + 1.0, "%s: slider %d inside the panel" % [label, i])
+		for i: int in range(3):
+			assert_gte(UiScale.canvas_to_dp(editor.get_slot_tile(i).size.y), 47.5, "%s: slot chip %d >= 48 dp" % [label, i])
+		assert_almost_eq(picker.get_slider(0).get_global_rect().position.x, picker.get_slider(1).get_global_rect().position.x, 1.5,
+				"%s: the three sliders line up" % label)
+		vp.queue_free()
+		await wait_process_frames(1)
+		UiScale.reset_overrides()

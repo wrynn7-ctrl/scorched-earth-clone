@@ -374,3 +374,12 @@ SKIN_CROP_USE,USE PICTURE
 SKIN_CROP_CANCEL,CANCEL
 SKIN_PATTERN_HINT,The pattern colour is set on the COLOURS tab.
 UNLOCK_NEXT_MATCH,Full game unlocked! New features apply from your next match.
+SET_LEFT_HANDED,Left-handed controls
+SHOP_BUY1_FMT,BUY ×1  %s
+SHOP_BUY5_FMT,×5  %s
+SHOP_BUYMAX_FMT,MAX ×%d  %s
+SHOP_BUYMAX,MAX
+SHOP_SELL1_FMT,SELL ×1  +%s
+SHOP_SELLALL_FMT,ALL ×%d  +%s
+SHOP_SELLALL,ALL
+SHOP_QTY_BLOCKED_FMT,×%d: %s

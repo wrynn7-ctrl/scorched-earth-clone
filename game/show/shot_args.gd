@@ -46,6 +46,7 @@ extends RefCounted
 ##                       keep animating in real time), default 0.25
 ##   --theme=<id>        battle: terrain theme (sunset_grid, ice_circuit, magma_city, toxic_marsh,
 ##                       midnight_chrome, or random)
+##   --left-handed       battle: the left-handed HUD layout (power + FIRE on the left)
 ##   --place=<i>:<x>     battle: move tank i to column x (0-based tank, simulation x) right after
 ##                       the round starts; the tank rests on the ground there (screenshots)
 
@@ -101,6 +102,8 @@ static func parse() -> void:
 			shot_time = a.substr(12).to_float()
 		elif a.begins_with("--dpi="):
 			UiScale.dpi_override = a.substr(6).to_float()
+		elif a == "--left-handed":
+			ShowSettings.left_handed = true
 		elif a == "--no-layout-guard":
 			LayoutGuard.detect_only = true
 		elif a == "--open-diag":

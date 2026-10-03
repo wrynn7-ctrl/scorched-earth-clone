@@ -110,13 +110,13 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
 		return
-	if _unlock.visible:
+	if _unlock.is_open():
 		_unlock.close()
 	elif _crop.visible:
 		_crop.cancel()
-	elif _use_for.visible:
+	elif _use_for.is_open():
 		_use_for.close()
-	elif _confirm.visible:
+	elif _confirm.is_open():
 		_confirm.close()
 	else:
 		go_back()

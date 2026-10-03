@@ -116,4 +116,54 @@ func test_overlays_fade_in_on_open() -> void:
 	await wait_seconds(0.25)
 	assert_eq(o.modulate.a, 1.0)
 	o.close()
+	assert_true(o.closing, "closing flag is set at once")
+	assert_false(o.is_open(), "not open any more, even though still fading")
+	assert_true(o.visible, ".visible stays true during the fade")
+	await wait_seconds(0.3)
+	assert_false(o.visible, "hidden after the fade")
+	assert_false(o.closing)
+	assert_eq(o.modulate.a, 1.0, "alpha restored for the next open")
+
+
+func test_overlay_fade_out_swallows_taps_and_can_reopen() -> void:
+	var o := OverlayPanel.new()
+	add_child_autofree(o)
+	o.open()
+	await wait_seconds(0.25)
+	o.close()
+	assert_eq(o.get_node("Shield").mouse_filter, Control.MOUSE_FILTER_STOP, "taps are swallowed while fading")
+	await wait_seconds(0.05)
+	o.open()  # reopened mid-fade: the old fade must not hide it
+	assert_false(o.closing)
+	await wait_seconds(0.4)
+	assert_true(o.is_open())
+	assert_eq(o.get_node("Shield").mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+
+func test_overlay_fade_out_is_instant_with_reduce_motion() -> void:
+	var o := OverlayPanel.new()
+	add_child_autofree(o)
+	o.open()
+	ShowSettings.reduce_motion = true
+	o.close()
+	assert_false(o.visible, "no fade with reduce motion")
+	assert_false(o.closing)
+
+
+func test_close_now_hides_without_a_fade() -> void:
+	var o := OverlayPanel.new()
+	add_child_autofree(o)
+	o.open()
+	o.close_now()
 	assert_false(o.visible)
+	assert_false(o.closing)
+
+
+func test_closed_signal_fires_once_when_closing_twice() -> void:
+	var s := SettingsOverlay.new()
+	add_child_autofree(s)
+	watch_signals(s)
+	s.open()
+	s.close()
+	s.close()
+	assert_signal_emit_count(s, "closed", 1)

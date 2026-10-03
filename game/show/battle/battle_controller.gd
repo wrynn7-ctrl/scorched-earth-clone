@@ -257,9 +257,9 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			if _diag != null and _diag.visible:
+			if _diag != null and _diag.is_open():
 				_diag.close()
-			elif _settings_overlay != null and _settings_overlay.visible:
+			elif _settings_overlay != null and _settings_overlay.is_open():
 				_settings_overlay.close()
 			elif is_paused():
 				close_pause()
@@ -744,7 +744,7 @@ func is_busy() -> bool:
 
 
 func is_paused() -> bool:
-	return _pause_overlay != null and _pause_overlay.visible
+	return _pause_overlay != null and _pause_overlay.is_open()
 
 
 func timelines_played() -> int:
@@ -941,7 +941,7 @@ func close_pause() -> void:
 
 ## Long press on the pause button: the layout diagnostics over the (paused) battle.
 func open_diagnostics() -> void:
-	if _diag.visible:
+	if _diag.is_open():
 		return
 	_preview.hide_preview()
 	get_tree().paused = true
@@ -950,7 +950,7 @@ func open_diagnostics() -> void:
 
 func _on_diag_closed() -> void:
 	# Back to whatever was behind it: the pause menu keeps the tree paused, the battle does not.
-	if is_paused() or _settings_overlay.visible:
+	if is_paused() or _settings_overlay.is_open():
 		return
 	get_tree().paused = false
 	_request_preview()
@@ -962,7 +962,7 @@ func _displayed_round_number() -> int:
 
 
 func _open_settings_from_pause() -> void:
-	_pause_overlay.visible = false
+	_pause_overlay.close_now()
 	_settings_overlay.open()
 
 
@@ -2179,10 +2179,10 @@ func _auto_shop(delta: float) -> void:
 	if _auto_timer > 0.0:
 		return
 	_auto_timer = 0.6
-	if _round_overlay.visible:
+	if _round_overlay.is_open():
 		if ShotArgs.auto_play and ShotArgs.auto_next:
 			next_round()
 		return
-	if _match_overlay.visible:
+	if _match_overlay.is_open():
 		return
 	quick_start()

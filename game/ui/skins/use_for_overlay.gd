@@ -90,7 +90,7 @@ func open_for(skin_id: String) -> void:
 
 func _fit_later() -> void:
 	await get_tree().process_frame
-	if visible and is_inside_tree():
+	if is_open() and is_inside_tree():
 		_fit_scroll()
 
 

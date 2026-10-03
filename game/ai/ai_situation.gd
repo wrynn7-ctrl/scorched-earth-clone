@@ -21,6 +21,9 @@ var direct: Dictionary = {}
 ## Correction from the last shot at this target, or {} (see AiPlayer.correction_for).
 var corr: Dictionary = {}
 var dist: int = 0
+## True when the last shot at this target went out at (nearly) full power and still came down well short
+## of it: no power can fix that, whatever the model believes about the wind (see AiPlayer.spent_short).
+var spent_short: bool = false
 ## Id of the enemy closest to this tank (a Seeker locks on to that one).
 var nearest_id: int = -1
 ## Verified aim solutions already worked out in this decision, by "aim_x/physics/corrected", so

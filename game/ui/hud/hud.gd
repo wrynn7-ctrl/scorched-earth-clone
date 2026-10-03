@@ -8,6 +8,8 @@ extends Control
 ##   left column : wind + money (top) .... move buttons + fuel, angle panel (bottom)
 ##   centre      : turn banner (top) .... tray (bottom): [items row] / [weapon | items toggle]
 ##   right       : FIRE (bottom) next to the full-height power panel
+## Left-handed mode (ShowSettings.left_handed) mirrors the bottom controls: power panel + FIRE on the left
+## edge (wind and money sit above FIRE), angle panel + move buttons on the right. The top row stays.
 ## All sizes derive from UiScale (dp), so they follow the physical screen size.
 
 signal angle_changed(tenths: int)
@@ -61,6 +63,8 @@ var _lock_alpha: float = 1.0
 var _corrections: int = 0
 var _pause_held: float = -1.0  # seconds the pause button has been down, -1 = up
 var _pause_long: bool = false  # the long press fired: swallow the release
+## Which handedness the node order currently shows (see _apply_handedness).
+var _lefty: bool = false
 
 
 func _init() -> void:
@@ -234,6 +238,7 @@ static func _ignoring_spacer() -> Control:
 ## Re-applies dp-based sizes. Called on ready and whenever the viewport size changes.
 func apply_scale() -> void:
 	_enforce_layout()
+	_apply_handedness()
 	UiScale.apply_edge_margins(_margin)
 	# The edge margin is 12 dp; gaps between the columns are a little tighter so the crowded
 	# ~700 dp phones at the largest text size still fit.
@@ -253,6 +258,34 @@ func apply_scale() -> void:
 		n.call("apply_scale")
 	_items_toggle.custom_minimum_size = Vector2(UiScale.dp(70.0), maxf(UiScale.touch(), _weapon_chip.custom_minimum_size.y))
 	_items_toggle.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+
+
+## Reorders the columns for the left-handed setting. Only touches the tree when the setting changed.
+func _apply_handedness() -> void:
+	var lefty: bool = ShowSettings.left_handed
+	if lefty == _lefty:
+		return
+	_lefty = lefty
+	if lefty:
+		_row.move_child(_right, 0)
+		_row.move_child(_left, _row.get_child_count() - 1)
+		_right.move_child(_power, 0)  # the slider on the screen edge, FIRE next to it
+		_wind.reparent(_fire_col, false)
+		_money.reparent(_fire_col, false)
+		_fire_col.move_child(_wind, 0)
+		_fire_col.move_child(_money, 1)
+	else:
+		_row.move_child(_left, 0)
+		_row.move_child(_right, _row.get_child_count() - 1)
+		_right.move_child(_power, 1)
+		_wind.reparent(_left, false)
+		_money.reparent(_left, false)
+		_left.move_child(_wind, 0)
+		_left.move_child(_money, 1)
+
+
+func is_left_handed() -> bool:
+	return _lefty
 
 
 # --- Diagnostics ---

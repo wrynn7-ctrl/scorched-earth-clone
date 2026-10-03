@@ -63,7 +63,7 @@ func open() -> void:
 
 
 func close() -> void:
-	if visible:
+	if is_open():
 		super.close()
 		closed.emit()
 

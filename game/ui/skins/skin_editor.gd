@@ -255,7 +255,7 @@ func _flow(parent: Control) -> HFlowContainer:
 	return f
 
 
-func _tile(flow: HFlowContainer, group: ButtonGroup, kind: int, i: int, key: String) -> SkinChoice:
+func _tile(flow: Container, group: ButtonGroup, kind: int, i: int, key: String) -> SkinChoice:
 	var t := SkinChoice.new(kind, i, tr(key))
 	t.button_group = group
 	flow.add_child(t)
@@ -286,17 +286,18 @@ func _build_body_page(host: VBoxContainer) -> void:
 
 func _build_colour_page(host: VBoxContainer) -> void:
 	var p: VBoxContainer = _page(host, "Colours")
-	var flow: HFlowContainer = _flow(p)
-	var group := ButtonGroup.new()
-	for i: int in range(3):
-		var key: String = ["SKIN_COLOR_BASE", "SKIN_COLOR_ACCENT", "SKIN_COLOR_PATTERN"][i]
-		var t: SkinChoice = _tile(flow, group, SkinChoice.Kind.COLOR, i, key)
-		t.name = "Slot%d" % i
-		t.pressed.connect(_on_slot.bind(i))
-		_slot_tiles.append(t)
 	_picker = SkinColorPicker.new()
 	_picker.color_changed.connect(_on_color)
 	p.add_child(_picker)
+	# The three colour slots are compact chips stacked beside the sliders.
+	var group := ButtonGroup.new()
+	for i: int in range(3):
+		var key: String = ["SKIN_COLOR_BASE", "SKIN_COLOR_ACCENT", "SKIN_COLOR_PATTERN"][i]
+		var t: SkinChoice = _tile(_picker.get_slot_box(), group, SkinChoice.Kind.COLOR, i, key)
+		t.compact = true
+		t.name = "Slot%d" % i
+		t.pressed.connect(_on_slot.bind(i))
+		_slot_tiles.append(t)
 
 
 func _build_pattern_page(host: VBoxContainer) -> void:

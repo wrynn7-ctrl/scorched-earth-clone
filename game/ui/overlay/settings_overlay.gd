@@ -65,6 +65,14 @@ func _init() -> void:
 		ShowSettings.reduce_flashing = on
 		_save())
 	(_toggles["ReduceFlashing"] as Button).name = "ReduceFlashing"
+	_toggles["CameraFollow"] = add_toggle(tr("SET_CAMERA_FOLLOW"), CameraSettings.follow_shots, func(on: bool) -> void:
+		CameraSettings.follow_shots = on
+		_save())
+	(_toggles["CameraFollow"] as Button).name = "CameraFollow"
+	_toggles["LeftHanded"] = add_toggle(tr("SET_LEFT_HANDED"), ShowSettings.left_handed, func(on: bool) -> void:
+		ShowSettings.left_handed = on
+		_save())
+	(_toggles["LeftHanded"] as Button).name = "LeftHanded"
 	_preview_btn = add_toggle(tr("SET_PREVIEW"), ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF, _on_preview)
 	_preview_btn.name = "Preview"
 	_speed_btn = add_toggle(tr("SET_SPEED"), ShowSettings.playback_speed >= 1.5, _on_speed)
@@ -145,16 +153,16 @@ func _refit_settings_next_frame() -> void:
 	if not is_inside_tree():
 		return
 	await get_tree().process_frame
-	if visible and is_inside_tree():
+	if is_open() and is_inside_tree():
 		_fit_scrolls()
 
 
 func close() -> void:
-	if _diag.visible:
+	if _diag.is_open():
 		_diag.close()
-	if _unlock.visible:
+	if _unlock.is_open():
 		_unlock.close()
-	if visible:
+	if is_open():
 		super.close()
 		closed.emit()
 
@@ -192,7 +200,7 @@ func _on_restore_pressed() -> void:
 
 ## Hides without emitting `closed` (the pause menu is being torn down).
 func close_silently() -> void:
-	super.close()
+	close_now()
 
 
 ## Re-reads ShowSettings into the controls (after a load or a reset).
@@ -200,7 +208,9 @@ func _sync() -> void:
 	(_toggles["Haptics"] as Button).set_pressed_no_signal(ShowSettings.haptics)
 	(_toggles["Shake"] as Button).set_pressed_no_signal(ShowSettings.screen_shake)
 	(_toggles["ReduceFlashing"] as Button).set_pressed_no_signal(ShowSettings.reduce_flashing)
-	for key: String in ["Haptics", "Shake", "ReduceFlashing"]:
+	(_toggles["CameraFollow"] as Button).set_pressed_no_signal(CameraSettings.follow_shots)
+	(_toggles["LeftHanded"] as Button).set_pressed_no_signal(ShowSettings.left_handed)
+	for key: String in ["Haptics", "Shake", "ReduceFlashing", "CameraFollow", "LeftHanded"]:
 		var b: Button = _toggles[key]
 		b.text = tr("SET_ON") if b.button_pressed else tr("SET_OFF")
 	_preview_btn.set_pressed_no_signal(ShowSettings.trajectory_preview != ShowSettings.PREVIEW_OFF)

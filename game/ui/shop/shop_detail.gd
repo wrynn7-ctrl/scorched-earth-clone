@@ -6,9 +6,15 @@ extends PanelContainer
 
 signal buy_pressed(item_id: String)
 signal sell_pressed(item_id: String)
+## BUY x5 / BUY MAX (mode is ShopQuantity-style: BUY_X5 or BUY_MAX) and SELL ALL.
+signal buy_many_pressed(item_id: String, mode: int)
+signal sell_all_pressed(item_id: String)
 signal close_pressed
 
 const NEON_THEME: Theme = preload("res://ui/theme/neon_theme.tres")
+
+const BUY_X5: int = 1
+const BUY_MAX: int = 2
 
 var item_id: String = ""
 
@@ -25,6 +31,10 @@ var _desc: Label = null
 var _reason: Label = null
 var _buy: ShopButton = null
 var _sell: ShopButton = null
+var _buy5: ShopButton = null
+var _buy_max: ShopButton = null
+var _sell_all: ShopButton = null
+var _button_rows: Array[HBoxContainer] = []
 var _close: Button = null
 var _icon_dp: float = 56.0
 
@@ -62,22 +72,34 @@ func _init() -> void:
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_reason = _label(_box, "Reason", NeonPalette.WARN)
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Two rows of three: BUY x1 | x5 | MAX, then SELL x1 | ALL | (CLOSE in the phone popup).
 	var buttons := HBoxContainer.new()
-	buttons.name = "Buttons"
+	buttons.name = "BuyRow"
 	_box.add_child(buttons)
+	_button_rows.append(buttons)
 	_buy = _button(buttons, "Buy")
 	_buy.pressed.connect(func() -> void: buy_pressed.emit(item_id))
-	_buy.set_meta("ui_sound", "none")  # ShopScreen plays purchase / locked itself
+	_buy5 = _button(buttons, "BuyX5")
+	_buy5.pressed.connect(func() -> void: buy_many_pressed.emit(item_id, BUY_X5))
+	_buy_max = _button(buttons, "BuyMax")
+	_buy_max.pressed.connect(func() -> void: buy_many_pressed.emit(item_id, BUY_MAX))
+	buttons = HBoxContainer.new()
+	buttons.name = "SellRow"
+	_box.add_child(buttons)
+	_button_rows.append(buttons)
 	_sell = _button(buttons, "Sell")
 	_sell.pressed.connect(func() -> void: sell_pressed.emit(item_id))
-	_sell.set_meta("ui_sound", "none")
+	_sell_all = _button(buttons, "SellAll")
+	_sell_all.pressed.connect(func() -> void: sell_all_pressed.emit(item_id))
+	for b: ShopButton in [_buy, _buy5, _buy_max, _sell, _sell_all]:
+		b.set_meta("ui_sound", "none")  # ShopScreen plays purchase / locked itself
 	_close = Button.new()
 	_close.name = "Close"
 	_close.text = tr("SHOP_CLOSE")
 	_close.focus_mode = Control.FOCUS_NONE
 	_close.visible = false
 	_close.pressed.connect(func() -> void: close_pressed.emit())
-	buttons.add_child(_close)
+	buttons.add_child(_close)  # `buttons` is the sell row here
 
 
 func _label(parent: Node, label_name: String, color: Color) -> Label:
@@ -114,10 +136,11 @@ func apply_scale() -> void:
 	_lock_icon.custom_minimum_size = Vector2.ONE * UiScale.dp(16.0)
 	_desc.add_theme_font_size_override("font_size", UiScale.font(14.0))
 	_reason.add_theme_font_size_override("font_size", UiScale.font(12.0))
-	for b: Button in [_buy, _sell, _close]:
-		b.custom_minimum_size = Vector2(UiScale.dp(110.0), UiScale.touch())
-		b.add_theme_font_size_override("font_size", UiScale.font(14.0))
-	(_buy.get_parent() as HBoxContainer).add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
+	for b: Button in [_buy, _buy5, _buy_max, _sell, _sell_all, _close]:
+		b.custom_minimum_size = Vector2(UiScale.dp(96.0), UiScale.touch())
+		b.add_theme_font_size_override("font_size", UiScale.font(13.0))
+	for row: HBoxContainer in _button_rows:
+		row.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 
 
 func set_icon_dp(size_dp: float) -> void:
@@ -160,6 +183,29 @@ func show_entry(id: String, price_text: String, owned: int, locked: bool, buy_te
 	_sell.set_blocked(sell_blocked)
 
 
+## The x5, MAX and SELL ALL buttons: texts and whether each is blocked (dimmed, but a press still toasts why).
+func show_quantities(buy5_text: String, buy5_blocked: bool, max_text: String, max_blocked: bool,
+		all_text: String, all_blocked: bool) -> void:
+	_buy5.text = buy5_text
+	_buy5.set_blocked(buy5_blocked)
+	_buy_max.text = max_text
+	_buy_max.set_blocked(max_blocked)
+	_sell_all.text = all_text
+	_sell_all.set_blocked(all_blocked)
+
+
+func get_buy5_button() -> ShopButton:
+	return _buy5
+
+
+func get_buy_max_button() -> ShopButton:
+	return _buy_max
+
+
+func get_sell_all_button() -> ShopButton:
+	return _sell_all
+
+
 func get_buy_button() -> ShopButton:
 	return _buy
 
@@ -170,6 +216,11 @@ func get_sell_button() -> ShopButton:
 
 func get_close_button() -> Button:
 	return _close
+
+
+func set_reason(text: String) -> void:
+	_reason.text = text
+	_reason.visible = text != ""
 
 
 func get_reason_text() -> String:

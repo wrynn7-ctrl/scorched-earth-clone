@@ -46,6 +46,8 @@ static var sfx_on: bool = true
 static var music_volume: int = DEFAULT_MUSIC_VOLUME
 static var music_on: bool = true
 static var ui_sounds: bool = true
+## Left-handed battle HUD: power slider + FIRE on the left, angle panel + move on the right.
+static var left_handed: bool = false
 
 
 static func shake_enabled() -> bool:
@@ -72,6 +74,8 @@ static func reset() -> void:
 	music_volume = DEFAULT_MUSIC_VOLUME
 	music_on = true
 	ui_sounds = true
+	left_handed = false
+	CameraSettings.reset()
 	set_text_size(100)
 	# The last-used match setup is reset with the rest so tests never leak it into each other.
 	SetupPrefs.reset()

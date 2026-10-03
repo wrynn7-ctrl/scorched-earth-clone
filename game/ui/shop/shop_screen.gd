@@ -140,6 +140,8 @@ func _build_body() -> void:
 	_detail = ShopDetail.new()
 	_detail.buy_pressed.connect(_on_buy)
 	_detail.sell_pressed.connect(_on_sell)
+	_detail.buy_many_pressed.connect(_on_buy_many)
+	_detail.sell_all_pressed.connect(_on_sell_all)
 	_detail.close_pressed.connect(close_popup)
 
 
@@ -371,6 +373,16 @@ func _sell_action(id: String) -> Dictionary:
 	return {"kind": "sell", "tank": _player, "item": id, "qty": 1}
 
 
+## Bundles BUY MAX would take now (money and the 99 cap), 0 when nothing can be bought.
+func max_bundles(id: String) -> int:
+	return ShopQuantity.max_bundles(_state, _player, id)
+
+
+## Why BUY x5 is not possible right now ("" = it is).
+func x5_error(id: String) -> String:
+	return ShopQuantity.buy_error(_state, _player, id, ShopQuantity.BUY_X5)
+
+
 func _refresh_detail() -> void:
 	if _selected == "" or not Catalog.has(_selected):
 		return
@@ -383,9 +395,21 @@ func _refresh_detail() -> void:
 	if b_err != "":
 		reason = ErrorText.message(b_err)
 	_detail.show_entry(_selected, price_text(_selected), t.stock_of(_selected), is_locked(_selected),
-			tr("SHOP_BUY_FMT") % HudFormat.money(def["price"] as int),
-			tr("SHOP_SELL_FMT") % HudFormat.money(refund),
+			tr("SHOP_BUY1_FMT") % HudFormat.money(def["price"] as int),
+			tr("SHOP_SELL1_FMT") % HudFormat.money(refund),
 			b_err != "", s_err != "", reason)
+	# x5 / MAX / ALL. A dimmed one says why: x1 already shows its reason; x5 adds its own when only x5 fails.
+	var most: int = max_bundles(_selected)
+	var e5: String = x5_error(_selected)
+	var owned: int = ShopQuantity.sell_all_units(_state, _player, _selected)
+	var price: int = def["price"]
+	_detail.show_quantities(
+			tr("SHOP_BUY5_FMT") % HudFormat.money(price * ShopQuantity.BUY_X5), e5 != "",
+			tr("SHOP_BUYMAX_FMT") % [most, HudFormat.money(price * most)] if most > 0 else tr("SHOP_BUYMAX"), most < 1,
+			tr("SHOP_SELLALL_FMT") % [owned, HudFormat.money(ShopQuantity.sell_all_refund(_state, _player, _selected))] \
+					if owned > 0 else tr("SHOP_SELLALL"), owned < 1)
+	if b_err == "" and e5 != "":
+		_detail.set_reason(tr("SHOP_QTY_BLOCKED_FMT") % [ShopQuantity.BUY_X5, ErrorText.message(e5)])
 
 
 # ======================================================================================
@@ -444,6 +468,37 @@ func _on_buy(id: String) -> void:
 	var err: String = buy_error(id)
 	if err == "":
 		err = _submit.call(_buy_action(id))
+	if err != "":
+		message.emit(ErrorText.message(err))
+		AudioDirector.play_ui("locked")
+		return
+	AudioDirector.play_ui("purchase")
+	refresh()
+
+
+## BUY x5 or BUY MAX: one `buy` action carrying the bundle count.
+func _on_buy_many(id: String, mode: int) -> void:
+	if is_locked(id):
+		AudioDirector.play_ui("locked")
+		locked_tapped.emit("item", id)
+		return
+	var qty: int = ShopQuantity.BUY_X5 if mode == ShopDetail.BUY_X5 else max_bundles(id)
+	var err: String = ShopQuantity.buy_error(_state, _player, id, maxi(qty, 1))
+	if err == "":
+		err = _submit.call(ShopQuantity.buy_action(_player, id, qty))
+	_finish_purchase(err)
+
+
+func _on_sell_all(id: String) -> void:
+	var owned: int = ShopQuantity.sell_all_units(_state, _player, id)
+	var action: Dictionary = ShopQuantity.sell_action(_player, id, maxi(owned, 1))
+	var err: String = Simulation.validate_action(_state, action)
+	if err == "":
+		err = _submit.call(action)
+	_finish_purchase(err)
+
+
+func _finish_purchase(err: String) -> void:
 	if err != "":
 		message.emit(ErrorText.message(err))
 		AudioDirector.play_ui("locked")

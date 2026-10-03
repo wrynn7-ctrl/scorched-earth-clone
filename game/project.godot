@@ -43,6 +43,8 @@ enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+; Buttons rely on the mouse events a touch makes; AimInput and PowerSlider read real touch events and skip the emulated copies.
+pointing/emulate_mouse_from_touch=true
 
 [internationalization]
 

@@ -126,11 +126,11 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if _unlock != null and _unlock.visible:
+		if _unlock != null and _unlock.is_open():
 			_unlock.close()
-		elif _theme_picker != null and _theme_picker.visible:
+		elif _theme_picker != null and _theme_picker.is_open():
 			_theme_picker.close()
-		elif _picker != null and _picker.visible:
+		elif _picker != null and _picker.is_open():
 			_picker.close()  # Android back closes the picker first
 		else:
 			go_back()

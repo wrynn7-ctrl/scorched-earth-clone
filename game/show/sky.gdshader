@@ -37,6 +37,44 @@ float hash(vec2 p) {
 	return fract(p.x * p.y);
 }
 
+// Smooth value noise: no visible cells, used for the moon's surface.
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Brightness of a soft moon disc at q (-1..1 across the disc): a light sphere lit from the upper left,
+// broad darker "seas" from two noise octaves and a handful of shallow craters with a faint bright rim.
+float moon_shade(vec2 q) {
+	float r2 = dot(q, q);
+	vec3 n = vec3(q, sqrt(max(0.0, 1.0 - r2)));
+	float sphere = 0.78 + 0.22 * clamp(dot(n, normalize(vec3(-0.45, -0.5, 0.75))), 0.0, 1.0);
+	float seas = vnoise(q * 1.7 + 4.3) * 0.65 + vnoise(q * 3.9 + 9.1) * 0.35;
+	float shade = sphere * (1.0 - 0.16 * smoothstep(0.35, 0.8, seas));
+	vec2 g = q * 3.2 + 7.0;
+	vec2 id = floor(g);
+	float dents = 0.0;
+	float rims = 0.0;
+	for (int j = -1; j <= 1; j++) {
+		for (int i = -1; i <= 1; i++) {
+			vec2 c = id + vec2(float(i), float(j));
+			float h = hash(c);
+			if (h < 0.45) { continue; }
+			vec2 centre = c + 0.5 + (vec2(hash(c + 1.7), hash(c + 5.3)) - 0.5) * 0.55;
+			float rad = 0.16 + 0.22 * hash(c + 9.9);
+			float dist = length(g - centre);
+			dents += smoothstep(rad, rad * 0.35, dist);
+			rims += exp(-pow((dist - rad) / (rad * 0.22), 2.0));
+		}
+	}
+	shade *= 1.0 - 0.13 * clamp(dents, 0.0, 1.0);
+	shade += 0.05 * clamp(rims, 0.0, 1.0);
+	// Darken the limb a little so the disc reads as round.
+	return shade * (1.0 - 0.18 * smoothstep(0.55, 1.0, r2));
+}
+
 float stars(vec2 uv, float cells, float size, float t) {
 	vec2 g = uv * vec2(aspect, 1.0) * cells;
 	vec2 id = floor(g);
@@ -78,7 +116,7 @@ void fragment() {
 		// Sun (synthwave stripes), moon or chrome sun.
 		vec2 sp = (uv - sun_pos) * vec2(aspect, 1.0);
 		float d = length(sp);
-		float disc = smoothstep(sun_radius, sun_radius - 0.004, d);
+		float disc = smoothstep(sun_radius, sun_radius - max(0.003, fwidth(d) * 1.5), d);
 		float vy = clamp((sp.y / sun_radius) * 0.5 + 0.5, 0.0, 1.0);
 		int style = moon_mix > 0.5 ? 1 : sun_style;
 		vec3 body;
@@ -86,7 +124,7 @@ void fragment() {
 		vec3 halo_c = halo_col.rgb;
 		if (style == 1) {
 			vec3 base_col = moon_mix > 0.5 ? vec3(0.85, 0.93, 1.0) : sun_col_a.rgb;
-			body = base_col * (0.85 + 0.15 * hash(floor(sp * 60.0)));
+			body = base_col * moon_shade(sp / sun_radius);
 			if (moon_mix > 0.5) { halo_c = vec3(0.4, 0.7, 1.0); }
 		} else if (style == 2) {
 			// Chrome: bright sky reflection on top, a dark band, a hot horizon line, magenta below.

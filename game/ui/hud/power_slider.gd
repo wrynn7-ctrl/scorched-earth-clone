@@ -1,6 +1,7 @@
 class_name PowerSlider
 extends Control
-## Large vertical neon slider, value 0..1000. Drag anywhere on it (absolute position).
+## Large vertical neon slider, value 0..1000. Drag anywhere on it (absolute position). Mouse or touch; it
+## follows only the finger that started on it.
 ## Emits `power_changed(p)` whenever the value actually changes.
 
 signal power_changed(p: int)
@@ -64,17 +65,50 @@ static func value_for_y(y: float, top: float, bottom: float) -> int:
 	return roundi(t * float(MAX_VALUE))
 
 
+## Pointer ids: the mouse, or a touch finger's index (see AimInput; each control tracks only its own finger).
+const MOUSE_ID: int = -2
+const NO_POINTER: int = -1
+
+var _pointer: int = NO_POINTER
+
+
 func _gui_input(event: InputEvent) -> void:
+	if AimInput.is_emulated(event):
+		return  # the engine's copy of a real touch/mouse event: the real one is handled
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			_dragging = mb.pressed
-			if mb.pressed:
-				_set_from_y(mb.position.y)
+			_pointer_event(MOUSE_ID, mb.pressed, mb.position.y)
 			accept_event()
-	elif event is InputEventMouseMotion and _dragging:
-		_set_from_y((event as InputEventMouseMotion).position.y)
+	elif event is InputEventMouseMotion:
+		if _pointer == MOUSE_ID and _dragging:
+			_set_from_y((event as InputEventMouseMotion).position.y)
+			accept_event()
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		_pointer_event(st.index, st.pressed, st.position.y)
 		accept_event()
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if sd.index == _pointer and _dragging:
+			_set_from_y(sd.position.y)
+			accept_event()
+
+
+func is_dragging() -> bool:
+	return _dragging
+
+
+func _pointer_event(id: int, pressed: bool, y: float) -> void:
+	if pressed:
+		if _dragging:
+			return
+		_pointer = id
+		_dragging = true
+		_set_from_y(y)
+	elif _dragging and id == _pointer:
+		_pointer = NO_POINTER
+		_dragging = false
 
 
 func _set_from_y(y: float) -> void:

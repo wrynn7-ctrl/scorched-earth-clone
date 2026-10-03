@@ -31,6 +31,16 @@ const MOVE_SEARCH_FLIGHTS: int = 60
 const EASY_SELF_HIT: int = 10
 ## At or below this health a Hard or Expert tank with a repair kit heals instead of gambling.
 const CRITICAL_HEALTH: int = 20
+## When nothing can reach any enemy, a walk is only chosen if all the fuel in hand fits in ONE
+## move (max dx is 200): the walk then burns the lot, so a second walk in the same turn cannot
+## follow and the turn stays within 3 calls (a shield, the walk, the shot).
+const OUT_OF_REACH_FUEL: int = 200
+## Extra launch angles (tenths of a degree above the horizontal) a full-power best-effort shot tries.
+## A last shot at or above this power counts as "full power"; one that landed this far short of the target
+## (cells) proves the target is out of reach from here (the AI's wind model may be wrong, the shell is not).
+const FULL_POWER: int = 985
+const SPENT_SHORT_BY: int = 150
+const BEST_EFFORT_ANGLES: Array[int] = [300, 450, 600, 750]
 
 
 ## One action for the tank whose turn it is. May return a non-turn-ending action
@@ -104,6 +114,7 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	var best_plan: Dictionary = {}
 	var best_sit: AiSituation = null
 	var best_score: int = 0
+	var far: Array[AiSituation] = []  # targets no weapon reaches from here
 	for target: TankState in _target_order(me, enemies, primary):
 		var sit: AiSituation = situation(state, me, level, prof, enemies, target)
 		if target == primary:
@@ -111,6 +122,9 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 			if not walk.is_empty():
 				return walk
 		var plan: Dictionary = AiWeapons.choose_and_plan(sit)
+		if is_hopeless(sit, plan):
+			far.append(sit)
+			continue
 		if plan["self_dmg"] == 0:
 			return finalize(sit, plan)
 		# Every option at this target would hurt us: remember the least bad one and look at
@@ -120,11 +134,106 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 			best_plan = plan
 			best_sit = sit
 			best_score = score
+	if best_sit == null:
+		if far.is_empty():
+			return {"kind": "pass", "tank": me.id}
+		return _out_of_reach(me, far)
 	# Worth the self-inflicted damage? Easy may still take a small hit (<= EASY_SELF_HIT), never a big one.
 	if best_score > 0 or (level == SimConstants.CTRL_EASY and (best_plan["self_dmg"] as int) <= EASY_SELF_HIT
 			and (best_plan["enemy_dmg"] as int) > 0):
 		return finalize(best_sit, best_plan)
 	return {"kind": "pass", "tank": me.id}
+
+
+# --- nothing reaches ----------------------------------------------------------------------------------------
+
+## True when nothing reaches this target from here: the plan found no hit and the best the solver managed
+## still comes down SHORT (too far for the power, or a hill in the way; a shot that flies past the target is
+## not out of range, less power fixes that), or the last full-power shot proved it (spent_short).
+static func is_hopeless(sit: AiSituation, plan: Dictionary) -> bool:
+	if not plan["ok"]:
+		return is_out_of_range(sit) or sit.spent_short
+	# A plan that looks fine on paper but whose kind of shot already fell short at full power.
+	return sit.spent_short and ["explode", "splitter", "dirt"].has(WeaponDefs.get_def(plan["weapon"]).get("behavior", ""))
+
+
+static func is_out_of_range(sit: AiSituation) -> bool:
+	var d: Dictionary = sit.direct
+	return not d["ok"] and (d["err"] as int) < -AimSolver.TOL_ACCEPT
+
+
+## The last shot (same direction as the one now needed) was fired at full power and landed
+## SPENT_SHORT_BY or more short of the target. Pure observation of the state, so it also holds after a walk
+## and for an Easy tank that believes there is no wind.
+static func spent_short(sit: AiSituation) -> bool:
+	var me: TankState = sit.me
+	if me.last_fire_weapon < 0 or me.last_fire_x < 0 or me.last_fire_power < FULL_POWER:
+		return false
+	var last_dir: int = 1 if me.last_fire_angle < 900 else -1
+	if me.last_fire_angle != 900 and last_dir != sit.ctx.dir:
+		return false
+	return sit.ctx.dir * (me.last_fire_x - sit.target.x) < -SPENT_SHORT_BY
+
+
+## Every enemy considered is out of reach. Walk towards the nearest one if the fuel allows, else send
+## the full-power shot that comes down closest to an enemy (the wind may turn in our favour).
+## All levels do this; it is not part of the accuracy model, so no bias or noise is added.
+static func _out_of_reach(me: TankState, far: Array[AiSituation]) -> Dictionary:
+	var near: AiSituation = far[0]
+	var closest: AiSituation = far[0]
+	for sit: AiSituation in far:
+		if sit.dist < near.dist or (sit.dist == near.dist and sit.target.id < near.target.id):
+			near = sit
+		if absi(sit.direct["err"] as int) < absi(closest.direct["err"] as int):
+			closest = sit
+	var walk: Dictionary = _approach(near)
+	if not walk.is_empty():
+		return walk
+	return _best_effort_shot(closest)
+
+
+## The shot that lands closest to the target: the solver's best plan (at full power when the target is
+## out of range), also trying a few more angles at full power. Spark Dart because it is always owned and the
+## shot is not going to hurt anybody anyway.
+static func _best_effort_shot(sit: AiSituation) -> Dictionary:
+	var best_angle: int = sit.direct["angle"]
+	var best_power: int = sit.direct["power"]
+	var best_err: int = absi(sit.direct["err"] as int)
+	if best_power >= SimConstants.MAX_POWER or sit.spent_short:
+		best_power = SimConstants.MAX_POWER
+		best_err = absi(sit.ctx.dir * (_model_land(sit, best_angle) - sit.target.x))
+		for a_dir: int in BEST_EFFORT_ANGLES:
+			var angle: int = AimSolver.actual_angle(sit.ctx, a_dir)
+			var err: int = absi(sit.ctx.dir * (_model_land(sit, angle) - sit.target.x))
+			if err < best_err:
+				best_err = err
+				best_angle = angle
+	return {"kind": "fire", "tank": sit.me.id, "angle": best_angle, "power": best_power,
+			"weapon": "spark_dart"}
+
+
+static func _model_land(sit: AiSituation, angle: int) -> int:
+	sit.flight.fly_shot(sit.me.x, sit.me.y, angle, SimConstants.MAX_POWER, sit.ctx.wind,
+			AimSolver.MODEL_TICKS, sit.ctx.row)
+	AimSolver.model_count += 1
+	return sit.flight.r_x
+
+
+## A walk of up to 200 cells towards `sit.target` (the longest the fuel and the ground allow), or {}.
+static func _approach(sit: AiSituation) -> Dictionary:
+	var me: TankState = sit.me
+	var units: int = me.fuel + me.stock_of("fuel_cell") * (ItemDefs.get_def("fuel_cell")["amount"] as int)
+	if units <= 0 or units > OUT_OF_REACH_FUEL:
+		return {}
+	# Shield and repulsor both up while shells are falling: a walk would be a fourth call.
+	if me.has_shield() and me.repulsor_charge > 0 and AiTargets.recent_threat(sit.state, me, 250):
+		return {}
+	var dir: int = 1 if sit.target.x >= me.x else -1
+	for amount: int in [200, 100, 50, 25]:
+		var dx: int = dir * mini(amount, units)
+		if _walk_dest(sit, dx).x != me.x:
+			return {"kind": "move", "tank": me.id, "dx": dx}
+	return {}
 
 
 ## The preferred target first, then (at most) the two nearest others: used when every shot at the
@@ -219,6 +328,7 @@ static func situation(state: MatchState, me: TankState, level: int, prof: Dictio
 	sit.a0 = 450 + sit.rng.range_int(-70, 70)
 	sit.direct = AimSolver.solve_direct(sit.ctx, sit.target.x, sit.a0)
 	sit.corr = correction_for(sit)
+	sit.spent_short = spent_short(sit)
 	return sit
 
 

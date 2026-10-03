@@ -211,7 +211,7 @@ func open() -> void:
 
 
 func close() -> void:
-	if not visible:
+	if not is_open():
 		return
 	_disconnect_hub()
 	_burst.stop()
@@ -284,7 +284,7 @@ func _on_changed() -> void:
 
 
 func _on_status(status: int) -> void:
-	if status == Entitlement.Status.SUCCESS and visible and not _celebrated:
+	if status == Entitlement.Status.SUCCESS and is_open() and not _celebrated:
 		_celebrate()
 	_refresh_state()
 
@@ -430,7 +430,7 @@ func _refit_next_frame() -> void:
 	var last: float = -1.0
 	for i: int in range(FIT_FRAMES):
 		await get_tree().process_frame
-		if mine != _fit_generation or not visible or not is_inside_tree():
+		if mine != _fit_generation or not is_open() or not is_inside_tree():
 			return
 		_fit_scrolls()
 		if is_equal_approx(last, _scroll.custom_minimum_size.y):
@@ -440,7 +440,7 @@ func _refit_next_frame() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	# The dim area swallows taps (a purchase screen should not close by accident).
-	if visible and event is InputEventMouseButton:
+	if is_open() and event is InputEventMouseButton:
 		accept_event()
 
 

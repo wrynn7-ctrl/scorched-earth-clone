@@ -15,6 +15,7 @@ const LAYER_INDEX: int = 100
 ## Whole cover + uncover time in seconds.
 const DURATION: float = 0.25
 const FADE_SECONDS: float = 0.14
+const FADE_OUT_SECONDS: float = 0.15
 
 ## Test hook: run the animation even without a display.
 static var animate_in_headless: bool = false
@@ -71,15 +72,36 @@ static func fade_in(item: CanvasItem, seconds: float = FADE_SECONDS) -> void:
 	item.modulate.a = 1.0
 	if not animates() or ShowSettings.reduce_motion:
 		return
-	if item.has_meta("_fade_tween"):
-		var old: Variant = item.get_meta("_fade_tween")
-		if old is Tween and (old as Tween).is_valid():
-			(old as Tween).kill()
+	cancel_fade(item)
 	item.modulate.a = 0.0
 	var tw: Tween = item.create_tween()
 	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)  # overlays open while the tree is paused
 	tw.tween_property(item, "modulate:a", 1.0, seconds)
 	item.set_meta("_fade_tween", tw)
+
+
+## A panel that is going away fades out, then `on_done` runs (it should hide the panel). Returns false,
+## without calling `on_done`, when animations are off (headless, reduce motion): the caller then
+## finishes at once.
+static func fade_out(item: CanvasItem, on_done: Callable, seconds: float = FADE_OUT_SECONDS) -> bool:
+	if not item.is_inside_tree() or not animates() or ShowSettings.reduce_motion:
+		return false
+	cancel_fade(item)
+	var tw: Tween = item.create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(item, "modulate:a", 0.0, seconds)
+	tw.tween_callback(on_done)
+	item.set_meta("_fade_tween", tw)
+	return true
+
+
+## Stops a running fade-in or fade-out on `item`.
+static func cancel_fade(item: CanvasItem) -> void:
+	if item.has_meta("_fade_tween"):
+		var old: Variant = item.get_meta("_fade_tween")
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
+		item.remove_meta("_fade_tween")
 
 
 func _init() -> void:

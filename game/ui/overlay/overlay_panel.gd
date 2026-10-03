@@ -19,6 +19,11 @@ var _font_dp: Dictionary = {}
 var _btn_dp: Dictionary = {}  # Button -> [min width in dp, font dp]
 ## Where the add_* helpers put new controls (defaults to the main column).
 var _target: Container = null
+## True from the moment close() is called until the fade-out ends and the overlay hides. Code that asks
+## "is it open?" must use is_open(), which is already false while closing; `visible` stays true during the fade.
+var closing: bool = false
+## Swallows taps while the overlay fades out, so the buttons under the fading panel cannot fire twice.
+var _shield: Control = null
 
 
 func _init() -> void:
@@ -45,6 +50,11 @@ func _init() -> void:
 	_box.name = "Box"
 	_margin.add_child(_box)
 	_target = _box
+	_shield = Control.new()
+	_shield.name = "Shield"
+	_shield.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shield.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_shield)  # last child = on top of the panel
 	visible = false
 
 
@@ -104,7 +114,14 @@ func _fit_scrolls() -> void:
 	scroll.custom_minimum_size.y = clampf(target, minf(UiScale.dp(72.0), _stat_tables[0].content_height()), _stat_tables[0].content_height())
 
 
+## Open and not on its way out (use this instead of `visible`).
+func is_open() -> bool:
+	return visible and not closing
+
+
 func open() -> void:
+	_end_fade_out()
+	closing = false
 	visible = true
 	if is_inside_tree():
 		Transition.fade_in(self)  # a short alpha fade (none with reduce motion or headless)
@@ -117,12 +134,39 @@ func _refit_next_frame() -> void:
 	if _stat_scrolls.is_empty():
 		return
 	await get_tree().process_frame
-	if visible and is_inside_tree():
+	if is_open() and is_inside_tree():
 		_fit_scrolls()
 
 
+## Starts closing: `closing` is set at once, the panel fades out (~150 ms, instant with reduce motion or
+## without a display) and only then `visible` turns false.
 func close() -> void:
+	if not visible or closing:
+		return
+	closing = true
+	_shield.mouse_filter = Control.MOUSE_FILTER_STOP
+	if not Transition.fade_out(self, _finish_close):
+		_finish_close()
+
+
+## Hides at once (no fade), e.g. when the host is being torn down.
+func close_now() -> void:
+	_end_fade_out()
+	_finish_close()
+
+
+func _finish_close() -> void:
+	closing = false
 	visible = false
+	modulate.a = 1.0
+	_shield.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _end_fade_out() -> void:
+	Transition.cancel_fade(self)
+	modulate.a = 1.0
+	if _shield != null:
+		_shield.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func add_title(text: String, color: Color = NeonPalette.CYAN, size_dp: float = 23.0) -> Label:

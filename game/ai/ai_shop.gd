@@ -7,8 +7,17 @@ extends RefCounted
 ##   Hard    a plan: shield first, strong weapons, chutes, a Seeker, one repair kit.
 ##   Expert  buys only what it needs and keeps a cash reserve; looks at what the opponents own
 ##           and counters it (Static Burst against shields, Photon Lance against repulsors).
+## Every level first buys 1-2 Fuel Cells after a round spent out of range (_fuel_after_stalemate), and
+## never holds more fuel than one walk burns (AiPlayer.OUT_OF_REACH_FUEL).
 ## Purchases are tried on a private copy of the state with the real validator, so every
 ## returned action is legal when applied in order. The list always ends with `ready`.
+
+
+## A round of at least this many turns per tank counts as dragging on; LONG_ROUND_TURNS as very long.
+const STALE_ROUND_TURNS: int = 10
+const LONG_ROUND_TURNS: int = 25
+## A last shot this far (cells) from every enemy was not an attempt that came close.
+const FAR_MISS: int = 300
 
 
 static func actions(state: MatchState, tank_id: int) -> Array[Dictionary]:
@@ -21,6 +30,7 @@ static func actions(state: MatchState, tank_id: int) -> Array[Dictionary]:
 	var level: int = AiProfile.level_of(state, tank_id)
 	var rng: Rng = Rng.derive(state.seed, SimConstants.TAG_AI + tank_id).fork(
 			900000000 + (state.round_index + 1) * 16 + tank_id)
+	_fuel_after_stalemate(sim, out, tank_id)
 	match level:
 		SimConstants.CTRL_EASY:
 			_easy(sim, out, tank_id, rng)
@@ -38,10 +48,45 @@ static func actions(state: MatchState, tank_id: int) -> Array[Dictionary]:
 	return out
 
 
+## A tank whose last round dragged on while its shots fell nowhere near an enemy buys 1 Fuel Cell (2 after
+## a very long round), so it can walk closer next time. Never more fuel than one walk (200 units) can burn:
+## see AiPlayer.OUT_OF_REACH_FUEL. No dice: a pure function of the state.
+static func _fuel_after_stalemate(sim: MatchState, out: Array[Dictionary], tank_id: int) -> void:
+	if not was_out_of_range(sim, tank_id):
+		return
+	var t: TankState = sim.tanks[tank_id]
+	var cell: int = ItemDefs.get_def("fuel_cell")["amount"] as int
+	var want: int = 2 if sim.turn_number >= LONG_ROUND_TURNS * sim.tanks.size() else 1
+	while t.stock_of("fuel_cell") < want and t.fuel + (t.stock_of("fuel_cell") + 1) * cell <= AiPlayer.OUT_OF_REACH_FUEL:
+		if not _try_buy(sim, out, tank_id, "fuel_cell", 1):
+			break
+
+
+## True if the round that just ended was long (about STALE_ROUND_TURNS own turns or more per tank) and the
+## tank's last shot came down far from every other tank (or was lost off the map): it spent the round
+## firing at nothing. Uses only what the state remembers (last_fire_*, turn_number).
+static func was_out_of_range(state: MatchState, tank_id: int) -> bool:
+	var me: TankState = state.tanks[tank_id]
+	if me.last_fire_weapon < 0 or state.turn_number < STALE_ROUND_TURNS * state.tanks.size():
+		return false
+	if me.last_fire_x < 0:
+		return true
+	var nearest: int = 1 << 30
+	for t: TankState in state.tanks:
+		if t.id != tank_id and t.team != me.team:
+			nearest = mini(nearest, absi(t.x - me.last_fire_x))
+	return nearest != (1 << 30) and nearest > FAR_MISS
+
+
 ## Buys `qty` bundles if legal (on the private copy). True if bought.
 static func _try_buy(sim: MatchState, out: Array[Dictionary], tank_id: int, item: String, qty: int) -> bool:
 	if qty < 1:
 		return false
+	if item == "fuel_cell":
+		var t: TankState = sim.tanks[tank_id]
+		var cell: int = ItemDefs.get_def("fuel_cell")["amount"] as int
+		if t.fuel + (t.stock_of(item) + qty) * cell > AiPlayer.OUT_OF_REACH_FUEL:
+			return false
 	var action: Dictionary = {"kind": "buy", "tank": tank_id, "item": item, "qty": qty}
 	if Simulation.validate_action(sim, action) != "":
 		return false

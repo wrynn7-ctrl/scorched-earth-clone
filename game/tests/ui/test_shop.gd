@@ -289,8 +289,10 @@ func test_shop_fits_every_screen_and_touch_targets_are_48dp() -> void:
 			await wait_process_frames(3)
 			var detail: ShopDetail = screen.get_detail()
 			assert_true(rect.encloses(detail.get_global_rect()), "%s: detail %s outside %s" % [label, detail.get_global_rect(), vis])
-			for b: Button in [detail.get_buy_button(), detail.get_sell_button()]:
+			for b: Button in [detail.get_buy_button(), detail.get_buy5_button(), detail.get_buy_max_button(),
+					detail.get_sell_button(), detail.get_sell_all_button()]:
 				assert_gte(UiScale.canvas_to_dp(minf(b.size.x, b.size.y)), 47.5, "%s: %s >= 48 dp" % [label, b.name])
+				assert_true(detail.get_global_rect().grow(1.5).encloses(b.get_global_rect()), "%s: %s inside the detail" % [label, b.name])
 			if not case[3]:
 				assert_gte(UiScale.canvas_to_dp(detail.get_close_button().size.y), 47.5, "%s: CLOSE >= 48 dp" % label)
 			f.get_parent().queue_free()

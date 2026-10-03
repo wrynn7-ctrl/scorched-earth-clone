@@ -13,6 +13,9 @@ var kind: int = Kind.HULL
 var index: int = 0
 ## The chip colour of a COLOR tile.
 var color: Color = Color.WHITE
+## A short wide chip (picture left, caption right, one touch row high) instead of the tall picture-over-caption tile.
+## The colour slots use it so the COLOURS tab fits on a phone without scrolling.
+var compact: bool = false
 
 var _art: Control = null
 var _label: Label = null
@@ -58,7 +61,11 @@ func apply_scale() -> void:
 	var font_size: int = UiScale.font(11.0)
 	_label.add_theme_font_size_override("font_size", font_size)
 	var touch: float = UiScale.dp(MIN_DP)
-	if _label.text == "":
+	if compact and _label.text != "":
+		var cfont: Font = _label.get_theme_font("font")
+		custom_minimum_size = Vector2(touch + cfont.get_string_size(_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x + UiScale.dp(12.0), touch)
+		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	elif _label.text == "":
 		custom_minimum_size = Vector2.ONE * touch
 	else:
 		var font: Font = _label.get_theme_font("font")
@@ -72,8 +79,15 @@ func apply_scale() -> void:
 func _layout() -> void:
 	if _art == null:
 		return
-	var line: float = UiScale.line_h(11.0) if _label.text != "" else 0.0
 	var pad: float = UiScale.dp(5.0)
+	if compact:
+		_art.position = Vector2(pad, pad)
+		_art.size = Vector2.ONE * maxf(1.0, size.y - pad * 2.0)
+		_label.position = Vector2(size.y, 0.0)
+		_label.size = Vector2(maxf(1.0, size.x - size.y - pad), size.y)
+		_art.queue_redraw()
+		return
+	var line: float = UiScale.line_h(11.0) if _label.text != "" else 0.0
 	_art.position = Vector2(pad, pad)
 	_art.size = Vector2(maxf(1.0, size.x - pad * 2.0), maxf(1.0, size.y - pad * 2.0 - line))
 	_label.position = Vector2(0.0, size.y - line - pad * 0.5)

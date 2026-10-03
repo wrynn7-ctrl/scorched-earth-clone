@@ -59,6 +59,8 @@ static func load_into(file_path: String = "") -> bool:
 	ShowSettings.music_volume = _volume(cfg, "music_volume", ShowSettings.music_volume)
 	ShowSettings.music_on = _bool(cfg, "music_on", ShowSettings.music_on)
 	ShowSettings.ui_sounds = _bool(cfg, "ui_sounds", ShowSettings.ui_sounds)
+	ShowSettings.left_handed = _bool(cfg, "left_handed", ShowSettings.left_handed)
+	CameraSettings.load_from(cfg)
 	_load_setup(cfg)
 	_apply_audio()
 	return true
@@ -80,6 +82,8 @@ static func save(file_path: String = "") -> bool:
 	cfg.set_value(SECTION, "music_volume", ShowSettings.music_volume)
 	cfg.set_value(SECTION, "music_on", ShowSettings.music_on)
 	cfg.set_value(SECTION, "ui_sounds", ShowSettings.ui_sounds)
+	cfg.set_value(SECTION, "left_handed", ShowSettings.left_handed)
+	CameraSettings.save_to(cfg)
 	if SetupPrefs.has_saved:
 		cfg.set_value(SETUP_SECTION, "players", SetupPrefs.players)
 		cfg.set_value(SETUP_SECTION, "rounds", SetupPrefs.rounds)

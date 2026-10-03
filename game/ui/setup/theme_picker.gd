@@ -112,7 +112,7 @@ func _on_option(id: String) -> void:
 
 ## A tap on the dimmed area outside the panel dismisses the picker.
 func _gui_input(event: InputEvent) -> void:
-	if not visible:
+	if not is_open():
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		if not _panel.get_global_rect().has_point((event as InputEventMouseButton).global_position):

@@ -4,8 +4,9 @@ extends Control
 ## sets the launch angle relative to the active tank's screen position (the pivot).
 ## Emits `angle_changed(tenths)` (0 = right, 900 = up, 1800 = left) only when the value changes.
 ##
-## Mouse events are used (touch is emulated as mouse by the engine on Android); the control
-## receives motion outside its rect while a drag is active.
+## Real touch (ScreenTouch/ScreenDrag with a finger index) and the real mouse both work; the control
+## tracks only the pointer that started its drag, so another finger can use the power slider meanwhile.
+## It receives motion outside its rect while a drag is active.
 
 signal angle_changed(tenths: int)
 signal drag_started
@@ -55,6 +56,7 @@ func set_color(c: Color) -> void:
 func cancel_drag() -> void:
 	if _dragging:
 		_dragging = false
+		_pointer = NO_POINTER
 		drag_ended.emit()
 		queue_redraw()
 
@@ -76,27 +78,67 @@ static func angle_from_drag(pivot: Vector2, pos: Vector2, min_r: float = 0.0) ->
 	return clampi(roundi(rad_to_deg(atan2(dy, dx)) * 10.0), 0, HudFormat.ANGLE_MAX)
 
 
+## Pointer id of the mouse (real touch fingers use their index, 0 and up).
+const MOUSE_ID: int = -2
+const NO_POINTER: int = -1
+
+var _pointer: int = NO_POINTER
+
+
+## True for events the engine synthesised from the other kind of pointer (emulate_touch_from_mouse and
+## emulate_mouse_from_touch both mark them DEVICE_ID_EMULATION). Each control reads the real source only,
+## so a finger is never counted twice.
+static func is_emulated(event: InputEvent) -> bool:
+	return event.device == InputEvent.DEVICE_ID_EMULATION
+
+
 func _gui_input(event: InputEvent) -> void:
+	if is_emulated(event):
+		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index != MOUSE_BUTTON_LEFT:
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_pointer_event(MOUSE_ID, mb.pressed, mb.position)
+			accept_event()
+	elif event is InputEventMouseMotion:
+		if _pointer == MOUSE_ID and _dragging:
+			_pointer_moved((event as InputEventMouseMotion).position)
+			accept_event()
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		_pointer_event(st.index, st.pressed, st.position)
+		accept_event()
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if sd.index == _pointer and _dragging:
+			_pointer_moved(sd.position)
+			accept_event()
+
+
+## Press/release of pointer `id`. Only the pointer that started the drag can end it, and a second finger
+## landing on this control while one is dragging is ignored.
+func _pointer_event(id: int, pressed: bool, pos: Vector2) -> void:
+	if pressed:
+		if _dragging:
 			return
-		if mb.pressed:
-			_dragging = true
-			_finger = mb.position
-			drag_started.emit()
-			_update_from(mb.position)
-		else:
-			_dragging = false
-			drag_ended.emit()
-		queue_redraw()
-		accept_event()
-	elif event is InputEventMouseMotion and _dragging:
-		var mm := event as InputEventMouseMotion
-		_finger = mm.position
-		_update_from(mm.position)
-		queue_redraw()
-		accept_event()
+		_pointer = id
+		_dragging = true
+		_finger = pos
+		drag_started.emit()
+		_update_from(pos)
+	else:
+		if not _dragging or id != _pointer:
+			return
+		_pointer = NO_POINTER
+		_dragging = false
+		drag_ended.emit()
+	queue_redraw()
+
+
+func _pointer_moved(pos: Vector2) -> void:
+	_finger = pos
+	_update_from(pos)
+	queue_redraw()
 
 
 func _update_from(pos: Vector2) -> void:
