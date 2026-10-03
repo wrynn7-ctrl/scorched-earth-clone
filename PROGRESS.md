@@ -63,7 +63,7 @@
 | Task | Agent | Status |
 |---|---|---|
 | M5 contract (ARCHITECTURE §32–§35: entitlement + free/full table, audio, themes, skins) | lead | ✅ written |
-| M4-T Owner feedback: Easy CPU dials in too fast → weaker/inconsistent correction | ai-dev | 🟡 running |
+| M4-T Owner feedback: Easy CPU dials in too fast → weaker/inconsistent correction | ai-dev | ✅ reviewed (Easy 5/16/33% within 1/3/6 shots) |
 | M5-ANGLE Owner feedback: ◀/▶ move the barrel toward screen left/right; readout = elevation on facing side + facing marker | show-ui-dev | ✅ reviewed |
 | M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | ✅ reviewed |
 | M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | ✅ reviewed (31 sfx, 1.4 MB; needs ear-check on device) |
