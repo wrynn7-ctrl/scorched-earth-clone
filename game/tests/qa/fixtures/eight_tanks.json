@@ -8,11 +8,11 @@
 		"bot_seed": 44,
 		"max_actions": 160
 	},
-	"initial_fp": "aefbe00cd5fe3d92",
+	"initial_fp": "9beb4150e4ac4a46",
 	"steps": [
 		{
 			"op": "start_round",
-			"fp": "47cc3db1a353b131",
+			"fp": "4ec2ddaf3ef3f314",
 			"ev": "round_start,wind,turn",
 			"evh": "dca6e8af06a97be0"
 		},
@@ -22,7 +22,7 @@
 			"angle": 529,
 			"power": 847,
 			"weapon": "pulse_missile",
-			"fp": "9fe818ab9da97060",
+			"fp": "98304a9e6ca98574",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,wind,turn",
 			"evh": "72c5230b6fd76f71"
 		},
@@ -32,7 +32,7 @@
 			"angle": 1346,
 			"power": 274,
 			"weapon": "pulse_missile",
-			"fp": "e0a6d1a6d59542fa",
+			"fp": "9dcfda15746f7ce2",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "6040ea75ac9eadbe"
 		},
@@ -42,7 +42,7 @@
 			"angle": 491,
 			"power": 282,
 			"weapon": "pulse_missile",
-			"fp": "b08ece83a836a7ed",
+			"fp": "1276a41ef7a45c59",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,damage,money,wind,turn",
 			"evh": "ed7113ff8ae81ca1"
 		},
@@ -52,7 +52,7 @@
 			"angle": 583,
 			"power": 752,
 			"weapon": "pulse_missile",
-			"fp": "46a9af5712c7b1d6",
+			"fp": "aeca0355b36561e8",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,wind,turn",
 			"evh": "67f3dbb5c728a8f6"
 		},
@@ -62,7 +62,7 @@
 			"angle": 893,
 			"power": 837,
 			"weapon": "pulse_missile",
-			"fp": "33546a62e43567e8",
+			"fp": "f4bd1af7c959fad7",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "60a9acbbcb0eed68"
 		},
@@ -72,7 +72,7 @@
 			"angle": 569,
 			"power": 331,
 			"weapon": "pulse_missile",
-			"fp": "745ead5b7f724c9a",
+			"fp": "169ad8d0f1ac0194",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "7b2b3feebd26c529"
 		},
@@ -82,7 +82,7 @@
 			"angle": 1398,
 			"power": 693,
 			"weapon": "pulse_missile",
-			"fp": "61df066b3d50d699",
+			"fp": "84f6ec75ace5d9c2",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,damage,money,wind,turn",
 			"evh": "694d6da21c2caf10"
 		},
@@ -92,7 +92,7 @@
 			"angle": 564,
 			"power": 616,
 			"weapon": "pulse_missile",
-			"fp": "847e19bf60aac6d4",
+			"fp": "74d457a09fd24e36",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "b55ec83daf4ee706"
 		},
@@ -102,7 +102,7 @@
 			"angle": 1291,
 			"power": 631,
 			"weapon": "pulse_missile",
-			"fp": "25bfc019dd0de797",
+			"fp": "b30d61d3524942a8",
 			"ev": "fire,projectile,projectile_end,wind,turn",
 			"evh": "52f9407596d33a45"
 		},
@@ -112,7 +112,7 @@
 			"angle": 577,
 			"power": 667,
 			"weapon": "pulse_missile",
-			"fp": "f9c70da4e4618092",
+			"fp": "fdf949e583e1104b",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,wind,turn",
 			"evh": "9ce99dffef698e91"
 		},
@@ -122,7 +122,7 @@
 			"angle": 585,
 			"power": 398,
 			"weapon": "pulse_missile",
-			"fp": "2dae9d432be45bad",
+			"fp": "f0ac792f4b198ebc",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,damage,money,wind,turn",
 			"evh": "ebac7fbd15f980eb"
 		},
@@ -132,7 +132,7 @@
 			"angle": 569,
 			"power": 469,
 			"weapon": "pulse_missile",
-			"fp": "da7ff0368168a69c",
+			"fp": "b00f7d6f189ce904",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "8f41d620b17844bf"
 		},
@@ -142,7 +142,7 @@
 			"angle": 578,
 			"power": 378,
 			"weapon": "pulse_missile",
-			"fp": "ed4573d77d8aa6f3",
+			"fp": "ac461dbadd8978ef",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,wind,turn",
 			"evh": "47ae5c96798609ec"
 		},
@@ -152,7 +152,7 @@
 			"angle": 423,
 			"power": 597,
 			"weapon": "pulse_missile",
-			"fp": "7535c57ab4d73be4",
+			"fp": "0d1069410f360d17",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,wind,turn",
 			"evh": "53b87c9bee80bc6e"
 		},
@@ -162,7 +162,7 @@
 			"angle": 1415,
 			"power": 668,
 			"weapon": "pulse_missile",
-			"fp": "a33fa0b0e77e858b",
+			"fp": "6228449c6fa63369",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "0b16f459bfae590e"
 		},
@@ -172,7 +172,7 @@
 			"angle": 1487,
 			"power": 173,
 			"weapon": "pulse_missile",
-			"fp": "5a8ad9143ebced39",
+			"fp": "716c8f0ca01e8111",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,terrain_settle,wind,turn",
 			"evh": "780e35872e9e9537"
 		},
@@ -182,7 +182,7 @@
 			"angle": 1216,
 			"power": 340,
 			"weapon": "pulse_missile",
-			"fp": "6ada551cf6219a3f",
+			"fp": "861895f89f68ae74",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,damage,money,wind,turn",
 			"evh": "b74967e77dd7f848"
 		},
@@ -192,7 +192,7 @@
 			"angle": 451,
 			"power": 730,
 			"weapon": "pulse_missile",
-			"fp": "0ffe19e72e63d98b",
+			"fp": "0ce942347cf1ab5e",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "ba1472fe3e358387"
 		},
@@ -202,7 +202,7 @@
 			"angle": 592,
 			"power": 389,
 			"weapon": "pulse_missile",
-			"fp": "cb07d367613b1273",
+			"fp": "b6de147308709fe2",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "a4313f017a5a4381"
 		},
@@ -212,7 +212,7 @@
 			"angle": 1489,
 			"power": 996,
 			"weapon": "pulse_missile",
-			"fp": "1a6075dacd60d6a1",
+			"fp": "777a48c2d7161c2c",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,terrain_settle,tank_fall,wind,turn",
 			"evh": "6688718cdf1330b4"
 		},
@@ -222,7 +222,7 @@
 			"angle": 560,
 			"power": 721,
 			"weapon": "pulse_missile",
-			"fp": "7650cc0c1dd612c9",
+			"fp": "33469674cfde0f52",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,wind,turn",
 			"evh": "eba53f5fe1574ba2"
 		},
@@ -232,7 +232,7 @@
 			"angle": 1237,
 			"power": 667,
 			"weapon": "pulse_missile",
-			"fp": "2c5ed08d40319c83",
+			"fp": "1abf7d66072ff2c7",
 			"ev": "fire,projectile,projectile_end,wind,turn",
 			"evh": "4afb4fa78e039d25"
 		},
@@ -242,12 +242,12 @@
 			"angle": 363,
 			"power": 281,
 			"weapon": "pulse_missile",
-			"fp": "25884e801699ed50",
+			"fp": "14889c154c3eb020",
 			"ev": "fire,projectile,projectile_end,explosion,terrain_carve,damage,money,money,terrain_settle,tank_destroyed,round_end,money,money",
 			"evh": "3026a46d421777a4"
 		}
 	],
 	"final_phase": "match_over",
 	"final_round": 0,
-	"final_fp": "25884e801699ed50"
+	"final_fp": "14889c154c3eb020"
 }
