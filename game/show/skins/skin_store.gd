@@ -87,10 +87,13 @@ static func is_full() -> bool:
 	return count() >= MAX_SKINS
 
 
-## All readable skins (unreadable files are skipped).
+## The readable skins, oldest first, at most MAX_SKINS (the first ones in that order, even when more
+## files were copied in by hand). Unreadable files are skipped and do not use up a place.
 static func list_skins(with_image: bool = true) -> Array[SkinData]:
 	var out: Array[SkinData] = []
 	for skin_id: String in list_ids():
+		if out.size() >= MAX_SKINS:
+			break
 		var s: SkinData = load_skin(skin_id, with_image)
 		if s != null:
 			out.append(s)

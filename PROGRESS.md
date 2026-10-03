@@ -6,7 +6,7 @@
 | M2 — Playable prototype | ✅ Done 2026-10-02 (owner tested on S26 Ultra: smooth, looks good) |
 | M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; edge + scrollbar fixes confirmed on device) |
 | M4 — AI opponents | ✅ Done 2026-10-03 (owner: very good; Easy too sharp → retune; angle buttons → screen-relative) |
-| M5 — Polish, sound, effects | 🟡 In progress (started while owner tests M4) |
+| M5 — Polish, sound, effects | 🟡 Built + QA green (1,560 tests); waiting for owner phone test |
 | M6 — Local pass-and-play | ⬜ Not started |
 | M7 — Online multiplayer | ⬜ Not started |
 | M8 — Play Store release prep | ⬜ Not started |
@@ -79,7 +79,8 @@
 | LOVE-C Secret Love Edition — core mode (hearts fill the opponent's love meter; winner = shooter) | core-sim-dev | ✅ reviewed (530 core tests) |
 | LOVE-A Love Edition — CPU fires hearts | ai-dev | ✅ reviewed (146 ai tests; turns to fill: Easy 21, Normal 11, Hard 5.5, Expert 4.8) |
 | LOVE-U Love Edition — secret unlock (tap logo 7×), love theme, meters, heart/flower FX, smiley win, sfx | show-ui-dev | ✅ reviewed (563 show+ui tests) |
-| M5-Q QA pass | qa-tester | ⬜ end |
+| M5-Q QA pass (M5 + Love Edition) | qa-tester | ✅ reviewed (1,531 tests; 0 critical/high/medium; 5 low bugs) |
+| M5-QF QA fixes: love save win check, free saves with full-tier items, skin clamp/cap/opaque bake, billing grant-before-ack, audio type safety | core-sim-dev + show-ui-dev | ✅ reviewed (core 546, qa 292 green; 0 pending bugs) |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
@@ -101,6 +102,8 @@
 - Team mode (if added later): AI already guards teammates from splash after M4-F; ally-lob verification exists but is unexercised while team == id.
 - Aim adjustments made before an autosave aren't restored (aim isn't in sim state); tank returns to its stored angle/power.
 - Shop buys 1 bundle / sells 1 unit per tap; consider quantity steppers in M5 polish.
+- Easy vs Easy at the far map edges in strong wind can run 190–550 turns (M5-Q). Normal placement is fine (≤ 46). Consider a round turn limit / sudden death in M6.
+- Test helpers that delete files must never follow symlinks or leave their own `user://` folder (a QA helper once wiped /tmp in the dev container).
 - Seeds for golden fixtures v2 were searched for full weapon/item coverage; re-search if the QA bot changes.
 
 ## Open items for the owner

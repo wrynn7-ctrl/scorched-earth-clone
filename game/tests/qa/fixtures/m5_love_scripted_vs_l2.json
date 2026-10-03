@@ -1,0 +1,130 @@
+{
+	"scenario": {
+		"name": "m5_love_scripted_vs_l2",
+		"seed": 606,
+		"c0": 0,
+		"c1": 2,
+		"wind": 30,
+		"human": 0
+	},
+	"initial_fp": "046372885f03b76e",
+	"steps": [
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "e6ec3df9432384d4",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "a7b9cacd23c52af1",
+			"angle": 682,
+			"power": 766,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 1,
+			"fp": "685dfa39daa80054",
+			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
+			"evh": "b549aea562a84147",
+			"angle": 1360,
+			"power": 622,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "fdad391555432faf",
+			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
+			"evh": "f14cce208962f72d",
+			"angle": 1082,
+			"power": 475,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 1,
+			"fp": "92a09ecfcb04307a",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "f0cdc1bb962ac1ef",
+			"angle": 1360,
+			"power": 625,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "4703b692b1972cdb",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "7d3b0fc7e22bd0fd",
+			"angle": 570,
+			"power": 666,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 1,
+			"fp": "9110c94d453b24fb",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "70225da3a9af05bd",
+			"angle": 1360,
+			"power": 644,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "3ba3a1b9821feeaf",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "7c6407237afa6b4d",
+			"angle": 658,
+			"power": 734,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 1,
+			"fp": "0a7e1319ca0a0542",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "d5817ce2872a5d38",
+			"angle": 1360,
+			"power": 650,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "e5c1bffc40aa7285",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
+			"evh": "093e043c4cff2ff1",
+			"angle": 442,
+			"power": 628,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 1,
+			"fp": "99ab2c31c19126e7",
+			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
+			"evh": "79f1500cbbe397a6",
+			"angle": 1360,
+			"power": 668,
+			"weapon": "heart"
+		},
+		{
+			"kind": "fire",
+			"tank": 0,
+			"fp": "f67b6941b3a42365",
+			"ev": "fire,projectile,projectile_end,heart_burst,love,round_end",
+			"evh": "926c5997e4647cc1",
+			"angle": 427,
+			"power": 628,
+			"weapon": "heart"
+		}
+	],
+	"final_phase": "match_over",
+	"winner": 0,
+	"final_fp": "f67b6941b3a42365",
+	"love": [
+		62,
+		100
+	]
+}

@@ -163,14 +163,15 @@ func _query_purchases() -> void:
 
 ## query_product_details_response: {response_code, debug_message, product_details: [...]}.
 func handle_product_details(response: Dictionary) -> void:
-	var code: int = int(response.get("response_code", BillingClient.BillingResponseCode.ERROR))
+	var code: int = _int_of(response.get("response_code", null), BillingClient.BillingResponseCode.ERROR)
 	_details_ready = false
 	if code == BillingClient.BillingResponseCode.OK:
 		for d: Variant in _array_of(response, "product_details"):
 			if typeof(d) != TYPE_DICTIONARY:
 				continue
 			var details: Dictionary = d
-			if details.get("product_id", "") == Entitlement.PRODUCT_ID:
+			var product_id: Variant = details.get("product_id", null)
+			if typeof(product_id) == TYPE_STRING and (product_id as String) == Entitlement.PRODUCT_ID:
 				_details_ready = true
 				var text: String = _formatted_price(details)
 				if text != "":
@@ -193,6 +194,27 @@ static func _formatted_price(details: Dictionary) -> String:
 	return ""
 
 
+## A plugin number read defensively: ints, floats, bools and strings convert like int(); anything else
+## (missing, null, arrays, dictionaries ...) gives `fallback`, never a script error.
+static func _int_of(v: Variant, fallback: int) -> int:
+	match typeof(v):
+		TYPE_INT, TYPE_BOOL, TYPE_STRING, TYPE_STRING_NAME:
+			return int(v)
+		TYPE_FLOAT:
+			return int(v) if is_finite(v as float) else fallback
+	return fallback
+
+
+## Only a real true (or a non-zero number) counts as true; "yes", null and the like are false.
+static func _truthy(v: Variant) -> bool:
+	match typeof(v):
+		TYPE_BOOL:
+			return v as bool
+		TYPE_INT:
+			return (v as int) != 0
+	return false
+
+
 ## `response[key]` as an Array ([] when missing or of another type).
 static func _array_of(response: Dictionary, key: String) -> Array:
 	var v: Variant = response.get(key, [])
@@ -203,7 +225,7 @@ static func _array_of(response: Dictionary, key: String) -> Array:
 func handle_purchases(response: Dictionary) -> void:
 	var asked: bool = _restoring
 	_restoring = false
-	var code: int = int(response.get("response_code", BillingClient.BillingResponseCode.ERROR))
+	var code: int = _int_of(response.get("response_code", null), BillingClient.BillingResponseCode.ERROR)
 	if code != BillingClient.BillingResponseCode.OK:
 		# A failed query must never take an unlock away: only a restore the player asked for reports it.
 		if asked:
@@ -217,14 +239,15 @@ func handle_purchases(response: Dictionary) -> void:
 		if typeof(p) != TYPE_DICTIONARY or not _is_ours(p as Dictionary):
 			continue
 		var purchase_dict: Dictionary = p
-		var state: int = int(purchase_dict.get("purchase_state", BillingClient.PurchaseState.UNSPECIFIED_STATE))
+		var state: int = _int_of(purchase_dict.get("purchase_state", null), BillingClient.PurchaseState.UNSPECIFIED_STATE)
 		if state == BillingClient.PurchaseState.PURCHASED:
+			if not owned:
+				ownership.emit(true)  # grant first, then acknowledge
 			owned = true
 			_acknowledge(purchase_dict)
 		elif state == BillingClient.PurchaseState.PENDING:
 			pending = true
 	if owned:
-		ownership.emit(true)
 		if asked:
 			outcome.emit(Outcome.SUCCESS)
 	elif pending:
@@ -252,7 +275,7 @@ func _launch() -> void:
 
 ## on_purchase_updated: {response_code, debug_message, purchases?}.
 func handle_purchase_updated(response: Dictionary) -> void:
-	var code: int = int(response.get("response_code", BillingClient.BillingResponseCode.ERROR))
+	var code: int = _int_of(response.get("response_code", null), BillingClient.BillingResponseCode.ERROR)
 	if code == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED:
 		_restoring = true
 		if _client != null:
@@ -266,10 +289,10 @@ func handle_purchase_updated(response: Dictionary) -> void:
 		if typeof(p) != TYPE_DICTIONARY or not _is_ours(p as Dictionary):
 			continue
 		var purchase_dict: Dictionary = p
-		var state: int = int(purchase_dict.get("purchase_state", BillingClient.PurchaseState.UNSPECIFIED_STATE))
+		var state: int = _int_of(purchase_dict.get("purchase_state", null), BillingClient.PurchaseState.UNSPECIFIED_STATE)
 		if state == BillingClient.PurchaseState.PURCHASED:
+			ownership.emit(true)  # grant first: a problem while acknowledging must never withhold the unlock
 			_acknowledge(purchase_dict)
-			ownership.emit(true)
 			result = Outcome.SUCCESS
 			break
 		if state == BillingClient.PurchaseState.PENDING:
@@ -287,9 +310,10 @@ func _is_ours(purchase_dict: Dictionary) -> bool:
 
 
 func _acknowledge(purchase_dict: Dictionary) -> void:
-	if bool(purchase_dict.get("is_acknowledged", false)) or _client == null:
+	if _truthy(purchase_dict.get("is_acknowledged", false)) or _client == null:
 		return
-	var token: String = str(purchase_dict.get("purchase_token", ""))
+	var raw_token: Variant = purchase_dict.get("purchase_token", "")
+	var token: String = raw_token as String if typeof(raw_token) == TYPE_STRING else ""
 	if token == "" or _acking.has(token):
 		return
 	_acking.append(token)

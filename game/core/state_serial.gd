@@ -356,8 +356,20 @@ static func _validate_love_flow(state: MatchState) -> String:
 		most = maxi(most, t.love)
 	if state.phase == SimConstants.PHASE_AIM and most >= SimConstants.LOVE_MAX:
 		return "full love meter during aim"
-	if state.phase == SimConstants.PHASE_MATCH_OVER and most < SimConstants.LOVE_MAX:
-		return "love match over without a full meter"
+	if state.phase != SimConstants.PHASE_MATCH_OVER:
+		return ""
+	# A finished match: the shooter who filled the other tank's meter holds the one round win
+	# (love.gd). Exactly one meter is full and its owner is never the winner.
+	var full: int = 0
+	for t: TankState in state.tanks:
+		if t.love >= SimConstants.LOVE_MAX:
+			full += 1
+	if full != 1:
+		return "love match over with %d full meters" % full
+	for t: TankState in state.tanks:
+		var expected: int = 0 if t.love >= SimConstants.LOVE_MAX else 1
+		if t.round_wins != expected:
+			return "love match over: tank %d round_wins %d (expected %d)" % [t.id, t.round_wins, expected]
 	return ""
 
 
@@ -394,10 +406,10 @@ static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
 	var err: String = _validate_last_fire(state, t)
 	if err != "":
 		return err
-	err = _validate_shield(t)
+	err = _validate_shield(t, st.full_unlocked)
 	if err != "":
 		return err
-	err = _validate_inventory(t)
+	err = _validate_inventory(t, st.full_unlocked)
 	if err != "":
 		return err
 	if state.terrain != null:
@@ -426,6 +438,8 @@ static func _validate_last_fire(state: MatchState, t: TankState) -> String:
 		return "last_fire_weapon %d" % t.last_fire_weapon
 	elif state.settings.mode == SimConstants.MODE_LOVE:
 		return "catalog weapon fired in love mode"
+	elif not state.settings.full_unlocked and Catalog.get_def(Catalog.id_at(t.last_fire_weapon))["tier"] == "full":
+		return "last_fire_weapon %d is a full-version weapon in a free match" % t.last_fire_weapon
 	if t.last_fire_angle < 0 or t.last_fire_angle > SimConstants.MAX_ANGLE:
 		return "last_fire_angle %d" % t.last_fire_angle
 	if t.last_fire_power < SimConstants.MIN_POWER or t.last_fire_power > SimConstants.MAX_POWER:
@@ -440,25 +454,31 @@ static func _validate_last_fire(state: MatchState, t: TankState) -> String:
 	return ""
 
 
-static func _validate_shield(t: TankState) -> String:
+static func _validate_shield(t: TankState, full_unlocked: bool) -> String:
 	if t.shield_type == -1:
 		return "" if t.shield_hp == 0 else "shield_hp %d without a shield" % t.shield_hp
 	var id: String = Catalog.id_at(t.shield_type)
 	if id == "" or not ItemDefs.has(id) or ItemDefs.get_def(id)["behavior"] != "shield":
 		return "shield_type %d" % t.shield_type
+	if not full_unlocked and Catalog.get_def(id)["tier"] == "full":
+		return "shield_type %d is a full-version item" % t.shield_type
 	var max_hp: int = ItemDefs.get_def(id)["hp"]
 	if t.shield_hp < 1 or t.shield_hp > max_hp:
 		return "shield_hp %d (max %d)" % [t.shield_hp, max_hp]
 	return ""
 
 
-static func _validate_inventory(t: TankState) -> String:
+## A free-version match can never hold a full-tier item (buy refuses it, the starting stock has
+## none), so a non-zero count there means a tampered save (section 32).
+static func _validate_inventory(t: TankState, full_unlocked: bool) -> String:
 	if t.inventory.size() != Catalog.count():
 		return "inventory size"
 	for i: int in range(t.inventory.size()):
 		var units: int = t.inventory[i]
 		if units < 0 or units > SimConstants.INVENTORY_CAP:
 			return "inventory[%d] = %d" % [i, units]
+		if units != 0 and not full_unlocked and Catalog.get_def(Catalog.id_at(i))["tier"] == "full":
+			return "inventory[%d] is a full-version item in a free match" % i
 	if t.inventory[Catalog.index_of(Catalog.SPARK_DART)] != 0:
 		return "spark_dart stored"
 	return ""

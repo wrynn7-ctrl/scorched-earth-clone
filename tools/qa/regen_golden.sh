@@ -7,7 +7,8 @@
 # comparing), and afterwards re-runs them normally to prove the new fixtures replay cleanly.
 #   test_golden_replays  -> the six M2 fixtures (duel_2_tanks.json ... multi_round_3_tanks.json)
 #   test_golden_m3       -> the four M3 shopping-bot fixtures (m3_*.json)
-# Pass "m2" or "m3" to regenerate only that family (default: both).
+#   test_m5_love_golden  -> the six Love Edition fixtures (m5_love_*.json)
+# Pass "m2", "m3" or "love" to regenerate only that family (default: all).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -16,8 +17,9 @@ SELECTS=()
 case "${WHICH}" in
   m2) SELECTS=(test_golden_replays) ;;
   m3) SELECTS=(test_golden_m3) ;;
-  all) SELECTS=(test_golden_replays test_golden_m3) ;;
-  *) echo "usage: regen_golden.sh [m2|m3|all]" >&2; exit 2 ;;
+  love) SELECTS=(test_m5_love_golden) ;;
+  all) SELECTS=(test_golden_replays test_golden_m3 test_m5_love_golden) ;;
+  *) echo "usage: regen_golden.sh [m2|m3|love|all]" >&2; exit 2 ;;
 esac
 
 for sel in "${SELECTS[@]}"; do

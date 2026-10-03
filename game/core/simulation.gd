@@ -165,7 +165,7 @@ static func validate_action(state: MatchState, action: Dictionary) -> String:
 		"move":
 			return _validate_move(tank, action)
 		"use_item":
-			return _validate_use_item(tank, action)
+			return _validate_use_item(state, tank, action)
 		"buy":
 			return _validate_buy(state, tank, action)
 		"sell":
@@ -218,6 +218,10 @@ static func _validate_fire(state: MatchState, tank: TankState, action: Dictionar
 	var unlimited: bool = WeaponDefs.get_def(weapon).get("unlimited", false)
 	if not unlimited and tank.stock_of(weapon) <= 0:
 		return "out_of_stock"
+	# Stock of a full-tier weapon can't exist in a free match (buy refuses it); this is the belt to
+	# StateSerial's braces for a state built some other way.
+	if not state.settings.full_unlocked and Catalog.has(weapon) and Catalog.get_def(weapon)["tier"] == "full":
+		return "locked_item"
 	return ""
 
 
@@ -231,7 +235,7 @@ static func _validate_move(tank: TankState, action: Dictionary) -> String:
 	return ""
 
 
-static func _validate_use_item(tank: TankState, action: Dictionary) -> String:
+static func _validate_use_item(state: MatchState, tank: TankState, action: Dictionary) -> String:
 	var item: String = action["item"]
 	if not Catalog.has(item):
 		return "unknown_item"
@@ -242,6 +246,8 @@ static func _validate_use_item(tank: TankState, action: Dictionary) -> String:
 		return "not_usable"
 	if tank.stock_of(item) <= 0:
 		return "out_of_stock"
+	if not state.settings.full_unlocked and Catalog.get_def(item)["tier"] == "full":
+		return "locked_item"
 	return ""
 
 

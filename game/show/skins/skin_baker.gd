@@ -65,7 +65,9 @@ static func _blit_picture(img: Image, picture: Image) -> void:
 	var im: Image = picture.duplicate() as Image
 	im.convert(Image.FORMAT_RGBA8)
 	im.resize(img.get_width(), img.get_height(), Image.INTERPOLATE_BILINEAR)
-	img.blit_rect(im, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i.ZERO)
+	# Composite over the base hull (blend_rect), not copy (blit_rect): a translucent picture must not
+	# make a translucent hull. The base is opaque, so the result is too.
+	img.blend_rect(im, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i.ZERO)
 
 
 static func _apply_pattern(img: Image, skin: SkinData, ppu: int) -> void:

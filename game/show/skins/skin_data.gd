@@ -131,8 +131,13 @@ static func clean_name(v: Variant) -> String:
 static func _int_in(v: Variant, lo: int, hi: int, fallback: int) -> int:
 	if typeof(v) == TYPE_INT:
 		return clampi(v as int, lo, hi)
-	if typeof(v) == TYPE_FLOAT and is_finite(v as float):
-		return clampi(roundi(v as float), lo, hi)
+	if typeof(v) == TYPE_FLOAT:
+		var f: float = v as float
+		if is_nan(f):
+			return fallback
+		# Clamp as a float first: roundi() of a value beyond int64 overflows to the wrong end (and
+		# differently per CPU). +-inf lands on the matching end.
+		return roundi(clampf(f, float(lo), float(hi)))
 	return fallback
 
 

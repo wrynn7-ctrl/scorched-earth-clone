@@ -559,6 +559,8 @@ func test_validate_rejects_bad_love_meters() -> void:
 	full.tanks[0].love = 100
 	assert_ne(StateSerial.validate(full), "", "a full meter means the match is over")
 	full.phase = SimConstants.PHASE_MATCH_OVER
+	assert_ne(StateSerial.validate(full), "", "match_over needs the other tank to hold the win")
+	full.tanks[1].round_wins = 1
 	assert_eq(StateSerial.validate(full), "")
 	var empty_over: MatchState = m.duplicate_state()
 	empty_over.phase = SimConstants.PHASE_MATCH_OVER

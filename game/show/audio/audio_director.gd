@@ -180,9 +180,11 @@ func on_event(e: Dictionary, match_over: bool = false, love: bool = false) -> vo
 static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool = false) -> String:
 	match e.get("type", ""):
 		"fire":
-			return fire_key(e.get("weapon", "") as String)
+			var weapon: Variant = e.get("weapon", "")
+			return fire_key(weapon as String) if typeof(weapon) == TYPE_STRING else ""
 		"explosion":
-			return explosion_key(int(e.get("radius", 0)))
+			var radius: Variant = e.get("radius", 0)
+			return explosion_key(_num_of(radius)) if _is_number(radius) else ""
 		"heart_burst":
 			return "heart_burst"
 		"love":
@@ -196,9 +198,10 @@ static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool 
 		"terrain_pour":
 			return "sludge_pour"
 		"tank_drag":
-			return "anchor_clank" if int(e.get("to_x", 0)) != int(e.get("from_x", 0)) else ""
+			return "anchor_clank" if _num_of(e.get("to_x", 0)) != _num_of(e.get("from_x", 0)) else ""
 		"damage":
-			return "dirt_thud" if e.get("cause", "") == "fall" else ""
+			var cause: Variant = e.get("cause", "")
+			return "dirt_thud" if typeof(cause) == TYPE_STRING and (cause as String) == "fall" else ""
 		"shield_on":
 			return "shield_up"
 		"shield_hit":
@@ -212,16 +215,20 @@ static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool 
 		"repair":
 			return "repair_chime"
 		"money":
-			var reason: String = e.get("reason", "") as String
+			var raw_reason: Variant = e.get("reason", "")
+			var delta: Variant = e.get("delta", 0)
+			if typeof(raw_reason) != TYPE_STRING or not _is_number(delta):
+				return ""
+			var reason: String = raw_reason as String
 			if reason == "buy" or reason == "sell":
 				return ""
-			return "money_gain" if int(e.get("delta", 0)) > 0 else "money_loss"
+			return "money_gain" if _num_of(delta) > 0 else "money_loss"
 		"tank_destroyed":
 			return "tank_destroyed"
 		"turn":
 			return "turn_blip"
 		"round_end":
-			if int(e.get("winner", -1)) < 0:
+			if _num_of(e.get("winner", -1), -1) < 0:
 				return ""
 			if love:
 				return "love_win"
@@ -229,6 +236,16 @@ static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool 
 	# projectile, projectile_end, terrain_carve, wind, beam (its sound is the fire event's), tank_fall,
 	# tank_move, well_on/off (the hum loop), flames (the crackle loop), ready, repulsor_down, round_start.
 	return ""
+
+
+static func _is_number(v: Variant) -> bool:
+	return (typeof(v) == TYPE_INT) or (typeof(v) == TYPE_FLOAT and is_finite(v as float))
+
+
+## An event number as an int; anything that is not a number gives `fallback` (events come from the core,
+## but a damaged replay or a future event must stay silent rather than raise a script error).
+static func _num_of(v: Variant, fallback: int = 0) -> int:
+	return int(v) if _is_number(v) else fallback
 
 
 ## The settle event's `falls` (an Array of per-column falls; a count also works): did any ground move?
