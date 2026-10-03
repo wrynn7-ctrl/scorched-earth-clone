@@ -66,7 +66,7 @@
 | M4-T Owner feedback: Easy CPU dials in too fast → weaker/inconsistent correction | ai-dev | 🟡 running |
 | M5-ANGLE Owner feedback: ◀/▶ move the barrel toward screen left/right; readout = elevation on facing side + facing marker | show-ui-dev | 🟡 running |
 | M5-C Free tier: ≤ 4 tanks, rounds ≤ 5 in core | core-sim-dev | ✅ reviewed |
-| M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | 🟡 running |
+| M5-A Sound: generated sfx (sfxr-style), AudioDirector, volumes, music bus | show-ui-dev | ✅ reviewed (31 sfx, 1.4 MB; needs ear-check on device) |
 | M5-B Terrain themes (5), follow-cam, transitions, title polish | show-ui-dev | 🟡 running |
 | M5-R Gradle builds, Play Billing plugin, AAB in CI | release-eng | 🟡 running |
 | M5-E Entitlement service, free/full gating UI, Unlock screen | show-ui-dev | ⬜ wave 2 |
