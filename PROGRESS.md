@@ -53,7 +53,7 @@
 |---|---|---|
 | M3-UI-ARROWS-2 Owner feedback: angle buttons show ◀ (−0.1°) and ▶ (+0.1°) | show-ui-dev | ✅ reviewed |
 | M4 contract (ARCHITECTURE §27–§30) | lead | ✅ written |
-| M4-C Controllers in settings + `last_fire_*` AI memory in TankState | core-sim-dev | 🟡 running |
+| M4-C Controllers in settings + `last_fire_*` AI memory in TankState | core-sim-dev | ✅ reviewed |
 | M4-A AiPlayer: aim solver, error model, weapon/item/shop/target choice, 4 levels + statistical tests | ai-dev | 🟡 running |
 | M4-U Setup AI slots, AI turn playback (thinking/turret sweep), AI shopping, CI `ai` leg | show-ui-dev | ⬜ after C + A |
 | M4-Q AI fuzz, determinism across save/load, balance table | qa-tester | ⬜ after U |
