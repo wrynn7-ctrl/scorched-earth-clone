@@ -452,12 +452,22 @@ AiPlayer.shop_actions(state: MatchState, tank_id: int) -> Array[Dictionary]  # p
 
 ## 30. AI acceptance tests (game/tests/ai/)
 Measured over ≥ 200 seeded scenarios each, with rates reported:
-- Expert hits a stationary target (≤ damage-radius miss) within 2 shots in ≥ 90%.
-- Hard within 3 shots in ≥ 80%.
+- Expert hits a stationary target (≤ damage-radius miss) with its first shot in 60–75% (human-like, not perfect),
+  within 2 shots in ≥ 90%, within 3 in ≥ 97%.
+- Hard's first shot hits in 35–55%, within 3 shots in ≥ 80%, and stays clearly below Expert.
 - Normal's first shot hits in 10–40%, and it improves within 5 shots.
 - Easy's first shot misses in ≥ 85%, with a "believable" median miss of 40–250 cells. With strong wind Easy misses
   more than with no wind; with no wind Easy still misses because of bias.
 - Determinism: the same state gives the same action, including after a save/load round trip.
 - Every action is valid. A turn ends within 3 calls.
 - Budget: p95 decision time ≤ 15 ms × `PERF_BUDGET_SCALE`.
-- A 4-AI match (one per difficulty) runs to match_over with no errors, and over many matches Expert wins most often.
+- A 4-AI match (one per difficulty) runs to match_over with no errors. Over many matches Expert wins the most rounds
+  (roughly 55–75%, not near-total), and Hard ends clearly ahead of Normal on kills.
+
+## 31. M4-A resolutions (binding)
+- AI aim searches run on `game/ai/ai_flight.gd` (`AiFlight`), an integer copy of the shell physics, including wells and
+  repulsors, because one `Ballistics.trace` costs about 2.5 ms. A regression test keeps AiFlight within 2 cells of
+  `Ballistics.trace`. **Any change to `Ballistics` flight physics must update AiFlight too.**
+- AI streams: `Rng.derive(seed, TAG_AI + tank_id).fork(round_index*100000 + turn_number*16 + tank_id)`. The round bias
+  uses the fork `round_index*100000 + 99999`; shop streams use a large constant offset.
+- The AI doesn't use or buy fire/sludge weapons (weakest heuristics; may come later).
