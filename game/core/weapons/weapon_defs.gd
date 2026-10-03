@@ -16,6 +16,7 @@ extends RefCounted
 ##   static    r, dmg
 ##   well      well_r, strength (Q16.16 cell/tick^2 at centre; tuned to 0.15 in M3-C2), cycles (full turn cycles)
 ##   anchor    pull_r, max_pull (cells)
+##   love      r, amount (love gained at the centre; section 37)
 ## spark_dart is unlimited (never stored in inventories): `bundle` is 1 only to keep maths safe.
 
 const DEFS: Dictionary = {
@@ -64,12 +65,22 @@ const DEFS: Dictionary = {
 }
 
 
+## Love-mode weapons (section 37). Kept apart from DEFS because DEFS is exactly the shop weapons
+## (every entry has a Catalog index); has()/get_def() cover both tables.
+const LOVE_DEFS: Dictionary = {
+	"heart": {"id": "heart", "kind": "weapon", "tier": "free", "price": 0, "bundle": 1,
+			"behavior": "love", "r": 30, "amount": 34, "unlimited": true},
+}
+
+
 static func has(id: String) -> bool:
-	return DEFS.has(id)
+	return DEFS.has(id) or LOVE_DEFS.has(id)
 
 
 ## Returns the definition, or an empty Dictionary for an unknown id.
 static func get_def(id: String) -> Dictionary:
 	if DEFS.has(id):
 		return DEFS[id]
+	if LOVE_DEFS.has(id):
+		return LOVE_DEFS[id]
 	return {}

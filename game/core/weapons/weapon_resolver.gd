@@ -25,7 +25,7 @@ static func resolve(state: MatchState, tank_id: int, action: Dictionary, events:
 	tank.power = power
 	tank.last_fire_angle = angle
 	tank.last_fire_power = power
-	tank.last_fire_weapon = Catalog.index_of(weapon)
+	tank.last_fire_weapon = Catalog.fire_index(weapon)
 	tank.last_fire_wind = state.wind
 	tank.last_fire_turn = state.turn_number
 	var first_event: int = events.size()
@@ -96,6 +96,8 @@ static func _dispatch(state: MatchState, tank_id: int, action: Dictionary, def: 
 			return WellBehavior.resolve(state, tank_id, action, def, events)
 		"anchor":
 			return AnchorBehavior.resolve(state, tank_id, action, def, events)
+		"love":
+			return LoveBehavior.resolve(state, tank_id, action, def, events)
 	return _explode_fallback(state, tank_id, action, def, events)
 
 

@@ -64,6 +64,13 @@ const CTRL_MAX: int = CTRL_EXPERT
 ## Highest controller allowed while `full_unlocked` is false.
 const CTRL_FREE_MAX: int = CTRL_NORMAL
 
+## Match modes (section 37). Love mode forces 2 tanks, 1 round, wind_max <= LOVE_WIND_MAX, no money.
+const MODE_STANDARD: int = 0
+const MODE_LOVE: int = 1
+const MODE_MAX: int = MODE_LOVE
+const LOVE_MAX: int = 100  # a full love meter wins the match
+const LOVE_WIND_MAX: int = 30
+
 ## Economy (section 18).
 const CREDIT_PER_HP: int = 15
 const KILL_BONUS: int = 1500

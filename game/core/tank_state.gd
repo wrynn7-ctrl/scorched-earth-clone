@@ -25,6 +25,8 @@ var fuel: int = SimConstants.START_FUEL
 var shield_type: int = -1
 var shield_hp: int = 0
 var repulsor_charge: int = 0
+## Love meter 0..100 (section 37); always 0 outside love mode.
+var love: int = 0
 ## Units owned per catalog index (spark_dart is unlimited and never stored).
 var inventory: PackedInt32Array = Catalog.new_inventory()
 
@@ -114,6 +116,7 @@ func duplicate_tank() -> TankState:
 	t.shield_type = shield_type
 	t.shield_hp = shield_hp
 	t.repulsor_charge = repulsor_charge
+	t.love = love
 	t.inventory = inventory.duplicate()
 	t.last_fire_angle = last_fire_angle
 	t.last_fire_power = last_fire_power

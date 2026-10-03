@@ -5,6 +5,9 @@ extends RefCounted
 ## because saves and fingerprints depend on the indices.
 
 const SPARK_DART: String = "spark_dart"
+## The love-mode heart (section 37) is not in IDS; `last_fire_weapon` records this value for it.
+const HEART: String = "heart"
+const HEART_INDEX: int = -2
 
 const IDS: PackedStringArray = [
 	# weapons
@@ -27,6 +30,13 @@ static func index_of(id: String) -> int:
 	return IDS.find(id)
 
 
+## Value stored in `last_fire_weapon` for weapon `id`: its catalog index, HEART_INDEX for the heart.
+static func fire_index(id: String) -> int:
+	if id == HEART:
+		return HEART_INDEX
+	return IDS.find(id)
+
+
 ## Id at catalog position `index`, or "" when out of range.
 static func id_at(index: int) -> String:
 	if index < 0 or index >= IDS.size():
@@ -35,7 +45,8 @@ static func id_at(index: int) -> String:
 
 
 static func has(id: String) -> bool:
-	return WeaponDefs.has(id) or ItemDefs.has(id)
+	# The heart is a WeaponDefs entry but never a shop/inventory entry.
+	return IDS.has(id)
 
 
 static func is_weapon(id: String) -> bool:

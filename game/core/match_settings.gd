@@ -14,6 +14,8 @@ var full_unlocked: bool = true
 ## One controller per tank (SimConstants.CTRL_*, section 27). Defaults to all human; new_match
 ## resizes it to num_tanks (padding with human) and clamps the values.
 var controllers: PackedInt32Array = _all_human()
+## SimConstants.MODE_STANDARD or MODE_LOVE (section 37).
+var mode: int = SimConstants.MODE_STANDARD
 
 
 static func _all_human() -> PackedInt32Array:
@@ -32,6 +34,7 @@ func duplicate_settings() -> MatchSettings:
 	s.start_money = start_money
 	s.full_unlocked = full_unlocked
 	s.controllers = controllers.duplicate()
+	s.mode = mode
 	return s
 
 
@@ -42,6 +45,13 @@ func clamped() -> MatchSettings:
 	s.rounds = clampi(rounds, SimConstants.MIN_ROUNDS, SimConstants.MAX_ROUNDS)
 	s.wind_max = clampi(wind_max, 0, SimConstants.WIND_MAX)
 	s.start_money = clampi(start_money, 0, SimConstants.MAX_START_MONEY)
+	s.mode = clampi(mode, SimConstants.MODE_STANDARD, SimConstants.MODE_MAX)
+	# Love mode (section 37): a fixed duel. Applied before the free caps and the controller resize.
+	if s.mode == SimConstants.MODE_LOVE:
+		s.num_tanks = 2
+		s.rounds = 1
+		s.wind_max = mini(s.wind_max, SimConstants.LOVE_WIND_MAX)
+		s.start_money = 0
 	# Free version: at most 4 tanks and 5 rounds (section 32). Applied before the controller resize.
 	if not s.full_unlocked:
 		s.num_tanks = mini(s.num_tanks, SimConstants.FREE_MAX_TANKS)

@@ -25,6 +25,9 @@ static func new_match(settings: MatchSettings) -> MatchState:
 		t.color_index = i
 		t.money = state.settings.start_money
 		state.tanks.append(t)
+	if state.settings.mode == SimConstants.MODE_LOVE:
+		# Love mode has no shop (section 37): round 0 starts at once, phase "aim".
+		_begin_round(state)
 	return state
 
 
@@ -91,6 +94,7 @@ static func _place_tanks(state: MatchState, n: int, rng: Rng) -> void:
 		t.shield_hp = 0
 		t.repulsor_charge = 0
 		t.ready = false
+		t.love = 0
 		t.reset_last_fire()
 
 
@@ -135,6 +139,10 @@ static func validate_action(state: MatchState, action: Dictionary) -> String:
 	var is_aim: bool = AIM_KINDS.has(kind)
 	if not is_aim and not SHOP_KINDS.has(kind):
 		return "unknown_kind"
+	# Love mode (section 37) only has fire (heart) and pass; checked before the phase so a
+	# buy/ready is reported as bad_mode rather than bad_phase.
+	if state.settings.mode == SimConstants.MODE_LOVE and kind != "fire" and kind != "pass":
+		return "bad_mode"
 	if state.phase != (SimConstants.PHASE_AIM if is_aim else SimConstants.PHASE_SHOP):
 		return "bad_phase"
 	if not _has_int(action, "tank"):
@@ -153,7 +161,7 @@ static func validate_action(state: MatchState, action: Dictionary) -> String:
 			return "tank_dead"
 	match kind:
 		"fire":
-			return _validate_fire(tank, action)
+			return _validate_fire(state, tank, action)
 		"move":
 			return _validate_move(tank, action)
 		"use_item":
@@ -191,7 +199,7 @@ static func _check_fields(kind: String, action: Dictionary) -> String:
 	return ""
 
 
-static func _validate_fire(tank: TankState, action: Dictionary) -> String:
+static func _validate_fire(state: MatchState, tank: TankState, action: Dictionary) -> String:
 	var angle: int = action["angle"]
 	if angle < 0 or angle > SimConstants.MAX_ANGLE:
 		return "bad_angle"
@@ -201,6 +209,12 @@ static func _validate_fire(tank: TankState, action: Dictionary) -> String:
 	var weapon: String = action["weapon"]
 	if not WeaponDefs.has(weapon):
 		return "unknown_weapon"
+	# The heart exists only in love mode, where it is the only weapon (section 37). In a
+	# standard match it is simply not a weapon (unknown_weapon); in love mode anything else is
+	# bad_mode.
+	var love_mode: bool = state.settings.mode == SimConstants.MODE_LOVE
+	if (weapon == Catalog.HEART) != love_mode:
+		return "bad_mode" if love_mode else "unknown_weapon"
 	var unlimited: bool = WeaponDefs.get_def(weapon).get("unlimited", false)
 	if not unlimited and tank.stock_of(weapon) <= 0:
 		return "out_of_stock"
@@ -292,6 +306,8 @@ static func apply_action(state: MatchState, action: Dictionary) -> Array[Diction
 static func _apply_fire(state: MatchState, action: Dictionary, events: Array[Dictionary]) -> void:
 	var tank_id: int = action["tank"]
 	var tick: int = WeaponResolver.resolve(state, tank_id, action, events)
+	if state.phase == SimConstants.PHASE_MATCH_OVER:
+		return  # love mode: the shot filled a meter and already emitted round_end
 	_finish_turn(state, tick, events)
 
 

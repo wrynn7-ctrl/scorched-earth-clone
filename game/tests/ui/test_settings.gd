@@ -224,3 +224,66 @@ func test_setup_prefs_share_the_file_with_the_show_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(PATH)
 	assert_false(cfg.has_section("setup"), "no setup chosen: no [setup] section")
+
+
+# --- camera follow + left-handed (M5-P) ---------------------------------------------------
+
+func test_camera_follow_and_left_handed_default_and_persist() -> void:
+	assert_true(CameraSettings.follow_shots, "default ON")
+	assert_false(ShowSettings.left_handed, "default right-handed")
+	CameraSettings.follow_shots = false
+	ShowSettings.left_handed = true
+	assert_true(SettingsStore.save())
+	ShowSettings.reset()
+	assert_true(CameraSettings.follow_shots, "ShowSettings.reset() resets the camera setting too")
+	assert_false(ShowSettings.left_handed)
+	assert_true(SettingsStore.load_into())
+	assert_false(CameraSettings.follow_shots)
+	assert_true(ShowSettings.left_handed)
+
+
+func test_damaged_camera_and_hand_values_are_ignored() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("show", "camera_follow", "yes")
+	cfg.set_value("show", "left_handed", 7)
+	cfg.save(PATH)
+	assert_true(SettingsStore.load_into())
+	assert_true(CameraSettings.follow_shots)
+	assert_false(ShowSettings.left_handed)
+
+
+func test_settings_screen_has_camera_and_left_handed_toggles() -> void:
+	var o := SettingsOverlay.new()
+	add_child_autofree(o)
+	o.open()
+	var cam: Button = o.get_toggle("CameraFollow")
+	var lefty: Button = o.get_toggle("LeftHanded")
+	assert_true(cam.button_pressed, "camera follow starts ON")
+	assert_false(lefty.button_pressed)
+	assert_eq(cam.text, "ON")
+	assert_eq(lefty.text, "OFF", "the state is text, not only a colour")
+	cam.button_pressed = false
+	lefty.button_pressed = true
+	assert_false(CameraSettings.follow_shots)
+	assert_true(ShowSettings.left_handed)
+	assert_eq(cam.text, "OFF")
+	ShowSettings.reset()
+	SettingsStore.load_into()
+	assert_false(CameraSettings.follow_shots, "saved straight away")
+	assert_true(ShowSettings.left_handed)
+	# Re-opening shows what is stored.
+	o.open()
+	assert_false(o.get_toggle("CameraFollow").button_pressed)
+	assert_true(o.get_toggle("LeftHanded").button_pressed)
+	for key: String in ["CameraFollow", "LeftHanded"]:
+		assert_gte(UiScale.canvas_to_dp(o.get_toggle(key).custom_minimum_size.y), 47.5, key + " is a touch target")
+
+
+func test_camera_toggle_drives_the_follow_cam_switch() -> void:
+	CameraSettings.follow_shots = false
+	assert_false(CameraSettings.follow_active())
+	var o := SettingsOverlay.new()
+	add_child_autofree(o)
+	o.open()
+	o.get_toggle("CameraFollow").button_pressed = true
+	assert_true(CameraSettings.follow_active())
