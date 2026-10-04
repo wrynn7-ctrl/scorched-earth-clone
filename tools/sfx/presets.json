@@ -1,175 +1,390 @@
 {
-  "_comment": "Craterline sound presets. Format and parameters: see the header of gen_sfx.py. Regenerate: python3 tools/sfx/gen_sfx.py",
+  "_comment": "Craterline sound presets (heavy sci-fi, docs/ARCHITECTURE.md 33a). Format: header of gen_sfx.py. Regenerate: python3 tools/sfx/gen_sfx.py, then python3 tools/sfx/check_sfx.py",
   "sounds": {
-    "fire_light": {"seed": 11, "layers": [
-      {"wave": "square", "freq": 1500, "slide": -5.0, "min_freq": 220, "duty": 0.3, "duty_sweep": -1.2, "attack": 0.001, "sustain": 0.02, "decay": 0.13, "lp": 7000, "punch": 0.5},
-      {"wave": "noise", "freq": 0, "hp": 2500, "attack": 0.0005, "sustain": 0.004, "decay": 0.03, "gain": 0.35}
+    "fire_light": {"seed": 11, "peak_db": -3.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 1200, "tau": 0.012, "attack": 0.0004, "decay": 0.036, "gain": 0.45},
+      {"type": "kick", "f0": 210, "f1": 66, "tau": 0.041999999999999996, "attack": 0.0008, "hold": 0.009, "decay": 0.27, "sat": 3.0, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 104, "f1": 46, "tau": 0.065, "attack": 0.002, "hold": 0.012, "decay": 0.3, "sat": 1.8, "gain": 0.6},
+      {"type": "noise", "mode": "bp", "f0": 900, "f1": 220, "tau": 0.055, "q": 1.1, "attack": 0.001, "decay": 0.12, "gain": 0.5},
+      {"type": "kick", "f0": 3400, "f1": 420, "tau": 0.062, "attack": 0.0005, "decay": 0.245, "gain": 0.34},
+      {"type": "fm", "freq": 760, "ratio": 1.5, "index": 6, "index_tau": 0.065, "attack": 0.0008, "decay": 0.26, "gain": 0.2}
+    ], "post": [
+      {"op": "hp", "hz": 30},
+      {"op": "comp", "thresh_db": -20, "ratio": 6, "attack": 0.003, "release": 0.13},
+      {"op": "sat", "k": 1.5},
+      {"op": "limit", "ceil_db": -8},
+      {"op": "reverb", "mix": 0.14, "size": 0.52, "fb": 0.738, "damp": 0.5, "pre_ms": 4, "tail": 0.16}
     ]},
-    "fire_medium": {"seed": 12, "layers": [
-      {"wave": "saw", "freq": 700, "slide": -4.0, "min_freq": 90, "attack": 0.001, "sustain": 0.04, "decay": 0.2, "lp": 4500, "lp_sweep": -2.0, "punch": 0.6},
-      {"wave": "sine", "freq": 160, "slide": -3.0, "min_freq": 40, "attack": 0.001, "sustain": 0.03, "decay": 0.16, "gain": 0.9},
-      {"wave": "noise", "freq": 0, "lp": 5000, "attack": 0.0005, "sustain": 0.01, "decay": 0.08, "gain": 0.4}
+    "fire_medium": {"seed": 12, "peak_db": -2.5, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 1200, "tau": 0.012, "attack": 0.0004, "decay": 0.04, "gain": 0.45},
+      {"type": "kick", "f0": 210, "f1": 58, "tau": 0.05, "attack": 0.0008, "hold": 0.015, "decay": 0.45, "sat": 3.0, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 104, "f1": 46, "tau": 0.07500000000000001, "attack": 0.002, "hold": 0.02, "decay": 0.5, "sat": 1.8, "gain": 0.7},
+      {"type": "noise", "mode": "bp", "f0": 900, "f1": 220, "tau": 0.065, "q": 1.1, "attack": 0.001, "decay": 0.2, "gain": 0.5},
+      {"type": "kick", "f0": 2800, "f1": 300, "tau": 0.07, "attack": 0.0005, "decay": 0.275, "gain": 0.34},
+      {"type": "fm", "freq": 520, "ratio": 1.5, "index": 6, "index_tau": 0.07500000000000001, "attack": 0.0008, "decay": 0.30000000000000004, "gain": 0.2},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.1, "q": 0.8, "attack": 0.005, "hold": 0.075, "decay": 0.55, "gain": 0.35}
+    ], "post": [
+      {"op": "hp", "hz": 30},
+      {"op": "comp", "thresh_db": -20, "ratio": 6, "attack": 0.003, "release": 0.15000000000000002},
+      {"op": "sat", "k": 1.5},
+      {"op": "limit", "ceil_db": -8},
+      {"op": "reverb", "mix": 0.18, "size": 0.6000000000000001, "fb": 0.75, "damp": 0.5, "pre_ms": 4, "tail": 0.2}
     ]},
-    "fire_heavy": {"seed": 13, "drive": 0.4, "layers": [
-      {"wave": "saw", "freq": 380, "slide": -2.6, "min_freq": 50, "attack": 0.002, "sustain": 0.08, "decay": 0.34, "lp": 3000, "lp_sweep": -2.5, "punch": 0.7},
-      {"wave": "sine", "freq": 110, "slide": -1.8, "min_freq": 30, "attack": 0.001, "sustain": 0.1, "decay": 0.34, "gain": 1.1},
-      {"wave": "noise", "freq": 0, "lp": 2800, "lp_sweep": -2.5, "attack": 0.001, "sustain": 0.05, "decay": 0.26, "gain": 0.55}
+    "fire_heavy": {"seed": 13, "peak_db": -1.5, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 1200, "tau": 0.012, "attack": 0.0004, "decay": 0.047, "gain": 0.45},
+      {"type": "kick", "f0": 210, "f1": 52, "tau": 0.064, "attack": 0.0008, "hold": 0.0255, "decay": 0.765, "sat": 3.0, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 104, "f1": 46, "tau": 0.0925, "attack": 0.002, "hold": 0.034, "decay": 0.85, "sat": 1.8, "gain": 0.9},
+      {"type": "noise", "mode": "bp", "f0": 900, "f1": 220, "tau": 0.0825, "q": 1.1, "attack": 0.001, "decay": 0.34, "gain": 0.5},
+      {"type": "kick", "f0": 2400, "f1": 200, "tau": 0.084, "attack": 0.0005, "decay": 0.3275, "gain": 0.34},
+      {"type": "fm", "freq": 300, "ratio": 1.5, "index": 6, "index_tau": 0.0925, "attack": 0.0008, "decay": 0.37, "gain": 0.2},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.17, "q": 0.8, "attack": 0.005, "hold": 0.1275, "decay": 0.935, "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 30},
+      {"op": "comp", "thresh_db": -20, "ratio": 6, "attack": 0.003, "release": 0.185},
+      {"op": "sat", "k": 1.5},
+      {"op": "limit", "ceil_db": -8},
+      {"op": "reverb", "mix": 0.24, "size": 0.74, "fb": 0.771, "damp": 0.5, "pre_ms": 4, "tail": 0.27}
     ]},
-    "beam_zap": {"seed": 14, "layers": [
-      {"wave": "saw", "freq": 2400, "slide": -1.4, "min_freq": 300, "vib_rate": 55, "vib_depth": 0.06, "attack": 0.002, "sustain": 0.12, "decay": 0.26, "hp": 500, "lp": 9000, "am_rate": 36, "am_depth": 0.35},
-      {"wave": "square", "freq": 1210, "slide": -1.0, "min_freq": 200, "duty": 0.2, "attack": 0.002, "sustain": 0.1, "decay": 0.22, "lp": 4000, "gain": 0.5},
-      {"wave": "noise", "freq": 0, "hp": 4000, "attack": 0.001, "sustain": 0.06, "decay": 0.18, "gain": 0.25}
+    "beam_zap": {"seed": 14, "peak_db": -2.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 1500, "tau": 0.02, "attack": 0.0005, "decay": 0.04, "gain": 0.4},
+      {"type": "kick", "f0": 4200, "f1": 520, "tau": 0.1, "attack": 0.001, "decay": 0.5, "gain": 0.4},
+      {"type": "fm", "freq": 880, "ratio": 2.01, "index": 8, "index_tau": 0.22, "attack": 0.002, "decay": 0.55, "gain": 0.3},
+      {"wave": "saw", "freq": 230, "slide": -0.7, "min_freq": 90, "am_rate": 48, "am_depth": 0.55, "lp": 2600, "attack": 0.004, "sustain": 0.14, "decay": 0.4, "gain": 0.35},
+      {"type": "kick", "f0": 120, "f1": 46, "tau": 0.06, "attack": 0.001, "decay": 0.4, "sat": 2.6, "gain": 1.0},
+      {"type": "noise", "mode": "hp", "f0": 2800, "f1": 2800, "crackle": 150, "crackle_decay": 0.005, "attack": 0.01, "hold": 0.08, "decay": 0.35, "delay": 0.04, "gain": 0.12}
+    ], "post": [
+      {"op": "hp", "hz": 32},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.003, "release": 0.12},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.18, "size": 0.8, "fb": 0.78, "damp": 0.4, "pre_ms": 5, "tail": 0.3}
     ]},
-
-    "explosion_small": {"seed": 21, "layers": [
-      {"wave": "sine", "freq": 120, "slide": -2.2, "min_freq": 28, "attack": 0.001, "sustain": 0.03, "decay": 0.24, "gain": 1.0},
-      {"wave": "noise", "freq": 0, "lp": 3600, "lp_sweep": -2.8, "attack": 0.001, "sustain": 0.02, "decay": 0.22, "gain": 0.8},
-      {"wave": "noise", "freq": 0, "hp": 1800, "crackle": 90, "crackle_decay": 0.004, "attack": 0.002, "sustain": 0.1, "decay": 0.28, "delay": 0.03, "gain": 0.4}
+    "explosion_small": {"seed": 21, "peak_db": -6.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.0354, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.07600000000000001, "q": 0.9, "attack": 0.0008, "hold": 0.022500000000000003, "decay": 0.405, "sat": 1.3, "gain": 1.0},
+      {"type": "noise", "mode": "lp", "f0": 3000, "f1": 200, "tau": 0.095, "q": 0.8, "attack": 0.0008, "decay": 0.45, "sat": 1.3, "gain": 0.85},
+      {"type": "kick", "f0": 200, "f1": 80, "tau": 0.058499999999999996, "attack": 0.0008, "hold": 0.018000000000000002, "decay": 0.405, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.12250000000000001, "attack": 0.002, "hold": 0.022500000000000003, "decay": 0.45, "sat": 2.2, "gain": 0.6},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.135, "q": 0.8, "attack": 0.01, "hold": 0.1125, "decay": 0.5850000000000001, "gain": 0.35},
+      {"type": "noise", "mode": "hp", "f0": 1500, "f1": 1500, "crackle": 100, "crackle_decay": 0.006, "attack": 0.004, "hold": 0.0675, "decay": 0.405, "delay": 0.05, "gain": 0.16}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -22, "ratio": 8, "attack": 0.004, "release": 0.24500000000000002},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -12},
+      {"op": "reverb", "mix": 0.18, "size": 0.735, "fb": 0.7935, "damp": 0.5, "pre_ms": 6, "tail": 0.3125}
     ]},
-    "explosion_medium": {"seed": 22, "drive": 0.3, "layers": [
-      {"wave": "sine", "freq": 100, "slide": -1.6, "min_freq": 24, "attack": 0.001, "sustain": 0.06, "decay": 0.42, "gain": 1.1},
-      {"wave": "noise", "freq": 0, "lp": 3200, "lp_sweep": -2.2, "attack": 0.001, "sustain": 0.05, "decay": 0.5, "gain": 0.85},
-      {"wave": "noise", "freq": 0, "hp": 1500, "crackle": 110, "crackle_decay": 0.005, "attack": 0.002, "sustain": 0.2, "decay": 0.5, "delay": 0.05, "gain": 0.45},
-      {"wave": "saw", "freq": 55, "slide": -0.4, "attack": 0.01, "sustain": 0.1, "decay": 0.5, "lp": 220, "delay": 0.04, "gain": 0.5}
+    "explosion_medium": {"seed": 22, "peak_db": -4.5, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.0402, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.10800000000000001, "q": 0.9, "attack": 0.0008, "hold": 0.0425, "decay": 0.765, "sat": 1.3, "gain": 1.0},
+      {"type": "noise", "mode": "lp", "f0": 2800, "f1": 200, "tau": 0.135, "q": 0.8, "attack": 0.0008, "decay": 0.85, "sat": 1.3, "gain": 0.85},
+      {"type": "kick", "f0": 200, "f1": 76, "tau": 0.0705, "attack": 0.0008, "hold": 0.034, "decay": 0.765, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.14250000000000002, "attack": 0.002, "hold": 0.0425, "decay": 0.85, "sat": 2.2, "gain": 0.6},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.255, "q": 0.8, "attack": 0.01, "hold": 0.2125, "decay": 1.105, "gain": 0.4},
+      {"type": "noise", "mode": "hp", "f0": 1500, "f1": 1500, "crackle": 100, "crackle_decay": 0.006, "attack": 0.004, "hold": 0.1275, "decay": 0.765, "delay": 0.05, "gain": 0.16}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -22, "ratio": 8, "attack": 0.004, "release": 0.28500000000000003},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -12},
+      {"op": "reverb", "mix": 0.24, "size": 0.855, "fb": 0.8055, "damp": 0.5, "pre_ms": 6, "tail": 0.4125}
     ]},
-    "explosion_large": {"seed": 23, "drive": 0.45, "layers": [
-      {"wave": "sine", "freq": 85, "slide": -1.2, "min_freq": 20, "attack": 0.001, "sustain": 0.12, "decay": 0.75, "gain": 1.2},
-      {"wave": "noise", "freq": 0, "lp": 2800, "lp_sweep": -1.7, "attack": 0.001, "sustain": 0.1, "decay": 0.9, "gain": 0.9},
-      {"wave": "noise", "freq": 0, "hp": 1200, "crackle": 130, "crackle_decay": 0.006, "attack": 0.002, "sustain": 0.35, "decay": 0.8, "delay": 0.08, "gain": 0.5},
-      {"wave": "saw", "freq": 48, "slide": -0.3, "attack": 0.01, "sustain": 0.2, "decay": 0.9, "lp": 180, "delay": 0.05, "gain": 0.6}
+    "explosion_large": {"seed": 23, "peak_db": -3.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.046799999999999994, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.152, "q": 0.9, "attack": 0.0008, "hold": 0.06999999999999999, "decay": 1.26, "sat": 1.3, "gain": 1.0},
+      {"type": "noise", "mode": "lp", "f0": 2600, "f1": 200, "tau": 0.19, "q": 0.8, "attack": 0.0008, "decay": 1.4, "sat": 1.3, "gain": 0.85},
+      {"type": "kick", "f0": 200, "f1": 72, "tau": 0.087, "attack": 0.0008, "hold": 0.055999999999999994, "decay": 1.26, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.16999999999999998, "attack": 0.002, "hold": 0.06999999999999999, "decay": 1.4, "sat": 2.2, "gain": 0.65},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.42, "q": 0.8, "attack": 0.01, "hold": 0.35, "decay": 1.8199999999999998, "gain": 0.45},
+      {"type": "noise", "mode": "hp", "f0": 1500, "f1": 1500, "crackle": 100, "crackle_decay": 0.006, "attack": 0.004, "hold": 0.21, "decay": 1.26, "delay": 0.05, "gain": 0.16},
+      {"type": "kick", "f0": 110, "f1": 58, "tau": 0.15, "attack": 0.01, "decay": 1.0, "sat": 2.4, "delay": 0.26, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 420, "f1": 150, "tau": 0.2, "q": 0.9, "attack": 0.01, "decay": 0.9, "delay": 0.26, "gain": 0.4}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -22, "ratio": 8, "attack": 0.004, "release": 0.33999999999999997},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -12},
+      {"op": "echo", "time_ms": 310, "fb": 0.35, "lp_hz": 900, "mix": 0.18, "tail": 0.4},
+      {"op": "reverb", "mix": 0.3, "size": 1.02, "fb": 0.8220000000000001, "damp": 0.5, "pre_ms": 6, "tail": 0.55}
     ]},
-    "explosion_nuke": {"seed": 24, "drive": 0.6, "layers": [
-      {"wave": "sine", "freq": 70, "slide": -1.0, "min_freq": 16, "attack": 0.001, "sustain": 0.3, "decay": 1.4, "gain": 1.3},
-      {"wave": "noise", "freq": 0, "lp": 2400, "lp_sweep": -1.2, "attack": 0.001, "sustain": 0.2, "decay": 1.6, "gain": 0.95},
-      {"wave": "noise", "freq": 0, "hp": 900, "crackle": 150, "crackle_decay": 0.008, "attack": 0.002, "sustain": 0.6, "decay": 1.2, "delay": 0.12, "gain": 0.5},
-      {"wave": "saw", "freq": 40, "slide": -0.2, "attack": 0.02, "sustain": 0.5, "decay": 1.5, "lp": 150, "delay": 0.08, "gain": 0.7},
-      {"wave": "square", "freq": 330, "slide": -2.5, "min_freq": 40, "duty": 0.5, "bits": 5, "crush": 3, "attack": 0.001, "sustain": 0.08, "decay": 0.5, "lp": 1800, "gain": 0.35}
+    "explosion_nuke": {"seed": 24, "peak_db": -1.5, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.054, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.2, "q": 0.9, "attack": 0.0008, "hold": 0.1, "decay": 1.8, "sat": 1.3, "gain": 1.0},
+      {"type": "noise", "mode": "lp", "f0": 2400, "f1": 200, "tau": 0.25, "q": 0.8, "attack": 0.0008, "decay": 2.0, "sat": 1.3, "gain": 0.85},
+      {"type": "kick", "f0": 200, "f1": 68, "tau": 0.105, "attack": 0.0008, "hold": 0.08, "decay": 1.8, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.2, "attack": 0.002, "hold": 0.1, "decay": 2.0, "sat": 2.2, "gain": 0.8},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.6, "q": 0.8, "attack": 0.01, "hold": 0.5, "decay": 2.6, "gain": 0.55},
+      {"type": "noise", "mode": "hp", "f0": 1500, "f1": 1500, "crackle": 100, "crackle_decay": 0.006, "attack": 0.004, "hold": 0.3, "decay": 1.8, "delay": 0.05, "gain": 0.16},
+      {"type": "kick", "f0": 100, "f1": 50, "tau": 0.25, "attack": 0.02, "decay": 1.5, "sat": 2.4, "delay": 0.45, "gain": 0.6},
+      {"type": "noise", "mode": "bp", "f0": 380, "f1": 130, "tau": 0.4, "q": 0.9, "attack": 0.02, "decay": 1.4, "delay": 0.45, "gain": 0.45},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 170, "f1": 110, "am_rate": 5.5, "am_depth": 0.35, "attack": 0.1, "hold": 0.9, "decay": 1.6, "delay": 0.3, "gain": 0.4}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -22, "ratio": 8, "attack": 0.004, "release": 0.4},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -12},
+      {"op": "echo", "time_ms": 430, "fb": 0.45, "lp_hz": 800, "mix": 0.25, "tail": 0.6},
+      {"op": "reverb", "mix": 0.34, "size": 1.2, "fb": 0.8400000000000001, "damp": 0.5, "pre_ms": 6, "tail": 0.7}
     ]},
-
-    "terrain_crumble": {"seed": 31, "layers": [
-      {"wave": "noise", "freq": 0, "lp": 1100, "lp_sweep": -0.8, "crackle": 55, "crackle_decay": 0.012, "attack": 0.01, "sustain": 0.25, "decay": 0.5, "gain": 1.0},
-      {"wave": "sine", "freq": 62, "slide": -0.5, "min_freq": 30, "attack": 0.02, "sustain": 0.2, "decay": 0.4, "gain": 0.6}
+    "terrain_crumble": {"seed": 31, "peak_db": -4.0, "layers": [
+      {"type": "noise", "mode": "bp", "f0": 650, "f1": 220, "tau": 0.5, "q": 0.7, "crackle": 40, "crackle_decay": 0.02, "attack": 0.02, "hold": 0.2, "decay": 0.9, "gain": 1.0},
+      {"type": "kick", "f0": 120, "f1": 64, "tau": 0.2, "attack": 0.006, "decay": 0.9, "sat": 2.6, "gain": 0.8},
+      {"type": "noise", "mode": "bp", "f0": 1300, "f1": 600, "tau": 0.5, "q": 0.9, "crackle": 60, "crackle_decay": 0.008, "attack": 0.02, "hold": 0.1, "decay": 0.8, "gain": 0.3},
+      {"type": "noise", "mode": "lp", "color": "brown", "f0": 160, "f1": 90, "tau": 0.4, "attack": 0.02, "hold": 0.2, "decay": 0.8, "gain": 0.4}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.004, "release": 0.15},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.18, "size": 0.7, "fb": 0.76, "damp": 0.55, "pre_ms": 4, "tail": 0.25}
     ]},
-    "dirt_thud": {"seed": 32, "layers": [
-      {"wave": "sine", "freq": 130, "slide": -2.4, "min_freq": 38, "attack": 0.001, "sustain": 0.02, "decay": 0.17, "gain": 1.0},
-      {"wave": "noise", "freq": 0, "lp": 700, "attack": 0.001, "sustain": 0.01, "decay": 0.1, "gain": 0.6}
+    "dirt_thud": {"seed": 32, "peak_db": -3.0, "layers": [
+      {"type": "kick", "f0": 210, "f1": 84, "tau": 0.04, "attack": 0.0008, "decay": 0.3, "sat": 3.0, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 90, "f1": 50, "tau": 0.06, "attack": 0.001, "decay": 0.28, "sat": 1.8, "gain": 0.45},
+      {"type": "noise", "mode": "bp", "f0": 700, "f1": 240, "tau": 0.05, "q": 1.0, "attack": 0.0008, "decay": 0.16, "gain": 0.55},
+      {"type": "noise", "mode": "hp", "f0": 1600, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.015, "gain": 0.25}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.002, "release": 0.08},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.1, "size": 0.4, "fb": 0.7, "damp": 0.5, "pre_ms": 2, "tail": 0.1}
     ]},
-    "sludge_pour": {"seed": 33, "layers": [
-      {"wave": "noise", "freq": 0, "lp": 650, "lp_sweep": 0.3, "am_rate": 8.5, "am_depth": 0.45, "attack": 0.12, "sustain": 0.6, "decay": 0.3, "gain": 1.0},
-      {"wave": "sine", "freq": 170, "slide": 0.15, "vib_rate": 11, "vib_depth": 0.2, "attack": 0.15, "sustain": 0.5, "decay": 0.3, "gain": 0.35},
-      {"wave": "noise", "freq": 0, "hp": 1500, "lp": 3000, "crackle": 45, "crackle_decay": 0.01, "attack": 0.1, "sustain": 0.6, "decay": 0.3, "gain": 0.3}
+    "sludge_pour": {"seed": 33, "peak_db": -4.0, "layers": [
+      {"type": "noise", "mode": "lp", "color": "pink", "f0": 520, "f1": 380, "tau": 0.5, "q": 0.9, "am_rate": 7, "am_depth": 0.5, "attack": 0.12, "hold": 0.6, "decay": 0.5, "gain": 0.8},
+      {"type": "bubbles", "span": 1.2, "rate": 16, "f_lo": 90, "f_hi": 260, "len": 0.08, "attack": 0.1, "hold": 0.7, "decay": 0.4, "gain": 0.7},
+      {"type": "kick", "f0": 62, "f1": 58, "tau": 0.5, "attack": 0.15, "hold": 0.5, "decay": 0.5, "sat": 2.0, "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -18, "ratio": 3, "attack": 0.01, "release": 0.2},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.15, "size": 0.6, "fb": 0.74, "damp": 0.6, "pre_ms": 4, "tail": 0.25}
     ]},
-    "fire_crackle": {"seed": 34, "loop": true, "loop_samples": 52920, "layers": [
-      {"wave": "noise", "freq": 0, "hp": 900, "lp": 6000, "crackle": 75, "crackle_decay": 0.008, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 1.0},
-      {"wave": "noise", "freq": 0, "lp": 500, "am_rate": 3.1, "am_depth": 0.6, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.2}
+    "fire_crackle": {"seed": 34, "loop": true, "loop_samples": 66150, "xfade": 0.15, "peak_db": -5.0, "layers": [
+      {"type": "noise", "mode": "bp", "f0": 2400, "f1": 2400, "q": 0.8, "crackle": 55, "crackle_decay": 0.006, "attack": 0.001, "hold": 1.9, "decay": 0.05, "gain": 1.0},
+      {"type": "noise", "mode": "bp", "f0": 900, "f1": 900, "q": 1.0, "crackle": 22, "crackle_decay": 0.02, "attack": 0.001, "hold": 1.9, "decay": 0.05, "gain": 0.9},
+      {"type": "noise", "mode": "lp", "color": "brown", "f0": 240, "f1": 240, "am_rate": 1.3333, "am_depth": 0.4, "attack": 0.001, "hold": 1.9, "decay": 0.05, "gain": 1.4}
+    ], "post": [
+      {"op": "sat", "k": 1.8}
     ]},
-    "well_hum": {"seed": 35, "loop": true, "loop_samples": 66150, "layers": [
-      {"wave": "sine", "freq": 55, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 1.0},
-      {"wave": "sine", "freq": 110.7, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.5},
-      {"wave": "saw", "freq": 55.4, "lp": 280, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.35},
-      {"wave": "sine", "freq": 440, "vib_rate": 0.7, "vib_depth": 0.02, "am_rate": 2.0, "am_depth": 0.8, "attack": 0.0, "sustain": 1.7, "decay": 0.0, "gain": 0.07}
+    "well_hum": {"seed": 35, "loop": true, "loop_samples": 66150, "xfade": 0.15, "peak_db": -4.0, "layers": [
+      {"periodic": true, "wave": "sine", "freq": 42.0, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 1.0},
+      {"periodic": true, "wave": "sine", "freq": 84.0, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.6},
+      {"periodic": true, "wave": "sine", "freq": 85.3333333333, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.5},
+      {"periodic": true, "wave": "sine", "freq": 126.0, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.3},
+      {"periodic": true, "wave": "sine", "freq": 168.0, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.3},
+      {"periodic": true, "wave": "sine", "freq": 252.0, "am_rate": 1.3333333333, "am_depth": 0.5, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.2},
+      {"periodic": true, "wave": "sine", "freq": 840.0, "am_rate": 2.0, "am_depth": 0.9, "attack": 0.0, "sustain": 1.5, "decay": 0.0, "gain": 0.05},
+      {"type": "noise", "mode": "lp", "color": "brown", "f0": 180, "f1": 180, "q": 1.5, "attack": 0.001, "hold": 1.9, "decay": 0.05, "gain": 0.35}
+    ], "post": [
+      {"op": "sat", "k": 2.6}
     ]},
-    "anchor_clank": {"seed": 36, "layers": [
-      {"wave": "square", "freq": 420, "duty": 0.5, "bits": 8, "attack": 0.001, "sustain": 0.01, "decay": 0.32, "lp": 3500, "curve": 3, "gain": 0.7},
-      {"wave": "square", "freq": 633, "duty": 0.4, "bits": 8, "attack": 0.001, "sustain": 0.01, "decay": 0.26, "lp": 3500, "curve": 3, "gain": 0.5},
-      {"wave": "sine", "freq": 150, "slide": -1.2, "min_freq": 60, "attack": 0.001, "sustain": 0.02, "decay": 0.2, "gain": 0.8},
-      {"wave": "noise", "freq": 0, "hp": 2000, "attack": 0.0005, "sustain": 0.005, "decay": 0.05, "gain": 0.5}
+    "anchor_clank": {"seed": 36, "peak_db": -3.0, "layers": [
+      {"type": "noise", "mode": "bp", "f0": 2600, "f1": 1800, "tau": 0.03, "q": 3.0, "attack": 0.0005, "decay": 0.06, "gain": 0.5},
+      {"type": "kick", "f0": 220, "f1": 90, "tau": 0.05, "attack": 0.0008, "decay": 0.34, "sat": 2.8, "bias": 0.15, "gain": 1.0},
+      {"type": "fm", "freq": 190, "ratio": 2.76, "index": 5, "index_tau": 0.06, "attack": 0.0008, "decay": 0.5, "gain": 0.5},
+      {"type": "fm", "freq": 330, "ratio": 1.41, "index": 3.5, "index_tau": 0.05, "attack": 0.0008, "decay": 0.35, "delay": 0.012, "gain": 0.3},
+      {"type": "kick", "f0": 100, "f1": 56, "tau": 0.08, "attack": 0.002, "decay": 0.4, "sat": 2.0, "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.002, "release": 0.1},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.2, "size": 0.6, "fb": 0.76, "damp": 0.4, "pre_ms": 3, "tail": 0.25}
     ]},
-
-    "shield_up": {"seed": 41, "layers": [
-      {"wave": "sine", "freq": 280, "slide": 2.1, "attack": 0.01, "sustain": 0.12, "decay": 0.2, "am_rate": 22, "am_depth": 0.3},
-      {"wave": "triangle", "freq": 560, "slide": 2.1, "attack": 0.02, "sustain": 0.1, "decay": 0.2, "gain": 0.4}
+    "shield_up": {"seed": 41, "peak_db": -4.0, "layers": [
+      {"type": "kick", "f0": 90, "f1": 520, "tau": 0.22, "attack": 0.03, "decay": 0.6, "sat": 1.6, "gain": 0.8},
+      {"type": "kick", "f0": 180, "f1": 1040, "tau": 0.22, "attack": 0.04, "decay": 0.5, "gain": 0.25},
+      {"type": "kick", "f0": 55, "f1": 55, "tau": 0.1, "attack": 0.15, "hold": 0.1, "decay": 0.5, "sat": 2.0, "gain": 0.9},
+      {"type": "fm", "freq": 880, "ratio": 3, "index": 2, "index_tau": 0.4, "attack": 0.01, "decay": 0.7, "delay": 0.22, "gain": 0.16}
+    ], "post": [
+      {"op": "hp", "hz": 36},
+      {"op": "comp", "thresh_db": -16, "ratio": 3, "attack": 0.005, "release": 0.15},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.2, "size": 0.8, "fb": 0.8, "damp": 0.4, "pre_ms": 4, "tail": 0.35}
     ]},
-    "shield_hit": {"seed": 42, "layers": [
-      {"wave": "sine", "freq": 760, "slide": -1.4, "min_freq": 200, "attack": 0.001, "sustain": 0.02, "decay": 0.16, "punch": 0.4},
-      {"wave": "square", "freq": 1520, "duty": 0.25, "slide": -1.4, "attack": 0.001, "sustain": 0.01, "decay": 0.1, "lp": 5000, "gain": 0.3}
+    "shield_hit": {"seed": 42, "peak_db": -4.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3000, "f1": 1500, "tau": 0.01, "attack": 0.0004, "decay": 0.03, "gain": 0.4},
+      {"type": "kick", "f0": 170, "f1": 66, "tau": 0.03, "attack": 0.0008, "decay": 0.25, "sat": 2.6, "gain": 1.0},
+      {"type": "fm", "freq": 1100, "ratio": 2.4, "index": 4, "index_tau": 0.07, "attack": 0.0008, "decay": 0.3, "gain": 0.28},
+      {"type": "kick", "f0": 1500, "f1": 500, "tau": 0.04, "attack": 0.0005, "decay": 0.12, "gain": 0.15}
+    ], "post": [
+      {"op": "hp", "hz": 36},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.002, "release": 0.1},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.16, "size": 0.5, "fb": 0.74, "damp": 0.4, "pre_ms": 3, "tail": 0.2}
     ]},
-    "shield_break": {"seed": 43, "layers": [
-      {"wave": "saw", "freq": 900, "slide": -3.0, "min_freq": 60, "attack": 0.001, "sustain": 0.05, "decay": 0.4, "lp": 5000, "lp_sweep": -2.0},
-      {"wave": "noise", "freq": 0, "hp": 2000, "crackle": 120, "crackle_decay": 0.004, "attack": 0.001, "sustain": 0.1, "decay": 0.38, "gain": 0.7},
-      {"wave": "sine", "freq": 120, "slide": -2.0, "min_freq": 40, "attack": 0.001, "sustain": 0.02, "decay": 0.2, "gain": 0.6}
+    "shield_break": {"seed": 43, "peak_db": -2.5, "layers": [
+      {"type": "noise", "mode": "bp", "f0": 3500, "f1": 600, "tau": 0.15, "q": 1.0, "crackle": 110, "crackle_decay": 0.005, "attack": 0.0005, "hold": 0.04, "decay": 0.5, "gain": 0.45},
+      {"type": "kick", "f0": 1400, "f1": 70, "tau": 0.12, "attack": 0.0008, "decay": 0.5, "sat": 1.5, "gain": 0.4},
+      {"type": "kick", "f0": 210, "f1": 70, "tau": 0.06, "attack": 0.001, "decay": 0.7, "sat": 3.0, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 90, "f1": 46, "tau": 0.12, "attack": 0.002, "decay": 0.6, "sat": 2.0, "gain": 0.5},
+      {"type": "fm", "freq": 1700, "ratio": 3.1, "index": 5, "index_tau": 0.1, "attack": 0.0008, "decay": 0.6, "gain": 0.2},
+      {"type": "noise", "mode": "bp", "f0": 600, "f1": 220, "tau": 0.1, "q": 0.9, "attack": 0.001, "decay": 0.45, "gain": 0.6}
+    ], "post": [
+      {"op": "hp", "hz": 32},
+      {"op": "comp", "thresh_db": -15, "ratio": 4, "attack": 0.002, "release": 0.14},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.24, "size": 0.8, "fb": 0.8, "damp": 0.45, "pre_ms": 5, "tail": 0.4}
     ]},
-    "repulsor_pulse": {"seed": 44, "layers": [
-      {"wave": "sine", "freq": 160, "slide": 3.0, "slide_accel": -4.0, "attack": 0.005, "sustain": 0.08, "decay": 0.26},
-      {"wave": "triangle", "freq": 960, "slide": -1.0, "min_freq": 300, "am_rate": 30, "am_depth": 0.5, "attack": 0.005, "sustain": 0.05, "decay": 0.22, "gain": 0.3}
+    "repulsor_pulse": {"seed": 44, "peak_db": -3.5, "layers": [
+      {"type": "kick", "f0": 240, "f1": 56, "tau": 0.12, "attack": 0.002, "decay": 0.5, "sat": 2.4, "bias": 0.1, "gain": 1.0},
+      {"type": "kick", "f0": 80, "f1": 44, "tau": 0.15, "attack": 0.003, "decay": 0.5, "sat": 2.0, "gain": 0.7},
+      {"type": "noise", "mode": "bp", "f0": 300, "f1": 1800, "tau": 0.1, "q": 2.0, "attack": 0.008, "decay": 0.4, "gain": 0.3},
+      {"type": "fm", "freq": 130, "ratio": 1.5, "index": 3, "index_tau": 0.2, "attack": 0.004, "decay": 0.5, "gain": 0.35}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.003, "release": 0.14},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.22, "size": 0.8, "fb": 0.8, "damp": 0.4, "pre_ms": 5, "tail": 0.35}
     ]},
-
-    "chute_pop": {"seed": 51, "layers": [
-      {"wave": "sine", "freq": 380, "slide": 2.0, "attack": 0.001, "sustain": 0.01, "decay": 0.09, "punch": 0.6},
-      {"wave": "noise", "freq": 0, "hp": 1800, "lp": 5500, "attack": 0.001, "sustain": 0.008, "decay": 0.05, "gain": 0.6},
-      {"wave": "noise", "freq": 0, "lp": 1400, "am_rate": 17, "am_depth": 0.6, "attack": 0.03, "sustain": 0.05, "decay": 0.22, "delay": 0.07, "gain": 0.35}
+    "chute_pop": {"seed": 51, "peak_db": -4.0, "layers": [
+      {"type": "kick", "f0": 280, "f1": 92, "tau": 0.02, "attack": 0.0008, "decay": 0.16, "sat": 2.0, "gain": 0.9},
+      {"type": "noise", "mode": "bp", "f0": 2400, "f1": 700, "tau": 0.05, "q": 0.8, "attack": 0.0008, "decay": 0.2, "gain": 0.55},
+      {"type": "noise", "mode": "lp", "f0": 900, "f1": 500, "tau": 0.2, "am_rate": 18, "am_depth": 0.6, "attack": 0.03, "hold": 0.05, "decay": 0.3, "delay": 0.06, "gain": 0.3},
+      {"type": "kick", "f0": 90, "f1": 52, "tau": 0.08, "attack": 0.002, "decay": 0.3, "sat": 1.8, "delay": 0.01, "gain": 0.7}
+    ], "post": [
+      {"op": "hp", "hz": 36},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.002, "release": 0.12},
+      {"op": "limit", "ceil_db": -9},
+      {"op": "reverb", "mix": 0.15, "size": 0.6, "fb": 0.74, "damp": 0.5, "pre_ms": 3, "tail": 0.2}
     ]},
-    "repair_chime": {"seed": 52, "layers": [
-      {"wave": "sine", "notes": [[76, 0.0, 0.07], [83, 0.1, 0.07], [88, 0.2, 0.14]], "attack": 0.003, "decay": 0.3, "curve": 2.0},
-      {"wave": "triangle", "notes": [[88, 0.0, 0.07], [95, 0.1, 0.07], [100, 0.2, 0.14]], "attack": 0.003, "decay": 0.25, "gain": 0.25}
+    "repair_chime": {"seed": 52, "peak_db": -4.0, "layers": [
+      {"type": "fm", "ratio": 2, "index": 1.6, "index_tau": 0.15, "attack": 0.003, "decay": 0.8, "notes": [[72, 0.0, 0.05], [76, 0.1, 0.05], [79, 0.2, 0.05], [84, 0.3, 0.1]], "gain": 0.6},
+      {"type": "pad", "wave": "triangle", "detune": [-6, 6], "lp": 900, "attack": 0.12, "decay": 0.8, "notes": [[48, 0.0, 0.2], [55, 0.0, 0.2]], "gain": 0.5},
+      {"type": "kick", "f0": 130, "f1": 66, "tau": 0.05, "attack": 0.002, "decay": 0.3, "sat": 1.6, "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 50},
+      {"op": "comp", "thresh_db": -18, "ratio": 3, "attack": 0.004, "release": 0.15},
+      {"op": "reverb", "mix": 0.3, "size": 1.0, "fb": 0.82, "damp": 0.35, "pre_ms": 6, "tail": 0.5}
     ]},
-    "money_gain": {"seed": 53, "layers": [
-      {"wave": "square", "duty": 0.25, "notes": [[84, 0.0, 0.045], [91, 0.06, 0.09]], "attack": 0.002, "decay": 0.12, "lp": 6500, "gain": 0.8},
-      {"wave": "sine", "notes": [[96, 0.0, 0.045], [103, 0.06, 0.09]], "attack": 0.002, "decay": 0.12, "gain": 0.3}
+    "money_gain": {"seed": 53, "peak_db": -6.0, "layers": [
+      {"type": "fm", "ratio": 3, "index": 2.2, "index_tau": 0.08, "attack": 0.002, "decay": 0.4, "notes": [[79, 0.0, 0.03], [86, 0.07, 0.05]], "gain": 0.7},
+      {"type": "kick", "f0": 140, "f1": 66, "tau": 0.03, "attack": 0.001, "decay": 0.15, "sat": 1.6, "gain": 0.8}
+    ], "post": [
+      {"op": "hp", "hz": 50},
+      {"op": "reverb", "mix": 0.2, "size": 0.6, "fb": 0.76, "damp": 0.35, "pre_ms": 3, "tail": 0.25}
     ]},
-    "money_loss": {"seed": 54, "layers": [
-      {"wave": "saw", "notes": [[67, 0.0, 0.06], [60, 0.08, 0.1]], "attack": 0.002, "decay": 0.14, "lp": 2400}
+    "money_loss": {"seed": 54, "peak_db": -6.0, "layers": [
+      {"type": "fm", "ratio": 1, "index": 1.4, "index_tau": 0.1, "attack": 0.003, "decay": 0.3, "notes": [[62, 0.0, 0.04], [55, 0.08, 0.06]], "gain": 0.7},
+      {"type": "kick", "f0": 110, "f1": 56, "tau": 0.04, "attack": 0.001, "decay": 0.22, "sat": 1.8, "gain": 0.9}
+    ], "post": [
+      {"op": "hp", "hz": 36},
+      {"op": "reverb", "mix": 0.15, "size": 0.5, "fb": 0.72, "damp": 0.5, "pre_ms": 3, "tail": 0.2}
     ]},
-    "tank_destroyed": {"seed": 55, "drive": 0.4, "layers": [
-      {"wave": "sine", "freq": 95, "slide": -1.4, "min_freq": 22, "attack": 0.001, "sustain": 0.1, "decay": 0.6, "gain": 1.1},
-      {"wave": "noise", "freq": 0, "lp": 3000, "lp_sweep": -2.0, "attack": 0.001, "sustain": 0.06, "decay": 0.6, "gain": 0.8},
-      {"wave": "saw", "freq": 420, "slide": -2.2, "min_freq": 50, "bits": 6, "crush": 2, "attack": 0.001, "sustain": 0.1, "decay": 0.55, "lp": 2500, "gain": 0.5},
-      {"wave": "noise", "freq": 0, "hp": 1800, "crackle": 90, "crackle_decay": 0.005, "attack": 0.002, "sustain": 0.15, "decay": 0.4, "delay": 0.15, "gain": 0.4}
+    "tank_destroyed": {"seed": 55, "peak_db": -2.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.041999999999999996, "gain": 0.5},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.12, "q": 0.9, "attack": 0.0008, "hold": 0.05, "decay": 0.9, "sat": 1.3, "gain": 1.0},
+      {"type": "noise", "mode": "lp", "f0": 2800, "f1": 200, "tau": 0.15000000000000002, "q": 0.8, "attack": 0.0008, "decay": 1.0, "sat": 1.3, "gain": 0.85},
+      {"type": "kick", "f0": 200, "f1": 74, "tau": 0.075, "attack": 0.0008, "hold": 0.04, "decay": 0.9, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.15000000000000002, "attack": 0.002, "hold": 0.05, "decay": 1.0, "sat": 2.2, "gain": 0.65},
+      {"type": "noise", "mode": "bp", "color": "brown", "f0": 200, "f1": 110, "tau": 0.3, "q": 0.8, "attack": 0.01, "hold": 0.25, "decay": 1.3, "gain": 0.45},
+      {"type": "noise", "mode": "hp", "f0": 1500, "f1": 1500, "crackle": 100, "crackle_decay": 0.006, "attack": 0.004, "hold": 0.15, "decay": 0.9, "delay": 0.05, "gain": 0.16},
+      {"type": "fm", "freq": 240, "ratio": 1.41, "index": 5, "index_tau": 0.1, "attack": 0.001, "decay": 0.7, "delay": 0.04, "gain": 0.22},
+      {"wave": "saw", "freq": 620, "slide": -2.3, "min_freq": 45, "attack": 0.002, "sustain": 0.05, "decay": 0.9, "lp": 1800, "lp_sweep": -1.5, "delay": 0.03, "gain": 0.22}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -22, "ratio": 8, "attack": 0.004, "release": 0.30000000000000004},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -12},
+      {"op": "reverb", "mix": 0.28, "size": 0.8999999999999999, "fb": 0.81, "damp": 0.5, "pre_ms": 6, "tail": 0.45}
     ]},
-    "round_win": {"seed": 56, "layers": [
-      {"wave": "square", "duty": 0.3, "notes": [[60, 0.0, 0.07], [64, 0.1, 0.07], [67, 0.2, 0.07], [72, 0.3, 0.32]], "attack": 0.003, "decay": 0.16, "lp": 5200, "vib_rate": 6, "vib_depth": 0.01},
-      {"wave": "saw", "notes": [[48, 0.0, 0.07], [52, 0.1, 0.07], [55, 0.2, 0.07], [60, 0.3, 0.32]], "attack": 0.003, "decay": 0.2, "lp": 1200, "gain": 0.5},
-      {"wave": "sine", "notes": [[84, 0.3, 0.3]], "attack": 0.005, "decay": 0.3, "gain": 0.25}
+    "round_win": {"seed": 56, "peak_db": -3.0, "layers": [
+      {"type": "pad", "wave": "saw", "detune": [-12, 0, 12], "lp": 2200, "lp_env": 3.5, "lp_tau": 0.12, "attack": 0.006, "decay": 0.9, "sub": 0.5, "notes": [[52, 0.0, 0.15], [59, 0.0, 0.15], [64, 0.0, 0.15], [55, 0.2, 0.15], [62, 0.2, 0.15], [67, 0.2, 0.15], [57, 0.4, 0.5], [64, 0.4, 0.5], [69, 0.4, 0.5], [73, 0.4, 0.5]], "gain": 0.8},
+      {"type": "kick", "f0": 120, "f1": 46, "tau": 0.05, "attack": 0.001, "decay": 0.5, "sat": 2.4, "gain": 0.9},
+      {"type": "kick", "f0": 120, "f1": 50, "tau": 0.05, "attack": 0.001, "decay": 0.4, "sat": 2.4, "delay": 0.2, "gain": 0.7},
+      {"type": "kick", "f0": 110, "f1": 40, "tau": 0.09, "attack": 0.001, "decay": 1.2, "sat": 2.6, "delay": 0.4, "gain": 1.0},
+      {"type": "fm", "ratio": 2, "index": 2.0, "index_tau": 0.2, "attack": 0.002, "decay": 1.3, "notes": [[88, 0.4, 0.1], [93, 0.55, 0.1]], "gain": 0.25}
+    ], "post": [
+      {"op": "hp", "hz": 34},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.004, "release": 0.2},
+      {"op": "limit", "ceil_db": -4},
+      {"op": "reverb", "mix": 0.35, "size": 1.2, "fb": 0.84, "damp": 0.4, "pre_ms": 10, "tail": 0.8}
     ]},
-    "match_win": {"seed": 57, "layers": [
-      {"wave": "square", "duty": 0.3, "notes": [[60, 0.0, 0.08], [64, 0.11, 0.08], [67, 0.22, 0.08], [72, 0.33, 0.08], [76, 0.44, 0.08], [79, 0.55, 0.08], [84, 0.66, 0.5]], "attack": 0.003, "decay": 0.22, "lp": 5600, "vib_rate": 6, "vib_depth": 0.012},
-      {"wave": "saw", "notes": [[48, 0.0, 0.08], [52, 0.11, 0.08], [55, 0.22, 0.08], [60, 0.33, 0.08], [64, 0.44, 0.08], [67, 0.55, 0.08], [72, 0.66, 0.5]], "attack": 0.003, "decay": 0.25, "lp": 1300, "gain": 0.5},
-      {"wave": "triangle", "notes": [[79, 0.66, 0.5], [76, 0.66, 0.5]], "attack": 0.01, "decay": 0.4, "gain": 0.35},
-      {"wave": "sine", "notes": [[96, 0.66, 0.45]], "attack": 0.005, "decay": 0.5, "gain": 0.18}
+    "match_win": {"seed": 57, "peak_db": -2.0, "layers": [
+      {"type": "pad", "wave": "saw", "detune": [-12, 0, 12], "lp": 2400, "lp_env": 3.5, "lp_tau": 0.15, "attack": 0.006, "decay": 1.2, "sub": 0.5, "notes": [[52, 0.0, 0.14], [59, 0.0, 0.14], [64, 0.0, 0.14], [55, 0.2, 0.14], [62, 0.2, 0.14], [67, 0.2, 0.14], [57, 0.4, 0.14], [64, 0.4, 0.14], [69, 0.4, 0.14], [59, 0.6, 0.14], [66, 0.6, 0.14], [71, 0.6, 0.14], [40, 0.85, 1.0], [52, 0.85, 1.0], [59, 0.85, 1.0], [64, 0.85, 1.0], [68, 0.85, 1.0], [71, 0.85, 1.0]], "gain": 0.8},
+      {"type": "kick", "f0": 120, "f1": 46, "tau": 0.05, "attack": 0.001, "decay": 0.45, "sat": 2.4, "gain": 0.7},
+      {"type": "kick", "f0": 120, "f1": 50, "tau": 0.05, "attack": 0.001, "decay": 0.4, "sat": 2.4, "delay": 0.2, "gain": 0.7},
+      {"type": "kick", "f0": 120, "f1": 54, "tau": 0.05, "attack": 0.001, "decay": 0.4, "sat": 2.4, "delay": 0.4, "gain": 0.7},
+      {"type": "kick", "f0": 130, "f1": 56, "tau": 0.05, "attack": 0.001, "decay": 0.4, "sat": 2.4, "delay": 0.6, "gain": 0.7},
+      {"type": "kick", "f0": 105, "f1": 36, "tau": 0.12, "attack": 0.001, "decay": 2.0, "sat": 2.8, "delay": 0.85, "gain": 1.1},
+      {"type": "fm", "ratio": 2, "index": 2.2, "index_tau": 0.25, "attack": 0.002, "decay": 1.6, "notes": [[88, 0.85, 0.1], [92, 1.0, 0.1], [95, 1.15, 0.1], [100, 1.3, 0.1]], "gain": 0.26},
+      {"type": "noise", "mode": "hp", "f0": 4500, "f1": 4500, "attack": 0.01, "decay": 1.4, "delay": 0.85, "gain": 0.05}
+    ], "post": [
+      {"op": "hp", "hz": 30},
+      {"op": "comp", "thresh_db": -16, "ratio": 4, "attack": 0.004, "release": 0.22},
+      {"op": "limit", "ceil_db": -4},
+      {"op": "echo", "time_ms": 350, "fb": 0.35, "lp_hz": 2400, "mix": 0.18, "tail": 0.6},
+      {"op": "reverb", "mix": 0.38, "size": 1.3, "fb": 0.86, "damp": 0.4, "pre_ms": 10, "tail": 0.7}
     ]},
-
-    "ui_tap": {"seed": 61, "layers": [
-      {"wave": "square", "freq": 1250, "slide": -1.5, "min_freq": 500, "duty": 0.3, "attack": 0.001, "sustain": 0.008, "decay": 0.035, "lp": 5500},
-      {"wave": "sine", "freq": 2500, "slide": -1.0, "attack": 0.001, "sustain": 0.004, "decay": 0.02, "gain": 0.2}
+    "ui_tap": {"seed": 61, "peak_db": -8.0, "fade_out": 0.006, "layers": [
+      {"type": "kick", "f0": 270, "f1": 120, "tau": 0.012, "attack": 0.0006, "decay": 0.08, "sat": 1.6, "gain": 1.0},
+      {"type": "noise", "mode": "hp", "f0": 2600, "f1": 2600, "attack": 0.0003, "decay": 0.008, "gain": 0.5},
+      {"type": "fm", "freq": 1760, "ratio": 2, "index": 1.2, "index_tau": 0.008, "attack": 0.0004, "decay": 0.04, "gain": 0.2}
+    ], "post": [
+      {"op": "hp", "hz": 60}
     ]},
-    "ui_back": {"seed": 62, "layers": [
-      {"wave": "square", "freq": 820, "slide": -2.2, "min_freq": 300, "duty": 0.3, "attack": 0.001, "sustain": 0.01, "decay": 0.06, "lp": 4500}
+    "ui_back": {"seed": 62, "peak_db": -8.0, "fade_out": 0.006, "layers": [
+      {"type": "kick", "f0": 210, "f1": 90, "tau": 0.02, "attack": 0.0006, "decay": 0.1, "sat": 1.6, "gain": 1.0},
+      {"type": "noise", "mode": "hp", "f0": 1800, "f1": 1800, "attack": 0.0003, "decay": 0.009, "gain": 0.4},
+      {"type": "fm", "freq": 1170, "ratio": 2, "index": 1.1, "index_tau": 0.01, "attack": 0.0004, "decay": 0.05, "gain": 0.18}
+    ], "post": [
+      {"op": "hp", "hz": 60}
     ]},
-    "ui_purchase": {"seed": 63, "layers": [
-      {"wave": "square", "duty": 0.25, "notes": [[79, 0.0, 0.05], [91, 0.07, 0.12]], "attack": 0.002, "decay": 0.16, "lp": 7000, "gain": 0.8},
-      {"wave": "sine", "notes": [[103, 0.07, 0.1]], "attack": 0.002, "decay": 0.2, "gain": 0.3},
-      {"wave": "noise", "freq": 0, "hp": 6000, "crackle": 160, "crackle_decay": 0.003, "attack": 0.001, "sustain": 0.1, "decay": 0.15, "delay": 0.07, "gain": 0.25}
+    "ui_purchase": {"seed": 63, "peak_db": -9.0, "layers": [
+      {"type": "kick", "f0": 200, "f1": 84, "tau": 0.02, "attack": 0.0008, "decay": 0.14, "sat": 1.8, "gain": 1.0},
+      {"type": "fm", "ratio": 2, "index": 1.4, "index_tau": 0.1, "attack": 0.002, "decay": 0.45, "notes": [[67, 0.03, 0.03], [74, 0.1, 0.03], [79, 0.17, 0.05]], "gain": 0.55},
+      {"type": "pad", "wave": "triangle", "detune": [-5, 5], "lp": 1100, "attack": 0.03, "decay": 0.4, "notes": [[55, 0.03, 0.12]], "gain": 0.4}
+    ], "post": [
+      {"op": "hp", "hz": 60},
+      {"op": "reverb", "mix": 0.18, "size": 0.6, "fb": 0.76, "damp": 0.4, "pre_ms": 3, "tail": 0.2}
     ]},
-    "ui_locked": {"seed": 64, "layers": [
-      {"wave": "square", "duty": 0.5, "notes": [[45, 0.0, 0.05], [45, 0.1, 0.07]], "attack": 0.002, "decay": 0.05, "lp": 1500, "bits": 7}
+    "ui_locked": {"seed": 64, "peak_db": -9.0, "fade_out": 0.01, "layers": [
+      {"type": "kick", "f0": 240, "f1": 120, "tau": 0.02, "attack": 0.0008, "decay": 0.11, "sat": 2.4, "gain": 1.0},
+      {"type": "kick", "f0": 225, "f1": 112, "tau": 0.02, "attack": 0.0008, "decay": 0.12, "sat": 2.4, "delay": 0.09, "gain": 0.85},
+      {"type": "fm", "freq": 180, "ratio": 2, "index": 3, "index_tau": 0.05, "attack": 0.001, "decay": 0.18, "gain": 0.3}
+    ], "post": [
+      {"op": "hp", "hz": 50}
     ]},
-    "cpu_think_tick": {"seed": 65, "layers": [
-      {"wave": "triangle", "freq": 1700, "slide": -1.0, "attack": 0.001, "sustain": 0.004, "decay": 0.02, "lp": 4000}
+    "turn_blip": {"seed": 65, "peak_db": -9.0, "layers": [
+      {"type": "kick", "f0": 170, "f1": 330, "tau": 0.05, "attack": 0.004, "decay": 0.14, "sat": 1.4, "gain": 0.9},
+      {"type": "fm", "freq": 660, "ratio": 2, "index": 0.8, "index_tau": 0.05, "attack": 0.004, "decay": 0.14, "delay": 0.03, "gain": 0.18}
+    ], "post": [
+      {"op": "hp", "hz": 60},
+      {"op": "reverb", "mix": 0.12, "size": 0.4, "fb": 0.7, "damp": 0.5, "pre_ms": 2, "tail": 0.1}
     ]},
-    "turn_blip": {"seed": 66, "layers": [
-      {"wave": "triangle", "notes": [[72, 0.0, 0.05], [79, 0.07, 0.07]], "attack": 0.003, "decay": 0.1, "lp": 5000},
-      {"wave": "sine", "notes": [[84, 0.07, 0.05]], "attack": 0.003, "decay": 0.1, "gain": 0.2}
+    "cpu_think_tick": {"seed": 66, "peak_db": -14.0, "fade_out": 0.004, "layers": [
+      {"type": "kick", "f0": 440, "f1": 300, "tau": 0.006, "attack": 0.0004, "decay": 0.022, "gain": 1.0}
+    ], "post": [
+      {"op": "hp", "hz": 120}
     ]},
-
-    "love_fire": {"seed": 71, "layers": [
-      {"wave": "sine", "notes": [[81, 0.0, 0.05], [88, 0.07, 0.09]], "attack": 0.004, "decay": 0.35, "curve": 2.0, "gain": 0.9},
-      {"wave": "triangle", "notes": [[93, 0.0, 0.05], [100, 0.07, 0.09]], "attack": 0.003, "decay": 0.22, "gain": 0.2}
+    "love_fire": {"seed": 71, "peak_db": -4.0, "layers": [
+      {"type": "pluck", "decay": 1.1, "damp": 0.5, "pos": 0.2, "notes": [[79, 0.0, 0.0], [84, 0.09, 0.0], [88, 0.18, 0.0]], "gain": 0.8},
+      {"type": "fm", "ratio": 2, "index": 1.1, "index_tau": 0.08, "attack": 0.003, "decay": 0.95, "notes": [[91, 0.0, 0.0], [96, 0.18, 0.0]], "gain": 0.16},
+      {"type": "pad", "wave": "triangle", "detune": [-6, 6], "lp": 700, "attack": 0.1, "decay": 0.7, "notes": [[60, 0.0, 0.2], [64, 0.0, 0.2]], "gain": 0.45}
+    ], "post": [
+      {"op": "hp", "hz": 90},
+      {"op": "reverb", "mix": 0.4, "size": 1.1, "fb": 0.84, "damp": 0.55, "pre_ms": 10, "tail": 0.8}
     ]},
-    "heart_burst": {"seed": 72, "layers": [
-      {"wave": "sine", "notes": [[88, 0.0, 0.04], [91, 0.05, 0.04], [95, 0.1, 0.04], [100, 0.15, 0.04], [103, 0.2, 0.04], [107, 0.25, 0.06]], "attack": 0.002, "decay": 0.28, "curve": 2.0, "gain": 0.7},
-      {"wave": "triangle", "notes": [[100, 0.03, 0.04], [105, 0.09, 0.04], [108, 0.16, 0.04]], "attack": 0.002, "decay": 0.2, "gain": 0.3},
-      {"wave": "noise", "freq": 0, "hp": 6000, "attack": 0.001, "sustain": 0.02, "decay": 0.18, "gain": 0.12, "am_rate": 22, "am_depth": 0.5}
+    "heart_burst": {"seed": 72, "peak_db": -4.0, "layers": [
+      {"type": "pluck", "decay": 1.2, "damp": 0.5, "pos": 0.2, "notes": [[67, 0.0, 0.0], [71, 0.07, 0.0], [74, 0.14, 0.0], [79, 0.21, 0.0], [83, 0.28, 0.0], [86, 0.35, 0.0]], "gain": 0.75},
+      {"type": "fm", "ratio": 2, "index": 1.0, "index_tau": 0.1, "attack": 0.003, "decay": 1.1, "notes": [[91, 0.28, 0.0], [95, 0.38, 0.0]], "gain": 0.16},
+      {"type": "pad", "wave": "triangle", "detune": [-7, 7], "lp": 800, "attack": 0.22, "decay": 0.9, "notes": [[55, 0.0, 0.25], [62, 0.0, 0.25], [67, 0.0, 0.25]], "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 90},
+      {"op": "reverb", "mix": 0.42, "size": 1.1, "fb": 0.85, "damp": 0.55, "pre_ms": 10, "tail": 0.9}
     ]},
-    "love_win": {"seed": 73, "layers": [
-      {"wave": "sine", "notes": [[72, 0.0, 0.12], [76, 0.14, 0.12], [79, 0.28, 0.12], [84, 0.42, 0.12], [88, 0.56, 0.12], [91, 0.7, 0.12], [96, 0.84, 0.55]], "attack": 0.004, "decay": 0.3, "curve": 2.0},
-      {"wave": "triangle", "notes": [[79, 0.84, 0.55], [84, 0.84, 0.55], [88, 0.84, 0.55]], "attack": 0.01, "decay": 0.5, "gain": 0.35},
-      {"wave": "triangle", "notes": [[48, 0.0, 0.4], [55, 0.42, 0.4], [48, 0.84, 0.6]], "attack": 0.01, "decay": 0.4, "lp": 900, "gain": 0.45},
-      {"wave": "sine", "notes": [[103, 0.84, 0.5], [108, 1.0, 0.4]], "attack": 0.004, "decay": 0.5, "gain": 0.16}
+    "love_found": {"seed": 73, "peak_db": -4.0, "layers": [
+      {"type": "fm", "ratio": 2, "index": 1.2, "index_tau": 0.12, "attack": 0.004, "decay": 1.3, "notes": [[76, 0.0, 0.0], [80, 0.18, 0.0], [83, 0.36, 0.0], [88, 0.56, 0.0]], "gain": 0.4},
+      {"type": "pluck", "decay": 1.3, "damp": 0.5, "pos": 0.2, "notes": [[64, 0.0, 0.0], [68, 0.18, 0.0], [71, 0.36, 0.0], [76, 0.56, 0.0]], "gain": 0.7},
+      {"type": "pad", "wave": "triangle", "detune": [-7, 7], "lp": 900, "attack": 0.3, "decay": 1.1, "notes": [[52, 0.0, 0.5], [59, 0.0, 0.5], [64, 0.0, 0.5], [68, 0.0, 0.5]], "gain": 0.5}
+    ], "post": [
+      {"op": "hp", "hz": 90},
+      {"op": "reverb", "mix": 0.42, "size": 1.2, "fb": 0.86, "damp": 0.55, "pre_ms": 10, "tail": 1.0}
     ]},
-    "love_found": {"seed": 74, "layers": [
-      {"wave": "sine", "notes": [[88, 0.0, 0.08], [95, 0.12, 0.08], [100, 0.24, 0.3]], "attack": 0.004, "decay": 0.6, "curve": 2.0, "gain": 0.85},
-      {"wave": "triangle", "notes": [[100, 0.0, 0.08], [107, 0.12, 0.08], [112, 0.24, 0.3]], "attack": 0.003, "decay": 0.45, "gain": 0.22},
-      {"wave": "noise", "freq": 0, "hp": 7000, "attack": 0.001, "sustain": 0.03, "decay": 0.3, "delay": 0.24, "gain": 0.1, "am_rate": 18, "am_depth": 0.6}
+    "love_win": {"seed": 74, "peak_db": -3.0, "trim_db": -38, "layers": [
+      {"type": "pad", "wave": "triangle", "detune": [-7, 7], "lp": 1000, "attack": 0.5, "decay": 1.2, "notes": [[48, 0.0, 0.7], [55, 0.0, 0.7], [59, 0.0, 0.7], [64, 0.0, 0.7], [45, 0.941, 0.7], [52, 0.941, 0.7], [55, 0.941, 0.7], [60, 0.941, 0.7], [41, 1.882, 0.6], [48, 1.882, 0.6], [52, 1.882, 0.6], [57, 1.882, 0.6], [43, 2.537, 0.5], [50, 2.537, 0.5], [55, 2.537, 0.5], [59, 2.537, 0.5], [48, 3.028, 0.4], [55, 3.028, 0.4], [59, 3.028, 0.4], [62, 3.028, 0.4], [64, 3.028, 0.4]], "gain": 0.55},
+      {"type": "pluck", "decay": 1.3, "damp": 0.5, "pos": 0.2, "notes": [[72, 0.0, 0], [76, 0.131, 0], [79, 0.262, 0], [83, 0.392, 0], [79, 0.524, 0], [76, 0.655, 0], [69, 0.941, 0], [72, 1.072, 0], [76, 1.203, 0], [81, 1.334, 0], [76, 1.465, 0], [72, 1.596, 0], [65, 1.882, 0], [69, 2.013, 0], [72, 2.145, 0], [77, 2.275, 0], [81, 2.406, 0], [67, 2.537, 0], [71, 2.668, 0], [74, 2.799, 0], [79, 2.929, 0], [72, 3.028, 0], [76, 3.093, 0], [79, 3.159, 0], [84, 3.224, 0]], "gain": 0.7},
+      {"type": "fm", "ratio": 2, "index": 1.1, "index_tau": 0.15, "attack": 0.004, "decay": 1.6, "notes": [[79, 0.0, 0], [84, 0.524, 0], [88, 0.941, 0], [86, 1.465, 0], [84, 1.882, 0], [81, 2.406, 0], [83, 2.701, 0], [91, 3.028, 0], [88, 3.224, 0], [84, 3.355, 0]], "gain": 0.28}
+    ], "post": [
+      {"op": "hp", "hz": 80},
+      {"op": "reverb", "mix": 0.4, "size": 1.3, "fb": 0.87, "damp": 0.55, "pre_ms": 12, "tail": 0.7}
     ]}
   }
 }

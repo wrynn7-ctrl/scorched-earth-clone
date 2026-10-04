@@ -15,6 +15,12 @@ const REQUIRED: Array[String] = [
 	"love_fire", "heart_burst", "love_win", "love_found",
 ]
 const PATH: String = "user://test_audio_settings.cfg"
+## Longest allowed file (seconds); every other sound stays under DEFAULT_MAX_SECONDS. The heavy redesign made the
+## big booms and the jingles long on purpose (ARCHITECTURE 33a).
+const DEFAULT_MAX_SECONDS: float = 3.0
+const MAX_SECONDS: Dictionary = {
+	"explosion_large": 2.8, "explosion_nuke": 4.2, "love_win": 5.0, "match_win": 5.0, "tank_destroyed": 2.4,
+}
 
 var _ad: Node = null
 
@@ -53,9 +59,36 @@ func test_every_required_sound_is_registered_exists_and_loads() -> void:
 		assert_eq(stream.mix_rate, 44100, key + " is 44.1 kHz")
 		assert_false(stream.stereo, key + " is mono")
 		assert_gt(stream.get_length(), 0.01, key + " has sound in it")
-		assert_lt(stream.get_length(), 3.0, key + " is short")
+		assert_lt(stream.get_length(), float(MAX_SECONDS.get(key, DEFAULT_MAX_SECONDS)), key + " is not too long")
 		assert_true(float(spec["db"]) <= 0.0 and int(spec["pri"]) >= 1 and int(spec["pri"]) <= 10, key + " spec")
 	assert_eq(sounds.size(), REQUIRED.size(), "no unregistered extras")
+
+
+func test_explosions_grow_in_length_and_the_nuke_is_a_long_boom() -> void:
+	var lens: Array[float] = []
+	for key: String in ["explosion_small", "explosion_medium", "explosion_large", "explosion_nuke"]:
+		lens.append(((_ad.SOUNDS[key] as Dictionary)["s"] as AudioStreamWAV).get_length())
+	for i: int in range(lens.size() - 1):
+		assert_gt(lens[i + 1], lens[i], "small < medium < large < nuke in length: %s" % str(lens))
+	assert_between(lens[3], 3.0, 4.2, "the nuke is an earth-shaking boom of about 3-4 s")
+	assert_gt(lens[0], 0.4, "even the smallest bang has a body and a tail")
+
+
+func test_the_win_melodies_are_long_and_sweet() -> void:
+	var love: float = ((_ad.SOUNDS["love_win"] as Dictionary)["s"] as AudioStreamWAV).get_length()
+	assert_between(love, 3.0, 5.0, "the Love win is a 3-5 s melody")
+	var match_win: float = ((_ad.SOUNDS["match_win"] as Dictionary)["s"] as AudioStreamWAV).get_length()
+	var round_win: float = ((_ad.SOUNDS["round_win"] as Dictionary)["s"] as AudioStreamWAV).get_length()
+	assert_gt(match_win, round_win, "the match jingle is bigger than the round jingle")
+
+
+func test_battle_sounds_sit_above_ui_sounds_in_the_mix() -> void:
+	var quietest_battle: float = 0.0
+	for key: String in ["fire_light", "fire_medium", "fire_heavy", "explosion_small", "explosion_nuke", "tank_destroyed"]:
+		quietest_battle = minf(quietest_battle, (_ad.SOUNDS[key] as Dictionary)["db"] as float)
+	for key: String in ["ui_tap", "ui_back", "ui_purchase", "ui_locked", "cpu_think_tick"]:
+		assert_true(((_ad.SOUNDS[key] as Dictionary)["db"] as float) <= 0.0, key)
+	assert_gte(quietest_battle, -4.0, "battle sounds stay close to full level (the files carry the quieter UI peaks)")
 
 
 func test_no_wav_in_the_sfx_folder_is_unused() -> void:
@@ -76,7 +109,7 @@ func test_the_sound_files_stay_small() -> void:
 		assert_not_null(f, key)
 		if f != null:
 			total += f.get_length()
-	assert_lt(total, 3 * 1024 * 1024, "under 3 MB in total (%d bytes)" % total)
+	assert_lt(total, 4 * 1024 * 1024, "under 4 MB in total (%d bytes)" % total)
 
 
 func test_loops_are_switched_on_for_the_two_loop_sounds() -> void:

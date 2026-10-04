@@ -202,6 +202,8 @@ var _follow: FollowCam = FollowCam.new()
 var _theme_choice: String = ThemeDefs.DEFAULT_ID
 var _theme_id: String = ""
 var _frozen: bool = false
+## Vibration (ARCHITECTURE section 33a): fed the same timeline events as the AudioDirector.
+var _haptics: HapticPlayer = null
 var _fire_timeline: bool = false
 var _fire_count: int = 0
 
@@ -304,6 +306,9 @@ func _notification(what: int) -> void:
 # ======================================================================================
 
 func _build_support_nodes() -> void:
+	_haptics = HapticPlayer.new()
+	_haptics.name = "Haptics"
+	add_child(_haptics)
 	_trail_pool.append(_trail)
 	_preview = TrajectoryPreview.new()
 	_preview.name = "TrajectoryPreview"
@@ -1338,7 +1343,10 @@ func _finish_playback() -> void:
 func _dispatch(e: Dictionary) -> void:
 	var type: String = e["type"]
 	if not _instant:
-		AudioDirector.on_event(e, state.phase == SimConstants.PHASE_MATCH_OVER, _love)
+		var match_over: bool = state.phase == SimConstants.PHASE_MATCH_OVER
+		AudioDirector.on_event(e, match_over, _love)
+		if _haptics != null:
+			_haptics.on_event(e, match_over, _love)  # the same events as the sound: vibration is part of it
 	if not _pour.is_empty() and not VISUAL_TYPES.has(type):
 		_flush_pour()  # the next terrain event builds on the finished pour
 	match type:
@@ -1477,7 +1485,6 @@ func _end_shell(e: Dictionary) -> void:
 		var p: PullRings = _pulls[_pull_next]
 		_pull_next = (_pull_next + 1) % _pulls.size()
 		p.play(Vector2(float(e["x"]), float(e["y"])), float(def.get("pull_r", 180)), _shooter_color())
-		_haptic(30)
 
 
 static func _behavior_of(weapon_id: String) -> String:
@@ -1503,7 +1510,6 @@ func _on_explosion(e: Dictionary) -> void:
 	var style: int = Explosion.STYLE_STATIC if _behavior_of(e.get("weapon", "") as String) == "static" else Explosion.STYLE_BLAST
 	_next_fx().play(Vector2(float(e["x"]), float(e["y"])), radius, style)
 	_camera.shake(clampf(radius * SHAKE_PER_RADIUS, 0.15, 0.9))
-	_haptic(clampi(roundi(radius * 2.0), 15, 90))
 
 
 ## Sludge: the columns are poured over POUR_TICKS (it visibly flows), in placement order, so
@@ -1515,7 +1521,6 @@ func _on_terrain_pour(e: Dictionary) -> void:
 		_terrain_view.update_cells(display_terrain.cells)
 		return
 	_pour = {"cols": cols, "material": e["material"], "start": _playhead, "done": 0}
-	_haptic(25)
 
 
 func _advance_pour() -> void:
@@ -1548,7 +1553,6 @@ func _on_flames(e: Dictionary) -> void:
 	var f: FlameField = _flames[_flame_next]
 	_flame_next = (_flame_next + 1) % _flames.size()
 	f.play(e["points"] as PackedInt32Array)
-	_haptic(40)
 
 
 func _on_beam(e: Dictionary) -> void:
@@ -1558,7 +1562,6 @@ func _on_beam(e: Dictionary) -> void:
 	_beam_next = (_beam_next + 1) % _beams.size()
 	b.play(Vector2(float(e["x0"]), float(e["y0"])), Vector2(float(e["x1"]), float(e["y1"])))
 	_camera.shake(0.25)
-	_haptic(30)
 
 
 # --- wells ------------------------------------------------------------------------------
@@ -1596,11 +1599,9 @@ func _on_damage(e: Dictionary) -> void:
 		"burn":
 			_pop(tr("DMG_BURN_FMT") % amount, NeonPalette.SUNSET, at)
 			v.hit_flash(NeonPalette.SUNSET, true)
-			_haptic(25)
 		"beam":
 			_pop(tr("DMG_BEAM_FMT") % amount, NeonPalette.CYAN, at)
 			v.hit_flash(Color(0.8, 1.0, 1.0), false)
-			_haptic(40)
 		_:
 			_pop("-%d" % amount, PlayerLooks.color(id), at)
 
@@ -1633,7 +1634,6 @@ func _on_shield_hit(e: Dictionary) -> void:
 	v.shield_hit(e["hp"])
 	if not _instant:
 		_pop("-%d" % int(e["absorbed"]), NeonPalette.CYAN, v.position + Vector2(0, -52.0 * TankView.VISUAL_SCALE))
-		_haptic(20)
 
 
 func _on_repair(e: Dictionary) -> void:
@@ -1760,18 +1760,12 @@ func _on_tank_destroyed(e: Dictionary) -> void:
 		return
 	_next_fx().play(v.position + Vector2(0, -TankView.TANK_H * TankView.VISUAL_SCALE * 0.5), 58.0)
 	_camera.shake(0.7)
-	_haptic(160)
 
 
 func _next_fx() -> Explosion:
 	var e: Explosion = _fx[_fx_next]
 	_fx_next = (_fx_next + 1) % _fx.size()
 	return e
-
-
-func _haptic(ms: int) -> void:
-	if ShowSettings.haptics and not _instant:
-		Input.vibrate_handheld(ms)
 
 
 # ======================================================================================
@@ -2127,7 +2121,7 @@ func _on_heart_burst(e: Dictionary) -> void:
 			_flowers.sprout(display_terrain, x, y, radius, _tank_columns(), true))
 
 
-## `love`: the receiving tank's meter fills with a pulse, a "+N" popup and a haptic tick.
+## `love`: the receiving tank's meter fills with a pulse, a "+N" popup (no vibration: hearts stay gentle).
 func _on_love(e: Dictionary) -> void:
 	var id: int = e["tank"]
 	var v: TankView = _tank_views[id]
@@ -2137,7 +2131,6 @@ func _on_love(e: Dictionary) -> void:
 	v.pulse_love()
 	_love_pops[_love_pop_next].pop(e["amount"], v.position + Vector2(0.0, -112.0))
 	_love_pop_next = (_love_pop_next + 1) % _love_pops.size()
-	_haptic(18)
 
 
 ## The match is won: the winner's smiley floats up and heart confetti rains.
@@ -2145,7 +2138,6 @@ func _love_celebrate(winner: int) -> void:
 	var v: TankView = _tank_views[winner]
 	_smiley.show_over(v.position, not _instant)
 	_confetti.start()
-	_haptic(60)
 
 
 func _show_love_win() -> void:

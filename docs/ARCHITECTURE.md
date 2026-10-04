@@ -532,7 +532,7 @@ hidden.
   mix (voice cap 12 still holds).
 - **Love Edition:** soothing and romantic. Soft chimes, harp-like plucks and warm pads for heart shots, bursts and
   flowers; no booms or harsh noise. The win gets a sweeter, longer melody (about 3–5 s). No Love music loop for now.
-- **Haptics (vibration):** uses the existing Settings "Haptics" toggle (on by default). A short light pulse on
+- **Haptics (vibration):** uses the existing Settings toggle, now labelled "Vibration" (key SET_HAPTICS, on by default). A short light pulse on
   firing; a pulse on impact that scales with explosion size; a heavy rumble on a nuke-class blast and on a tank
   destroyed. Love Edition: no rumble on hearts, only a gentle double "heartbeat" pulse on the win. Haptics are
   independent of reduce-motion and never fire while the app is in the background.

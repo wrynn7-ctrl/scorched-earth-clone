@@ -194,7 +194,7 @@ func test_the_love_sounds_exist_and_are_registered() -> void:
 		var s: AudioStreamWAV = (AudioDirector.SOUNDS[key] as Dictionary)["s"] as AudioStreamWAV
 		assert_not_null(s)
 		assert_gt(s.get_length(), 0.2, key)
-		assert_lt(s.get_length(), 3.0, key)
+		assert_lt(s.get_length(), 5.0, key)
 
 
 func test_love_events_map_to_the_new_sounds() -> void:

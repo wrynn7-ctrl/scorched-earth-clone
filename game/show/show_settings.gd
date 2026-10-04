@@ -30,7 +30,7 @@ static var reduce_motion: bool = false
 static var reduce_flashing: bool = false
 ## Separate user toggle for camera shake (on by default).
 static var screen_shake: bool = true
-## Vibrate on explosions (Android only; no-op elsewhere).
+## Vibration on shots, impacts and the Love win (Android only; no-op elsewhere). See HapticPlayer.
 static var haptics: bool = true
 ## Aiming aid: PREVIEW_OFF or PREVIEW_SHORT.
 static var trajectory_preview: int = PREVIEW_SHORT
