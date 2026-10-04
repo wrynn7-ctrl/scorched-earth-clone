@@ -298,3 +298,10 @@ func test_taps_far_apart_do_not_count() -> void:
 	s._last_tap_ms -= SettingsOverlay.TAP_WINDOW_MS + 50
 	s.tap_version()
 	assert_false(s.get_diagnostics().visible)
+
+
+func test_diagnostics_show_the_audio_mix_rate_and_latency() -> void:
+	var line: String = DiagnosticsOverlay.audio_line()
+	assert_string_starts_with(line, "audio: mix ")
+	assert_string_contains(line, "output latency")
+	assert_eq(ProjectSettings.get_setting("audio/driver/mix_rate"), 48000, "48 kHz is the native rate on current phones")

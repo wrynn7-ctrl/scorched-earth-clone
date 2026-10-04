@@ -98,15 +98,21 @@ func get_debug_full_button() -> Button:
 
 func refresh() -> void:
 	_sync_debug_full()
-	var extra: String = "this screen: %s\nversion: %s\nfull game: %s (store: %s, debug override: %s)" % [
+	var extra: String = "this screen: %s\nversion: %s\nfull game: %s (store: %s, debug override: %s)\n%s" % [
 			str(get_global_rect()), BuildInfo.VERSION, str(Entitlement.is_full()), Entitlement.backend_name(),
-			str(Entitlement.is_debug_full())]
+			str(Entitlement.is_debug_full()), audio_line()]
 	_text.text = UiScale.diagnostics(get_viewport()) + "\n" + extra
 	var hud: BattleHud = _find_hud()
 	_text_hud.visible = hud != null
 	_text_hud.text = "\n".join(hud.diagnostics_lines()) if hud != null else ""
 	apply_scale()  # the panel width depends on whether the HUD column exists
 	_frames.queue_redraw()
+
+
+## The engine's own audio delay (Bluetooth adds more on top, which the engine can't see).
+static func audio_line() -> String:
+	return "audio: mix %d Hz, output latency %d ms" % [
+			roundi(AudioServer.get_mix_rate()), roundi(AudioServer.get_output_latency() * 1000.0)]
 
 
 ## All the text on the screen (both columns).

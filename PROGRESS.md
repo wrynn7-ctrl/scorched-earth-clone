@@ -85,6 +85,7 @@
 | M5-Q QA pass (M5 + Love Edition) | qa-tester | ✅ reviewed (1,531 tests; 0 critical/high/medium; 5 low bugs) |
 | M5-QF QA fixes: love save win check, free saves with full-tier items, skin clamp/cap/opaque bake, billing grant-before-ack, audio type safety | core-sim-dev + show-ui-dev | ✅ reviewed (core 546, qa 292 green; 0 pending bugs) |
 | M5-SND Owner feedback: sounds too wimpy → heavy sci-fi redesign (all sounds), soothing romantic Love sounds + sweeter win melody, vibration on shots/explosions (ARCHITECTURE §33a) | show-ui-dev | ✅ reviewed (35 sounds regenerated, 3.3 MB; 892 show+ui+qa tests; needs ear-check on device) |
+| M5-LAT Owner: all sounds ~750 ms late on Bluetooth headphones → 48 kHz mix rate (native on current phones), audio latency line in diagnostics | lead | 🟡 waiting for owner test (speaker vs Bluetooth, vibration on/off) |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.

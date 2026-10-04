@@ -17,3 +17,7 @@
 
 # Build output
 /build/
+
+# Python bytecode
+__pycache__/
+*.pyc
