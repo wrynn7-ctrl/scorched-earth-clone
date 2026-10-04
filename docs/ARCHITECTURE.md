@@ -521,6 +521,24 @@ hidden.
 - Music: a `Music` bus and player with no track. Dropping an OGG into `game/assets/music/` plus one line in
   `audio_director.gd` enables it. The Settings "Music" volume exists already.
 
+## 33a. Sound redesign (owner feedback 2026-10-04, binding; supersedes the "sfxr-style" sound character of §33)
+- **Style:** heavy sci-fi. Big, bassy shots and explosions with a slight futuristic edge, not retro/arcade. Every
+  sound is redone, UI included, so the set matches.
+- **Bass that survives a phone speaker:** each impact has a sub layer (40–80 Hz) *and* strong upper-bass harmonics
+  (100–300 Hz) so the weight is heard on a phone speaker, not only on headphones. The transient comes first (a sharp
+  click or crack), then the body, then a rumble or reverb tail. Size scales small → medium → large → nuke in
+  length, low end and loudness.
+- **Loudness:** peaks ≤ −1 dBFS. Battle sounds sit clearly above UI sounds. No sound clips after the director's
+  mix (voice cap 12 still holds).
+- **Love Edition:** soothing and romantic. Soft chimes, harp-like plucks and warm pads for heart shots, bursts and
+  flowers; no booms or harsh noise. The win gets a sweeter, longer melody (about 3–5 s). No Love music loop for now.
+- **Haptics (vibration):** uses the existing Settings "Haptics" toggle (on by default). A short light pulse on
+  firing; a pulse on impact that scales with explosion size; a heavy rumble on a nuke-class blast and on a tank
+  destroyed. Love Edition: no rumble on hearts, only a gentle double "heartbeat" pulse on the win. Haptics are
+  independent of reduce-motion and never fire while the app is in the background.
+- Generation stays offline and deterministic (`tools/sfx/gen_sfx.py` + `presets.json`, standard library only);
+  the generator may gain new layer types (for example FM bells, plucked strings, reverb, compressor/limiter).
+
 ## 34. Terrain themes — visual only (game/show/themes/)
 - `ThemeDefs`: id, name key, sky gradient, sun/moon, grid colour, terrain strata palette, edge glow colour, particle
   tint, tier.
