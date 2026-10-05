@@ -97,9 +97,9 @@
 | M6 contract (ARCHITECTURE §39–§42: teams, friendly-fire option, sudden death at 10 turns × tanks, names, turn banner) | lead | ✅ written |
 | M6-C Core: teams + team round end/pay + friendly-fire option + team standings; sudden death; save v4 | core-sim-dev | ✅ reviewed (939 core+qa tests; no-teams replays bit-identical to pre-M6) |
 | M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | ✅ reviewed (662 show+ui tests; keyboard untested on device) |
-| M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting | ai-dev | 🟡 in progress |
+| M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting, never pass for teammate risk or in sudden death | ai-dev | ✅ reviewed (165 ai tests; 0 passes, ≤ 0.1% teammate hits, 0 self hits; no-teams actions identical) |
 | M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ✅ reviewed (1,014 show+ui+qa tests) |
-| M6-Q QA pass | qa-tester | ⬜ end |
+| M6-Q QA pass | qa-tester | 🟡 in progress |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.

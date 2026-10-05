@@ -14,6 +14,8 @@ const MAX_MATCHES: int = 60
 ## Teammate-hit ceilings (share of shots, per mille) for friendly fire on: Hard/Expert, Easy/Normal.
 const ALLY_HIT_MAX_HARD: int = 20
 const ALLY_HIT_MAX_EASY: int = 60
+## A CPU in a team match passes on at most this share (percent) of its turns.
+const PASS_MAX_PERCENT: int = 5
 
 
 # --- scenario helpers ---------------------------------------------------------------------------------
@@ -276,6 +278,7 @@ func _stats(setup: String, teams: PackedInt32Array, level: int, ff: bool, wanted
 	var max_round_turns: int = 0
 	var stalled: int = 0
 	var passes: int = 0
+	var turns: int = 0
 	var sudden_passes: int = 0
 	var sudden_turns: int = 0
 	var matches: int = 0
@@ -293,20 +296,21 @@ func _stats(setup: String, teams: PackedInt32Array, level: int, ff: bool, wanted
 		max_round_turns = maxi(max_round_turns, r["max_round_turns"] as int)
 		stalled += 1 if r["stalled"] else 0
 		passes += r["passes"] as int
+		turns += r["turns"] as int
 		sudden_passes += r["sudden_passes"] as int
 		sudden_turns += r["sudden_turns"] as int
-	return {"sudden_passes": sudden_passes, "sudden_turns": sudden_turns, "setup": setup, "level": level, "ff": ff, "shots": shots, "ally": ally, "self": selfhit, "ok": target_ok,
+	return {"turns": turns, "sudden_passes": sudden_passes, "sudden_turns": sudden_turns, "setup": setup, "level": level, "ff": ff, "shots": shots, "ally": ally, "self": selfhit, "ok": target_ok,
 			"errors": errors, "max_round_turns": max_round_turns, "stalled": stalled, "passes": passes, "matches": matches}
 
 
 func _table(title: String, rows: Array[Dictionary]) -> String:
 	var text: String = title + "\n"
-	text += "          setup  level   ff   matches  shots  ally-hit shots (rate)  self-hit shots  passes  sudden-death turns (passes)  longest round\n"
+	text += "          setup  level   ff   matches  shots  ally-hit shots (rate)  self-hit shots  passes (of turns)  sudden-death turns (passes)  longest round\n"
 	for r: Dictionary in rows:
 		var shots: int = r["shots"]
-		text += "          %-5s  %-6s %-4s %7d %6d %9d (%d.%d%%) %14d %7d %12d (%d) %14d\n" % [r["setup"], LEVEL_NAMES[r["level"]],
+		text += "          %-5s  %-6s %-4s %7d %6d %9d (%d.%d%%) %14d %7d (%d.%d%%) %12d (%d) %14d\n" % [r["setup"], LEVEL_NAMES[r["level"]],
 				"on" if r["ff"] else "off", r["matches"], shots, r["ally"], (r["ally"] as int) * 100 / maxi(1, shots),
-				((r["ally"] as int) * 1000 / maxi(1, shots)) % 10, r["self"], r["passes"], r["sudden_turns"], r["sudden_passes"], r["max_round_turns"]]
+				((r["ally"] as int) * 1000 / maxi(1, shots)) % 10, r["self"], r["passes"], (r["passes"] as int) * 100 / maxi(1, r["turns"] as int), ((r["passes"] as int) * 1000 / maxi(1, r["turns"] as int)) % 10, r["sudden_turns"], r["sudden_passes"], r["max_round_turns"]]
 	return text
 
 
@@ -322,6 +326,8 @@ func test_team_matches_never_target_a_teammate_and_teammate_hits_are_rare_with_f
 			assert_eq(row["errors"], 0, "no illegal action")
 			assert_eq(row["stalled"], 0, "rounds end")
 			assert_eq(row["sudden_passes"], 0, "%s level %d: never passes in sudden death" % [row["setup"], level])
+			assert_lte((row["passes"] as int) * 100, PASS_MAX_PERCENT * (row["turns"] as int),
+					"%s level %d: passes %d of %d turns" % [row["setup"], level, row["passes"], row["turns"]])
 			var limit: int = ALLY_HIT_MAX_HARD if level >= 3 else ALLY_HIT_MAX_EASY
 			assert_lte((row["ally"] as int) * 1000, limit * (row["shots"] as int),
 					"%s level %d: teammate-hit rate %d / %d shots over %d per mille" % [row["setup"], level, row["ally"], row["shots"], limit])
@@ -340,6 +346,7 @@ func test_team_matches_with_friendly_fire_off_run_clean() -> void:
 			assert_eq(row["errors"], 0)
 			assert_eq(row["stalled"], 0, "rounds end")
 			assert_eq(row["sudden_passes"], 0, "never passes in sudden death")
+			assert_lte((row["passes"] as int) * 100, PASS_MAX_PERCENT * (row["turns"] as int), "passes are rare")
 			assert_eq(row["self"], 0, "%s level %d: no self hits with friendly fire off either" % [row["setup"], level])
 	gut.p(_table("TEAMS   friendly fire OFF (teammate hits are ignored by the core, so 'ally-hit' counts nothing):", rows))
 
@@ -451,3 +458,44 @@ func test_team_decisions_are_deterministic_and_survive_a_state_copy() -> void:
 		assert_eq(a, b, "case %d: same state, same action" % i)
 		compared += 1
 	gut.p("TEAMS   %d team states: identical action from the state and from a copy of it" % compared)
+
+
+## Digest of every action of 12 seeded no-team matches (2..8 tanks, mixed levels) before the first sudden-death turn.
+## Recorded with the AI as it was before the M6-A changes (and unchanged by them): teams must not change anything
+## for a match without teams. Regenerate only for a deliberate change to the AI itself.
+const NO_TEAMS_DIGEST: int = 66291791
+
+
+func test_matches_without_teams_choose_exactly_the_same_actions_as_before_m6() -> void:
+	var digest: int = 17
+	var actions: int = 0
+	var passes: int = 0
+	for m: int in range(12):
+		var n: int = 2 + m % 7
+		var ctrl := PackedInt32Array()
+		for k: int in range(n):
+			ctrl.append(1 + (m + k) % 4)
+		var settings := MatchSettings.new()
+		settings.seed = 700 + m
+		settings.num_tanks = n
+		settings.rounds = 3
+		settings.controllers = ctrl
+		var state: MatchState = Simulation.new_match(settings)
+		var guard: int = 0
+		while state.phase != SimConstants.PHASE_MATCH_OVER and guard < 4000:
+			guard += 1
+			if state.phase == SimConstants.PHASE_SHOP:
+				for t: TankState in state.tanks:
+					for a: Dictionary in AiPlayer.shop_actions(state, t.id):
+						Simulation.apply_action(state, a)
+				Simulation.start_round(state)
+				continue
+			var action: Dictionary = AiPlayer.next_action(state, state.current_tank)
+			if state.turn_number < 10 * n:
+				digest = (digest * 31 + str(action).hash()) % 1000000007
+				actions += 1
+				if action["kind"] == "pass":
+					passes += 1
+			Simulation.apply_action(state, action)
+	gut.p("TEAMS   no-team matches: %d actions before sudden death, %d passes, digest %d (expected %d)" % [actions, passes, digest, NO_TEAMS_DIGEST])
+	assert_eq(digest, NO_TEAMS_DIGEST, "no-team decisions are unchanged")

@@ -160,8 +160,6 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 		return finalize(best_sit, best_plan)
 	# Only teammates stand in the way (friendly fire on): a pass would just waste the turn, so take the lowest-risk
 	# shot there is. Sudden death never passes at all (every option may then hurt the shooter too).
-	if state.turn_number == 18 and me.id == 3:
-		print("DBG best ", best_plan, " spare ", spare_plan, " score ", best_score)
 	if in_sudden_death(state) or spare_sit != null or best_plan["me_dmg"] == 0:
 		return _low_risk_shot(level, best_sit, best_plan, spare_sit, spare_plan)
 	return {"kind": "pass", "tank": me.id}
@@ -291,7 +289,10 @@ static func _out_of_reach(me: TankState, far: Array[AiSituation]) -> Dictionary:
 	var walk: Dictionary = _approach(near)
 	if not walk.is_empty():
 		return walk
-	return _best_effort_shot(closest, "spark_dart")
+	var shot: Dictionary = _best_effort_shot(closest, "spark_dart")
+	if closest.state.settings.has_teams():
+		return _guarded_best_effort(closest, shot)
+	return shot
 
 
 ## The shot that lands closest to the target: the solver's best plan (at full power when the target is
@@ -312,6 +313,17 @@ static func _best_effort_shot(sit: AiSituation, weapon: String) -> Dictionary:
 				best_angle = angle
 	return {"kind": "fire", "tank": sit.me.id, "angle": best_angle, "power": best_power,
 			"weapon": weapon}
+
+
+## With teams, the best-effort shot is also kept off ourselves and our teammates: if it would come down on us
+## (a hill beside the tank, say), the least risky lob is sent instead. (Without teams it is sent as it is.)
+static func _guarded_best_effort(sit: AiSituation, shot: Dictionary) -> Dictionary:
+	var plan: Dictionary = {"weapon": "spark_dart", "angle": shot["angle"], "power": shot["power"], "ok": true,
+			"corrected": false, "prev_power": 0}
+	AiWeapons.rate_plan(sit, plan, "spark_dart")
+	if plan["self_dmg"] == 0:
+		return shot
+	return _desperate_shot(sit, plan)
 
 
 static func _model_land(sit: AiSituation, angle: int) -> int:
