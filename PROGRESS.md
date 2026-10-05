@@ -99,7 +99,8 @@
 | M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | ✅ reviewed (662 show+ui tests; keyboard untested on device) |
 | M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting, never pass for teammate risk or in sudden death | ai-dev | ✅ reviewed (165 ai tests; 0 passes, ≤ 0.1% teammate hits, 0 self hits; no-teams actions identical) |
 | M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ✅ reviewed (1,014 show+ui+qa tests) |
-| M6-Q QA pass | qa-tester | 🟡 in progress |
+| M6-Q QA pass | qa-tester | ✅ reviewed (1,895 tests; 0 critical/high; 1 medium + 4 low) |
+| M6-QF QA fixes: dead-tank shield visuals/mismatch, safe meta reads, staggered name tags at 8 players, summary fit, name-filter look-alikes | show-ui-dev | 🟡 in progress |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
