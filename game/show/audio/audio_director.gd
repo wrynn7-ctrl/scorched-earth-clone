@@ -57,6 +57,8 @@ const SOUNDS: Dictionary = {
 	"ui_locked": {"s": preload("res://assets/sfx/ui_locked.wav"), "db": -3.0, "pri": 6, "gap": 120},
 	"fire_crackle": {"s": preload("res://assets/sfx/fire_crackle.wav"), "db": -8.0, "pri": 3, "gap": 0},
 	"well_hum": {"s": preload("res://assets/sfx/well_hum.wav"), "db": -12.0, "pri": 3, "gap": 0},
+	# Sudden death begins (docs/ARCHITECTURE.md section 40/42): a heavy impact and a two-tone klaxon.
+	"sudden_death": {"s": preload("res://assets/sfx/sudden_death.wav"), "db": -2.0, "pri": 9, "gap": 500},
 	# Love Edition (docs/ARCHITECTURE.md section 37).
 	"love_fire": {"s": preload("res://assets/sfx/love_fire.wav"), "db": -3.0, "pri": 4, "gap": 60},
 	"heart_burst": {"s": preload("res://assets/sfx/heart_burst.wav"), "db": -3.0, "pri": 6, "gap": 80},
@@ -227,6 +229,8 @@ static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool 
 			return "tank_destroyed"
 		"turn":
 			return "turn_blip"
+		"sudden_death":
+			return "" if love else "sudden_death"  # the core never emits it in love mode; belt and braces
 		"round_end":
 			if _num_of(e.get("winner", -1), -1) < 0:
 				return ""
@@ -235,6 +239,7 @@ static func sound_for_event(e: Dictionary, match_over: bool = false, love: bool 
 			return "match_win" if match_over else "round_win"
 	# projectile, projectile_end, terrain_carve, wind, beam (its sound is the fire event's), tank_fall,
 	# tank_move, well_on/off (the hum loop), flames (the crackle loop), ready, repulsor_down, round_start.
+	# (sudden_death has its own alarm above.)
 	return ""
 
 

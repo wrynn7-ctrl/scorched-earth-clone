@@ -53,6 +53,10 @@ var _emblems: PackedInt32Array = PackedInt32Array()
 var _controllers: PackedInt32Array = PackedInt32Array()
 ## The name typed for every slot ("" = PLAYER n). Hidden and CPU slots keep theirs.
 var _names: PackedStringArray = PackedStringArray()
+## The team chip of every slot (TeamStyle.NONE = "—", else 0..3). Hidden slots keep theirs, like the controllers.
+var _teams: PackedInt32Array = PackedInt32Array()
+## Teammates can hurt each other (ARCHITECTURE section 39). Only offered, and only used, when teams are on.
+var _friendly_fire: bool = true
 var _watch: bool = false
 ## False locks everything section 32 reserves for the full game. Follows Entitlement live.
 var _full_unlocked: bool = true
@@ -86,6 +90,10 @@ var _player_labels: Array[Label] = []
 var _color_buttons: Array[SwatchButton] = []
 var _emblem_buttons: Array[SwatchButton] = []
 var _kind_buttons: Array[Button] = []
+var _team_chips: Array[TeamChip] = []
+## Narrow screens: the second line of every slot holds the name field (humans) and, at its end, the team chip.
+var _lines: Array[HBoxContainer] = []
+var _line_spacers: Array[Control] = []
 var _picker: KindPicker = null
 var _theme_button: Button = null
 var _theme_picker: ThemePicker = null
@@ -93,6 +101,9 @@ var _unlock: UnlockScreen = null
 var _header: HBoxContainer = null
 var _watch_box: Button = null
 var _hint: Label = null
+## Why START is disabled while the teams are not usable ("Give every player a team" ...).
+var _team_hint: Label = null
+var _ff_button: Button = null
 var _bottom: HBoxContainer = null
 var _back: Button = null
 var _start: Button = null
@@ -110,6 +121,8 @@ func _init() -> void:
 	_controllers.resize(SimConstants.MAX_TANKS)
 	_controllers.fill(SimConstants.CTRL_HUMAN)
 	_names.resize(SimConstants.MAX_TANKS)
+	_teams.resize(SimConstants.MAX_TANKS)
+	_teams.fill(TeamStyle.NONE)
 	_full_unlocked = ThemeDefs.is_full_game()
 	_load_prefs()
 	if ShotArgs.players >= SimConstants.MIN_TANKS:
@@ -118,6 +131,10 @@ func _init() -> void:
 		_controllers[i] = _allowed_level(ShotArgs.controllers[i])
 	for i: int in range(mini(ShotArgs.names.size(), SimConstants.MAX_TANKS)):
 		_names[i] = PlayerNames.sanitize(ShotArgs.names[i])
+	for i: int in range(mini(ShotArgs.teams.size(), SimConstants.MAX_TANKS)):
+		_teams[i] = ShotArgs.teams[i] if TeamStyle.is_team(ShotArgs.teams[i]) else TeamStyle.NONE
+	if ShotArgs.friendly_fire >= 0:
+		_friendly_fire = ShotArgs.friendly_fire == 1
 	_enforce_free_rules()
 	_build()
 
@@ -162,6 +179,9 @@ func _load_prefs() -> void:
 	for i: int in range(SimConstants.MAX_TANKS):
 		_controllers[i] = _allowed_level(SetupPrefs.controllers[i] if i < SetupPrefs.controllers.size() else 0)
 		_names[i] = SetupPrefs.names[i] if i < SetupPrefs.names.size() else ""
+		var t: int = SetupPrefs.teams[i] if i < SetupPrefs.teams.size() else TeamStyle.NONE
+		_teams[i] = t if TeamStyle.is_team(t) else TeamStyle.NONE
+	_friendly_fire = SetupPrefs.friendly_fire
 	_enforce_free_rules()
 	_enforce_human_rule()
 
@@ -329,6 +349,14 @@ func _build_players() -> void:
 	_watch_box.focus_mode = Control.FOCUS_NONE
 	_watch_box.toggled.connect(set_watch)
 	_header.add_child(_watch_box)
+	# Friendly fire: only shown while teams are on. Like the Watch toggle it says ON/OFF in words.
+	_ff_button = Button.new()
+	_ff_button.name = "FriendlyFire"
+	_ff_button.toggle_mode = true
+	_ff_button.focus_mode = Control.FOCUS_NONE
+	_ff_button.visible = false
+	_ff_button.tooltip_text = tr("SETUP_FRIENDLY_FIRE_TIP")
+	_ff_button.toggled.connect(set_friendly_fire)
 	_hint = Label.new()
 	_hint.name = "Hint"
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -344,8 +372,16 @@ func _build_players() -> void:
 	_rows.name = "Rows"
 	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_rows)
+	# The toggle heads the scrolling list (no fixed height on a short phone) and only shows with teams on.
+	_rows.add_child(_ff_button)
 	for i: int in range(SimConstants.MAX_TANKS):
 		_build_player_row(i)
+	_team_hint = Label.new()
+	_team_hint.name = "TeamHint"
+	_team_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_team_hint.add_theme_color_override("font_color", NeonPalette.WARN)
+	_team_hint.visible = false
+	_players_box.add_child(_team_hint)
 	_bottom = HBoxContainer.new()
 	_bottom.name = "Bottom"
 	_players_box.add_child(_bottom)
@@ -400,16 +436,31 @@ func _build_player_row(i: int) -> void:
 	kb.pressed.connect(_open_kind_popup.bind(i))
 	row.add_child(kb)
 	_kind_buttons.append(kb)
-	# Only Human slots have a name. The field starts below the row; _place_name_field moves it
-	# into the row on wide screens. (M6-U2: the team chip goes at the end of the row.)
+	# Only Human slots have a name. On narrow screens the name field and the team chip share a second line under
+	# the row; _place_name_field moves both into the row on wide screens (name before the picker, chip last).
 	var nf := NameField.new()
 	nf.name = "Name"
 	nf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nf.tooltip_text = tr("SETUP_NAME_TIP")
 	nf.committed.connect(_on_name_committed.bind(i))
 	nf.focus_entered.connect(_on_name_focus.bind(i))
-	slot.add_child(nf)
+	var line := HBoxContainer.new()
+	line.name = "Line2"
+	slot.add_child(line)
+	_lines.append(line)
+	line.add_child(nf)
 	_name_fields.append(nf)
+	# A CPU slot has no name field: this spacer keeps the chip at the right-hand end of the line.
+	var spacer := Control.new()
+	spacer.name = "Spacer"
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(spacer)
+	_line_spacers.append(spacer)
+	var chip := TeamChip.new()
+	chip.pressed.connect(cycle_team.bind(i))
+	line.add_child(chip)
+	_team_chips.append(chip)
 
 
 func _open_kind_popup(index: int) -> void:
@@ -474,11 +525,18 @@ func apply_scale() -> void:
 	for b: Button in _kind_buttons:
 		b.custom_minimum_size = Vector2(UiScale.dp(92.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+	for chip: TeamChip in _team_chips:
+		chip.custom_minimum_size = Vector2.ONE * touch
+		chip.add_theme_font_size_override("font_size", UiScale.hud_font(20.0))
+	_ff_button.custom_minimum_size = Vector2(0.0, touch)
+	_ff_button.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
+	_team_hint.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
 	var inline_names: bool = names_inline()
 	for i: int in range(_name_fields.size()):
 		_name_fields[i].apply_scale()
 		_place_name_field(i, inline_names)
 		_slots[i].add_theme_constant_override("separation", roundi(UiScale.dp(3.0)))
+		_lines[i].add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_header.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 	_watch_box.custom_minimum_size = Vector2(0.0, touch)
 	_watch_box.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
@@ -579,6 +637,9 @@ func _enforce_free_rules() -> void:
 				_controllers[i] = SimConstants.CTRL_FREE_MAX
 	if not _theme_allowed(_theme):
 		_theme = ThemeDefs.DEFAULT_ID
+	# Slots beyond the free tank cap are gone, and so are their teams (the others keep theirs).
+	for i: int in range(SimConstants.FREE_MAX_TANKS, _teams.size()):
+		_teams[i] = TeamStyle.NONE
 
 
 ## A locked option was tapped: say why and let the host open the Unlock screen.
@@ -759,6 +820,8 @@ func _refresh() -> void:
 		_emblem_buttons[i].set_art(col, _emblems[i])
 		_emblem_buttons[i].tooltip_text = tr(NeonPalette.EMBLEM_NAME_KEYS[_emblems[i]])
 		_refresh_kind(i)
+		_team_chips[i].set_team(_teams[i])
+	_refresh_teams()
 	_theme_button.text = "%s ▾" % tr(ThemeDefs.name_key(_theme))
 	_theme_button.icon = ThemeSwatch.texture(_theme)
 	_theme_button.tooltip_text = tr(ThemeDefs.name_key(_theme))
@@ -796,9 +859,85 @@ func _refresh_kind(i: int) -> void:
 	# Level colour on the text (the words are the cue, the colour only helps).
 	kb.add_theme_color_override("font_color", LEVEL_COLORS[clampi(level, 0, LEVEL_COLORS.size() - 1)] if cpu else NeonPalette.TEXT)
 	_name_fields[i].visible = not cpu
+	_line_spacers[i].visible = cpu
 	_name_fields[i].placeholder_text = tr("HUD_PLAYER_N") % (i + 1)
 	# Inline, the name takes the free width and the picker keeps its own; otherwise the picker fills the row.
 	kb.size_flags_horizontal = Control.SIZE_SHRINK_END if (names_inline() and not cpu) else Control.SIZE_EXPAND_FILL
+
+
+# --- teams (ARCHITECTURE sections 39 and 42) ---
+
+## Sets slot i's team: 0..3 (A..D) or TeamStyle.NONE. Returns false for anything else.
+func set_team(i: int, team: int) -> bool:
+	if i < 0 or i >= SimConstants.MAX_TANKS or not (team == TeamStyle.NONE or TeamStyle.is_team(team)):
+		return false
+	_teams[i] = team
+	_refresh()
+	return true
+
+
+## A tap on slot i's chip: "—", A, B, C, D, "—", ...
+func cycle_team(i: int) -> void:
+	set_team(i, TeamStyle.next(_teams[i]))
+
+
+func get_team(i: int) -> int:
+	return _teams[i]
+
+
+## The chips of the visible slots.
+func get_teams() -> PackedInt32Array:
+	return _teams.slice(0, _players)
+
+
+## True when at least one visible slot has a team: the match uses teams (if they are valid) and the
+## friendly-fire toggle shows.
+func teams_on() -> bool:
+	for i: int in range(_players):
+		if _teams[i] != TeamStyle.NONE:
+			return true
+	return false
+
+
+## "" when the teams are usable (none at all, or every visible slot has one and at least two are used),
+## "need_all" when some slot lacks a team, "need_two" when only one team is used. Decided by
+## MatchSettings.teams_error, the same rule the core applies.
+func team_error() -> String:
+	if not teams_on():
+		return ""
+	var list: PackedInt32Array = get_teams()
+	if list.has(TeamStyle.NONE):
+		return "need_all"
+	return "need_two" if MatchSettings.teams_error(list, _players) != "" else ""
+
+
+func team_hint_text() -> String:
+	match team_error():
+		"need_all":
+			return tr("SETUP_TEAMS_NEED_ALL")
+		"need_two":
+			return tr("SETUP_TEAMS_NEED_TWO")
+	return ""
+
+
+func set_friendly_fire(on: bool) -> void:
+	_friendly_fire = on
+	_refresh()
+
+
+func is_friendly_fire() -> bool:
+	return _friendly_fire
+
+
+## Chips, the friendly-fire toggle, the hint and whether START may be pressed.
+func _refresh_teams() -> void:
+	var on: bool = teams_on()
+	_ff_button.visible = on
+	_ff_button.set_pressed_no_signal(_friendly_fire)
+	_ff_button.text = "%s: %s" % [tr("SETUP_FRIENDLY_FIRE"), tr("SET_ON") if _friendly_fire else tr("SET_OFF")]
+	_team_hint.text = team_hint_text()
+	_team_hint.visible = _team_hint.text != ""
+	_start.disabled = team_error() != ""
 
 
 # --- names ---
@@ -811,12 +950,22 @@ func names_inline() -> bool:
 ## Puts slot i's name field into its row (before the picker) or below it.
 func _place_name_field(i: int, inline: bool) -> void:
 	var nf: NameField = _name_fields[i]
-	var target: Node = _player_rows[i] if inline else _slots[i]
-	if nf.get_parent() != target:
+	var chip: TeamChip = _team_chips[i]
+	var name_target: Node = _player_rows[i] if inline else _lines[i]
+	if nf.get_parent() != name_target:
 		nf.get_parent().remove_child(nf)
-		target.add_child(nf)
+		name_target.add_child(nf)
+	if chip.get_parent() != name_target:
+		chip.get_parent().remove_child(chip)
+		name_target.add_child(chip)
 	if inline:
-		target.move_child(nf, _kind_buttons[i].get_index())
+		name_target.move_child(nf, _kind_buttons[i].get_index())
+		name_target.move_child(chip, name_target.get_child_count() - 1)
+	else:
+		name_target.move_child(nf, 0)
+		name_target.move_child(_line_spacers[i], 1)
+		name_target.move_child(chip, 2)
+	_lines[i].visible = not inline
 	_refresh_kind(i)
 
 
@@ -845,6 +994,11 @@ func set_player_name(i: int, raw: String) -> String:
 ## What slot i will be called: its name, or PLAYER n.
 func get_player_name(i: int) -> String:
 	return _names[i] if _names[i] != "" else tr("HUD_PLAYER_N") % (i + 1)
+
+
+## The second line of slot i on narrow screens (name field and team chip); hidden when they sit in the row.
+func get_name_line(i: int) -> HBoxContainer:
+	return _lines[i]
 
 
 func get_name_field(i: int) -> NameField:
@@ -905,17 +1059,23 @@ func build_settings() -> MatchSettings:
 	for i: int in range(_players):
 		c.append(_allowed_level(_controllers[i]))
 	s.controllers = c
+	if team_error() == "" and teams_on():
+		s.teams = get_teams()
+		s.friendly_fire = _friendly_fire
 	s.seed = ShotArgs.seed_value if ShotArgs.seed_value != 0 else int(randi())
 	return s
 
 
 ## Remembers the current choices in SetupPrefs and writes settings.cfg.
 func save_prefs() -> void:
-	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch, _theme, _names)
+	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch, _theme, _names,
+			_teams, _friendly_fire)
 	SettingsStore.save()
 
 
 func start_match() -> void:
+	if team_error() != "":
+		return  # START is disabled; the hint says why
 	save_prefs()
 	BattleConfig.settings = build_settings()
 	BattleConfig.resume = false
@@ -982,6 +1142,22 @@ func is_watch() -> bool:
 
 func get_hint_text() -> String:
 	return _hint.text
+
+
+func get_team_hint_text() -> String:
+	return _team_hint.text if _team_hint.visible else ""
+
+
+func get_team_hint_label() -> Label:
+	return _team_hint
+
+
+func get_team_chip(i: int) -> TeamChip:
+	return _team_chips[i]
+
+
+func get_friendly_fire_button() -> Button:
+	return _ff_button
 
 
 func get_money_level() -> int:

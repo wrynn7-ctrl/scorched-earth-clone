@@ -19,6 +19,14 @@ static func enemies_of(state: MatchState, me: TankState) -> Array[TankState]:
 	return out
 
 
+## True if a blast on `t` counts as harm to the shooter's side: the shooter itself always, a teammate
+## only while friendly fire is on (with it off the core ignores teammate hits, section 39).
+static func is_protected(state: MatchState, me: TankState, t: TankState) -> bool:
+	if t.id == me.id:
+		return true
+	return t.team == me.team and state.settings.friendly_fire
+
+
 ## Health plus whatever shield is still up.
 static func hp_eff(t: TankState) -> int:
 	return t.health + (t.shield_hp if t.has_shield() else 0)
@@ -136,12 +144,14 @@ static func _nearest_to_x(_me: TankState, list: Array[TankState], x: int) -> int
 	return best_id
 
 
-## Id of the alive tank (any team, `me` excluded) nearest to column x; -1 if none.
+## Id of the alive ENEMY (other team) nearest to column x; -1 if none. Teammates are never a target, so
+## a shell that came down beside one still reads as a miss at the enemy it was aimed at. (Without teams
+## every other tank is an enemy, as before.)
 static func nearest_tank_to_x(state: MatchState, me: TankState, x: int) -> int:
 	var best_id: int = -1
 	var best_d: int = 0
 	for t: TankState in state.tanks:
-		if not t.alive or t.id == me.id:
+		if not t.alive or t.team == me.team:
 			continue
 		var d: int = absi(t.x - x)
 		if best_id < 0 or d < best_d:

@@ -33,6 +33,9 @@ const PATTERNS: Dictionary = {
 	"tank_destroyed": {"pri": 5, "pulses": [
 		Vector3(0, 120, 1.0), Vector3(140, 90, 0.9), Vector3(250, 70, 0.75), Vector3(340, 55, 0.55),
 		Vector3(420, 40, 0.4)]},
+	# Sudden death begins: four hard pulses in the rhythm of the klaxon, rumble class so nothing cuts it short.
+	"sudden_death": {"pri": 5, "pulses": [
+		Vector3(0, 160, 1.0), Vector3(240, 110, 0.9), Vector3(480, 160, 1.0), Vector3(720, 90, 0.7)]},
 	# Love Edition: only the win has a pulse, a gentle double heartbeat (lub-dub, twice).
 	"love_win": {"pri": 3, "pulses": [
 		Vector3(0, 40, 0.4), Vector3(150, 55, 0.3), Vector3(850, 40, 0.35), Vector3(1000, 55, 0.25)]},

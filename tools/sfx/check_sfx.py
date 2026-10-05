@@ -36,11 +36,11 @@ SHOTS = ["fire_light", "fire_medium", "fire_heavy"]
 EXPLOSIONS = ["explosion_small", "explosion_medium", "explosion_large", "explosion_nuke"]
 IMPACTS = EXPLOSIONS + ["tank_destroyed"]
 # Battle thumps that must also be heard on a phone speaker (they only get the 100-300 Hz and sub checks).
-THUMPS = ["dirt_thud", "terrain_crumble", "anchor_clank", "shield_break", "ui_locked", "well_hum"]
+THUMPS = ["dirt_thud", "terrain_crumble", "anchor_clank", "shield_break", "ui_locked", "well_hum", "sudden_death"]
 LOVE = ["love_fire", "heart_burst", "love_found", "love_win"]
 LOOPS = ["well_hum", "fire_crackle"]
 UI = ["ui_tap", "ui_back", "ui_purchase", "ui_locked", "turn_blip", "cpu_think_tick"]
-BATTLE_LOUD = SHOTS + EXPLOSIONS + ["tank_destroyed", "beam_zap"]
+BATTLE_LOUD = SHOTS + EXPLOSIONS + ["tank_destroyed", "beam_zap", "sudden_death"]
 
 # --- rule thresholds ----------------------------------------------------------------------------------------
 MAX_PEAK_DB = -1.0
@@ -59,7 +59,7 @@ UI_BELOW_BATTLE_DB = 6.0  # loud (short-term RMS) plus the director's dB: UI at 
 DURATION = {  # name: (min_s, max_s)
     "explosion_small": (0.4, 1.2), "explosion_medium": (0.8, 1.8), "explosion_large": (1.5, 2.8),
     "explosion_nuke": (3.0, 4.2), "love_win": (3.0, 5.0), "match_win": (2.5, 5.0), "round_win": (1.2, 3.0),
-    "tank_destroyed": (1.0, 2.4),
+    "tank_destroyed": (1.0, 2.4), "sudden_death": (2.0, 3.2),
 }
 
 

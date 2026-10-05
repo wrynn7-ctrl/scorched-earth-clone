@@ -258,3 +258,97 @@ static func flat_ffa(level: int, n: int) -> MatchState:
 	state.settings.controllers = ctrl
 	state.tanks[0].set_stock("pulse_missile", 20)
 	return state
+
+
+## A started team match (M6): `teams` per tank (empty = none), friendly fire as given, every seat run by the AI
+## at the level in `controllers`. Plays until match_over (or `max_turns`) and returns
+## {state, errors, turns, shots, passes, sudden_passes, sudden_turns, enemy_target_ok (every decision picked an enemy),
+##  ally_hit_shots, self_hit_shots, max_calls, stalled, max_round_turns, decision_ms_max, by_level: {level: {shots,
+##  ally_hit_shots, self_hit_shots}}}.
+static func run_team_match(seed_value: int, controllers: PackedInt32Array, teams: PackedInt32Array,
+		friendly_fire: bool, rounds: int, max_turns: int = 3000) -> Dictionary:
+	var settings := MatchSettings.new()
+	settings.seed = seed_value
+	settings.num_tanks = controllers.size()
+	settings.rounds = rounds
+	settings.controllers = controllers
+	settings.teams = teams
+	settings.friendly_fire = friendly_fire
+	var state: MatchState = Simulation.new_match(settings)
+	var out: Dictionary = {"errors": [] as Array[String], "turns": 0, "shots": 0, "passes": 0, "sudden_passes": 0,
+			"sudden_turns": 0, "enemy_target_ok": true, "ally_hit_shots": 0, "self_hit_shots": 0, "max_calls": 0,
+			"stalled": false, "max_round_turns": 0, "decision_ms_max": 0, "by_level": {}, "rounds_played": 0}
+	var calls: int = 0
+	var last_key: int = -1
+	var guard: int = 0
+	var round_turns: int = 0
+	while state.phase != SimConstants.PHASE_MATCH_OVER and guard < max_turns * 4:
+		guard += 1
+		if state.phase == SimConstants.PHASE_SHOP:
+			for t: TankState in state.tanks:
+				for a: Dictionary in AiPlayer.shop_actions(state, t.id):
+					Simulation.apply_action(state, a)
+			if Simulation.start_round(state).is_empty():
+				(out["errors"] as Array[String]).append("start_round failed")
+				break
+			last_key = -1
+			round_turns = 0
+			out["rounds_played"] = (out["rounds_played"] as int) + 1
+			continue
+		if (out["turns"] as int) >= max_turns:
+			out["stalled"] = true
+			break
+		var id: int = state.current_tank
+		var me: TankState = state.tanks[id]
+		var key: int = state.round_index * 100000 + state.turn_number
+		calls = calls + 1 if key == last_key else 1
+		last_key = key
+		out["max_calls"] = maxi(out["max_calls"] as int, calls)
+		var level: int = controllers[id]
+		var picked: TankState = AiTargets.pick(state, me, level)
+		if picked == null or picked.team == me.team or not picked.alive:
+			out["enemy_target_ok"] = false
+		for e: TankState in AiTargets.enemies_of(state, me):
+			if e.team == me.team:
+				out["enemy_target_ok"] = false
+		var t0: int = Time.get_ticks_usec()
+		var action: Dictionary = AiPlayer.next_action(state, id)
+		out["decision_ms_max"] = maxi(out["decision_ms_max"] as int, (Time.get_ticks_usec() - t0) / 1000)
+		var verr: String = Simulation.validate_action(state, action)
+		if verr != "":
+			(out["errors"] as Array[String]).append("aim %s: %s" % [str(action), verr])
+			break
+		var sudden: bool = AiPlayer.in_sudden_death(state)
+		var events: Array[Dictionary] = Simulation.apply_action(state, action)
+		if action["kind"] == "pass":
+			out["passes"] = (out["passes"] as int) + 1
+			if sudden:
+				out["sudden_passes"] = (out["sudden_passes"] as int) + 1
+		if sudden and calls == 1:
+			out["sudden_turns"] = (out["sudden_turns"] as int) + 1
+		if action["kind"] == "fire":
+			var ally: bool = false
+			var selfhit: bool = false
+			for ev: Dictionary in events:
+				if ev["type"] != "damage" or ["fall", "sudden_death"].has(ev["cause"]):
+					continue
+				var victim: int = ev["tank"]
+				if victim == id:
+					selfhit = true
+				elif state.tanks[victim].team == me.team:
+					ally = true
+			out["shots"] = (out["shots"] as int) + 1
+			var lv: Dictionary = (out["by_level"] as Dictionary).get(level, {"shots": 0, "ally_hit_shots": 0, "self_hit_shots": 0})
+			lv["shots"] = (lv["shots"] as int) + 1
+			if ally:
+				lv["ally_hit_shots"] = (lv["ally_hit_shots"] as int) + 1
+				out["ally_hit_shots"] = (out["ally_hit_shots"] as int) + 1
+			if selfhit:
+				lv["self_hit_shots"] = (lv["self_hit_shots"] as int) + 1
+				out["self_hit_shots"] = (out["self_hit_shots"] as int) + 1
+			(out["by_level"] as Dictionary)[level] = lv
+		out["turns"] = (out["turns"] as int) + 1
+		round_turns += 1
+		out["max_round_turns"] = maxi(out["max_round_turns"] as int, round_turns)
+	out["state"] = state
+	return out

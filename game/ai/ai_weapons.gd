@@ -31,6 +31,9 @@ const SOFT_TRACE_CAP: int = 8
 const SEEKER_TOL: int = 40
 ## Launch angle (tenths of a degree) tried first when a teammate blocks the usual arc.
 const ALLY_LOB_ANGLE: int = 780
+## Share (percent) of the error band a teammate is widened by, against 100 for the shooter itself. A full band
+## made Easy pass on about a third of its turns in 3v1 (every shot's worst case reached somebody on its team).
+const ALLY_MARGIN_PCT: int = 50
 
 
 static func choose_and_plan(sit: AiSituation) -> Dictionary:
@@ -44,7 +47,7 @@ static func choose_and_plan(sit: AiSituation) -> Dictionary:
 		var plan: Dictionary = plan_for(sit, id)
 		if plan.is_empty() or not plan["ok"]:
 			continue
-		var score: int = _rate(sit, plan, id)
+		var score: int = rate_plan(sit, plan, id)
 		if plan["self_dmg"] == 0:
 			return plan
 		if best.is_empty() or score > best_score:
@@ -56,7 +59,7 @@ static func choose_and_plan(sit: AiSituation) -> Dictionary:
 	var basic: String = "pulse_missile" if sit.owns("pulse_missile") else "spark_dart"
 	var fallback: Dictionary = _plain_plan(sit, basic, sit.target.x, "pulse_missile", false)
 	fallback["ok"] = false
-	_rate(sit, fallback, basic)
+	rate_plan(sit, fallback, basic)
 	return fallback
 
 
@@ -65,7 +68,7 @@ static func choose_and_plan(sit: AiSituation) -> Dictionary:
 ## Fills plan["self_dmg"] (damage to the shooter and its teammates), plan["enemy_dmg"] and
 ## returns enemy_dmg - 1.5 x self_dmg. The blast is judged at the planned impact point with the
 ## same Damage formula as the simulation, widened by the error this level will add to the shot.
-static func _rate(sit: AiSituation, plan: Dictionary, id: String) -> int:
+static func rate_plan(sit: AiSituation, plan: Dictionary, id: String) -> int:
 	var h: Dictionary = estimate_harm(sit, plan, id)
 	plan["self_dmg"] = h["self"]
 	plan["enemy_dmg"] = h["enemy"]
@@ -112,7 +115,13 @@ static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dic
 			continue
 		var d: int = Damage.distance_to_tank(impact.x, impact.y, t)
 		if t.id == sit.me.id or t.team == sit.me.team:
-			out["self"] = (out["self"] as int) + Damage.amount(maxi(0, d - margin), radius, dmg)
+			# Teammates are protected only while friendly fire is on; with it off the blast does nothing to them.
+			if not AiTargets.is_protected(sit.state, sit.me, t):
+				continue
+			# A teammate costs a little less to risk than the shooter itself: it only has to be spared, the shooter
+			# would also pay the money penalty... both are judged, but the teammate gets a narrower error band.
+			var band: int = margin if t.id == sit.me.id else margin * ALLY_MARGIN_PCT / 100
+			out["self"] = (out["self"] as int) + Damage.amount(maxi(0, d - band), radius, dmg)
 		else:
 			out["enemy"] = (out["enemy"] as int) + Damage.amount(d, radius, dmg)
 	return out

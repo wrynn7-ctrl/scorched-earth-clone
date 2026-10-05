@@ -106,6 +106,8 @@ static func save(file_path: String = "") -> bool:
 		cfg.set_value(SETUP_SECTION, "watch", SetupPrefs.watch)
 		cfg.set_value(SETUP_SECTION, "theme", SetupPrefs.theme)
 		cfg.set_value(SETUP_SECTION, "names", SetupPrefs.names_array())
+		cfg.set_value(SETUP_SECTION, "teams", SetupPrefs.teams_array())
+		cfg.set_value(SETUP_SECTION, "friendly_fire", SetupPrefs.friendly_fire)
 	return cfg.save(file_path if file_path != "" else path) == OK
 
 
@@ -124,6 +126,9 @@ static func _load_setup(cfg: ConfigFile) -> void:
 	SetupPrefs.watch = watch as bool if typeof(watch) == TYPE_BOOL else false
 	SetupPrefs.theme = ThemeDefs.sanitize(cfg.get_value(SETUP_SECTION, "theme", ThemeDefs.DEFAULT_ID))
 	SetupPrefs.set_names_from(cfg.get_value(SETUP_SECTION, "names", []))
+	SetupPrefs.set_teams_from(cfg.get_value(SETUP_SECTION, "teams", []))
+	var ff: Variant = cfg.get_value(SETUP_SECTION, "friendly_fire", true)
+	SetupPrefs.friendly_fire = ff as bool if typeof(ff) == TYPE_BOOL else true
 
 
 static func _int_in(cfg: ConfigFile, key: String, fallback: int, lo: int, hi: int) -> int:

@@ -43,6 +43,8 @@ const MIN_APPROACH: int = 20
 const FULL_POWER: int = 985
 const SPENT_SHORT_BY: int = 150
 const BEST_EFFORT_ANGLES: Array[int] = [300, 450, 600, 750]
+## Launch angles (tenths of a degree from the horizontal towards the target) a sudden-death "must shoot" lob tries.
+const DESPERATE_ANGLES: Array[int] = [450, 300, 600, 750, 150]
 
 
 ## One action for the tank whose turn it is. May return a non-turn-ending action
@@ -149,7 +151,43 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	if best_score > 0 or (level == SimConstants.CTRL_EASY and (best_plan["self_dmg"] as int) <= EASY_SELF_HIT
 			and (best_plan["enemy_dmg"] as int) > 0):
 		return finalize(best_sit, best_plan)
+	if in_sudden_death(state):
+		return _desperate_shot(best_sit, best_plan)
 	return {"kind": "pass", "tank": me.id}
+
+
+# --- sudden death ---------------------------------------------------------------------------------------
+
+## True once the round has reached its sudden-death turn (docs/ARCHITECTURE.md section 40; standard mode only).
+static func in_sudden_death(state: MatchState) -> bool:
+	return state.settings.mode == SimConstants.MODE_STANDARD \
+			and state.turn_number >= Simulation.sudden_death_turn(state.settings)
+
+
+## Sudden death drains everybody every turn cycle, so waiting is never an option: the AI must shoot. Every real
+## option would hurt us (a pass was the answer outside sudden death), so send the least harmful one: either the
+## least-bad plan found already, or a full/steep Spark Dart lob that lands far from us (often off the map or
+## near an enemy). The guard is not relaxed: the option with the smallest estimated self-damage wins, and the
+## plan's better aim wins ties. Only model flights are spent (no real trace).
+static func _desperate_shot(sit: AiSituation, best_plan: Dictionary) -> Dictionary:
+	var pick: Dictionary = {}
+	var pick_self: int = best_plan["self_dmg"]
+	var pick_enemy: int = best_plan["enemy_dmg"]
+	for a_dir: int in DESPERATE_ANGLES:
+		for power: int in [SimConstants.MAX_POWER, SimConstants.MAX_POWER * 3 / 4]:
+			var plan: Dictionary = {"weapon": "spark_dart", "angle": AimSolver.actual_angle(sit.ctx, a_dir),
+					"power": power, "ok": true, "corrected": false, "prev_power": 0}
+			AiWeapons.rate_plan(sit, plan, "spark_dart")
+			var sd: int = plan["self_dmg"]
+			var ed: int = plan["enemy_dmg"]
+			if sd < pick_self or (sd == pick_self and ed > pick_enemy):
+				pick = plan
+				pick_self = sd
+				pick_enemy = ed
+	if pick.is_empty():
+		return finalize(sit, best_plan)
+	return {"kind": "fire", "tank": sit.me.id, "angle": pick["angle"], "power": pick["power"],
+			"weapon": "spark_dart"}
 
 
 # --- love mode ------------------------------------------------------------------------------------------

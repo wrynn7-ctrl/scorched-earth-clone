@@ -29,6 +29,11 @@ extends RefCounted
 ##                       4 expert); on the setup screen it also seeds the slots (and --players the count)
 ##   --names=<a>,<b>,...  setup/battle: player names per slot (setup seeds the name fields, a quick battle
 ##                       match shows them; entries go through PlayerNames.sanitize)
+##   --teams=<a>,<b>,...  setup/battle: team per slot (0..3 = A..D, -1 = none); setup seeds the chips, a quick
+##                       battle match uses them when every tank has one and two teams are in play
+##   --friendly-fire=<0|1>  setup/battle: friendly fire off or on (default on)
+##   --pass-turns=<n>    battle: the first n turns of round 1 are passed instantly (reach sudden death for a
+##                       screenshot: n = 10 x tanks - 1, then --auto-fire)
 ##   --focus-name=<n>    setup: put the cursor in the name field of player n (1-based)
 ##   --setup-picker=<n>  setup: open the controller picker of player n (1-based) shortly after start
 ##   --cpu-speed=<n>     CPU turn speed (0 normal, 1 fast, 2 instant), overriding the saved setting
@@ -70,6 +75,9 @@ static var players: int = 0
 static var money: int = -1
 static var controllers: PackedInt32Array = PackedInt32Array()
 static var names: PackedStringArray = PackedStringArray()
+static var teams: PackedInt32Array = PackedInt32Array()
+static var friendly_fire: int = -1
+static var pass_turns: int = 0
 static var focus_name: int = 0
 static var setup_picker: int = 0
 static var cpu_speed: int = -1
@@ -163,6 +171,13 @@ static func parse() -> void:
 				controllers.append(clampi(c.to_int(), SimConstants.CTRL_HUMAN, SimConstants.CTRL_MAX))
 		elif a.begins_with("--names="):
 			names = a.substr(8).split(",")
+		elif a.begins_with("--teams="):
+			for t: String in a.substr(8).split(","):
+				teams.append(t.to_int())
+		elif a.begins_with("--friendly-fire="):
+			friendly_fire = 1 if a.substr(16).to_int() != 0 else 0
+		elif a.begins_with("--pass-turns="):
+			pass_turns = a.substr(13).to_int()
 		elif a.begins_with("--focus-name="):
 			focus_name = a.substr(13).to_int()
 		elif a.begins_with("--setup-picker="):

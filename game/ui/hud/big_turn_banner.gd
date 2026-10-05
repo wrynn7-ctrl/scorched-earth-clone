@@ -28,6 +28,8 @@ var _row: HBoxContainer = null
 var _label: Label = null
 var _heart_l: HeartIcon = null
 var _heart_r: HeartIcon = null
+## The team letter badge before the name (team matches only).
+var _badge: TeamBadge = null
 var _t: float = 0.0
 var _t_in: float = IN_SECONDS
 var _t_hold: float = HOLD_SECONDS
@@ -55,6 +57,8 @@ func _init() -> void:
 	_row.grow_vertical = Control.GROW_DIRECTION_BOTH
 	add_child(_row)
 	_heart_l = _heart("HeartLeft")
+	_badge = TeamBadge.new()
+	_row.add_child(_badge)
 	_label = Label.new()
 	_label.name = "Text"
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -79,7 +83,8 @@ func _ready() -> void:
 
 
 ## Shows the banner for `player_index` (colour comes from PlayerLooks) and fades it away again.
-func show_turn(player_index: int, player_name: String, love: bool = false) -> void:
+func show_turn(player_index: int, player_name: String, love: bool = false, team: int = TeamStyle.NONE) -> void:
+	_badge.set_team(team)
 	_index = player_index
 	_player_name = player_name
 	_love = love
@@ -152,6 +157,8 @@ func apply_scale() -> void:
 	var chosen: int = base
 	var font: Font = _label.get_theme_font("font")
 	var hearts: float = 2.0 * UiScale.dp(40.0) if _love else 0.0
+	if _badge.visible:
+		hearts += UiScale.dp(44.0)
 	var room: float = vw * MAX_WIDTH_SHARE - hearts
 	if font != null and _label.text != "":
 		var w: float = font.get_string_size(_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, base).x
@@ -162,6 +169,7 @@ func apply_scale() -> void:
 	_label.add_theme_constant_override("shadow_offset_x", 0)
 	_label.add_theme_constant_override("shadow_offset_y", 0)
 	_label.add_theme_constant_override("shadow_outline_size", maxi(2, roundi(chosen * 0.35)))
+	_badge.set_badge_size(UiScale.dp(30.0) * float(chosen) / float(maxi(1, base)))
 	var heart_px: float = UiScale.dp(36.0) * float(chosen) / float(maxi(1, base))
 	_heart_l.set_icon_size(heart_px)
 	_heart_r.set_icon_size(heart_px)
@@ -187,6 +195,10 @@ func get_player() -> int:
 
 func is_love() -> bool:
 	return _love
+
+
+func get_badge() -> TeamBadge:
+	return _badge
 
 
 func has_hearts() -> bool:

@@ -11,7 +11,7 @@ const M5 = preload("res://tests/qa/qa_m5.gd")
 ## Event types that are deliberately silent as one-shots (loops, or the sound belongs to another event).
 ## This is the list in audio_director.gd's closing comment of sound_for_event().
 const EXPLICIT_SILENT: Array[String] = ["projectile", "projectile_end", "terrain_carve", "wind", "beam", "tank_fall",
-		"tank_move", "well_on", "well_off", "flames", "ready", "repulsor_down", "round_start", "sudden_death"]
+		"tank_move", "well_on", "well_off", "flames", "ready", "repulsor_down", "round_start"]
 
 var _ad: Node = null
 

@@ -8,6 +8,8 @@ signal next_pressed
 
 var _title: Label = null
 var _sub: Label = null
+## Team games: the winning team's members under the title.
+var _members: Label = null
 var _table: StatTable = null
 var _cpu_scroll: TouchScroll = null
 var _cpu_box: VBoxContainer = null
@@ -23,6 +25,9 @@ func _init() -> void:
 	super._init()
 	name = "RoundEndOverlay"
 	_title = add_title("")
+	_members = add_label("", 15.0, NeonPalette.TEXT)
+	_members.name = "Members"
+	_members.visible = false
 	_sub = add_label("", 14.0)
 	_table = add_stat_table()
 	_cpu_scroll = TouchScroll.new()
@@ -41,9 +46,17 @@ func _init() -> void:
 ## winner: tank id or -1 for a draw. rows: [{id, earned, kills, wins}] in player order.
 ## round_number is 1-based.
 ## cpu_buys: [{tank, level, items: [{id, units}]}] from CpuShop.run (may be empty).
+## Team games (ARCHITECTURE sections 39 and 42): pass `teams` (team per tank, empty without teams) and
+## `winner_team` (the winning team, -1 for a draw). The title becomes TEAM A WINS (or DRAW -- NO SURVIVORS), the
+## members are listed under it, and every row carries its team badge.
 func show_summary(winner: int, rows: Array[Dictionary], round_number: int, rounds: int,
-		cpu_buys: Array[Dictionary] = []) -> void:
-	if winner >= 0:
+		cpu_buys: Array[Dictionary] = [], teams: PackedInt32Array = PackedInt32Array(),
+		winner_team: int = -1) -> void:
+	var team_game: bool = not teams.is_empty()
+	_members.visible = false
+	if team_game:
+		_show_team_title(rows, teams, winner_team)
+	elif winner >= 0:
 		_title.text = tr("OVERLAY_ROUND_WINNER") % PlayerNames.label(winner)
 		_title.add_theme_color_override("font_color", PlayerLooks.color(winner))
 	else:
@@ -53,17 +66,38 @@ func show_summary(winner: int, rows: Array[Dictionary], round_number: int, round
 	var table_rows: Array[Dictionary] = []
 	for r: Dictionary in rows:
 		var id: int = r["id"]
-		table_rows.append({
+		var row: Dictionary = {
 			"id": id,
 			"label": PlayerNames.label(id),
 			"cells": PackedStringArray([HudFormat.money_delta(r["earned"] as int), str(r["kills"]), str(r["wins"])]),
-		})
+		}
+		if team_game:
+			row["team"] = teams[id]
+			row["win"] = winner_team >= 0 and teams[id] == winner_team
+		table_rows.append(row)
 	_table.set_data(PackedStringArray([tr("SUM_EARNED"), tr("SUM_KILLS"), tr("SUM_WINS")]), table_rows, winner)
 	_set_cpu_lines(cpu_buys)
 	open()
 	if is_inside_tree():
 		apply_scale()
 		_refit_next_frame()
+
+
+func _show_team_title(rows: Array[Dictionary], teams: PackedInt32Array, winner_team: int) -> void:
+	if winner_team < 0:
+		_title.text = tr("OVERLAY_TEAM_DRAW")
+		_title.add_theme_color_override("font_color", NeonPalette.TEXT)
+		return
+	_title.text = tr("OVERLAY_TEAM_WINS") % TeamStyle.letter(winner_team)
+	_title.add_theme_color_override("font_color", TeamStyle.color(winner_team))
+	var names := PackedStringArray()
+	for r: Dictionary in rows:
+		var id: int = r["id"]
+		if teams[id] == winner_team:
+			names.append(PlayerNames.label(id))
+	_members.text = " · ".join(names)
+	_members.add_theme_color_override("font_color", TeamStyle.color(winner_team).lerp(Color.WHITE, 0.35))
+	_members.visible = true
 
 
 func _set_cpu_lines(cpu_buys: Array[Dictionary]) -> void:
@@ -119,6 +153,11 @@ func get_cpu_scroll() -> TouchScroll:
 
 func get_title_text() -> String:
 	return _title.text
+
+
+## The winning team's member names ("ANNA · BOB"), "" when the summary is not a team win.
+func get_members_text() -> String:
+	return _members.text if _members.visible else ""
 
 
 func get_table() -> StatTable:

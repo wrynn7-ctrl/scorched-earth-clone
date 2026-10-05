@@ -13,6 +13,8 @@ var auto_hide_seconds: float = 0.0
 var _index: int = 0
 var _player_name: String = ""
 var _emblem: EmblemIcon = null
+## The team letter badge (only in team matches, ARCHITECTURE section 42).
+var _badge: TeamBadge = null
 var _label: Label = null
 var _tween: Tween = null
 var _thinking: Label = null
@@ -40,6 +42,8 @@ func _init() -> void:
 	_heart_l.name = "HeartLeft"
 	_heart_l.visible = false
 	row.add_child(_heart_l)
+	_badge = TeamBadge.new()
+	row.add_child(_badge)
 	_emblem = EmblemIcon.new()
 	_emblem.name = "Emblem"
 	row.add_child(_emblem)
@@ -71,6 +75,7 @@ func apply_scale() -> void:
 	# buttons on a 700 dp phone and would push them off screen at 150%.
 	_label.add_theme_font_size_override("font_size", maxi(8, roundi(UiScale.dp(15.0))))
 	_emblem.custom_minimum_size = Vector2.ONE * UiScale.dp(28.0)
+	_badge.set_badge_size(UiScale.dp(22.0))
 	_heart_l.set_icon_size(UiScale.dp(18.0))
 	_heart_r.set_icon_size(UiScale.dp(18.0))
 	_thinking.add_theme_font_size_override("font_size", maxi(8, roundi(UiScale.dp(11.0))))
@@ -102,6 +107,15 @@ func _show(player_index: int, player_name: String, level: int) -> void:
 			_tween = create_tween()
 		_tween.tween_interval(auto_hide_seconds)
 		_tween.tween_property(self, "modulate:a", 0.0, 0.4)
+
+
+## The team of the player shown (0..3 for a badge, anything else for none). Call before show_turn().
+func set_team(team: int) -> void:
+	_badge.set_team(team)
+
+
+func get_badge() -> TeamBadge:
+	return _badge
 
 
 ## A computer player's turn: "CPU NORMAL — PLAYER 3". `level` is a SimConstants.CTRL_* value.

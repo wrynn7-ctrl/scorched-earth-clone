@@ -354,6 +354,25 @@
     ], "post": [
       {"op": "hp", "hz": 120}
     ]},
+    "sudden_death": {"seed": 81, "peak_db": -2.0, "layers": [
+      {"type": "noise", "mode": "hp", "f0": 3500, "f1": 900, "tau": 0.01, "attack": 0.0004, "decay": 0.05, "gain": 0.5},
+      {"type": "kick", "f0": 200, "f1": 70, "tau": 0.09, "attack": 0.0008, "hold": 0.05, "decay": 1.3, "sat": 3.2, "bias": 0.15, "gain": 1.0},
+      {"type": "kick", "f0": 92, "f1": 42, "tau": 0.17, "attack": 0.002, "hold": 0.07, "decay": 1.5, "sat": 2.2, "gain": 0.65},
+      {"type": "noise", "mode": "bp", "f0": 720, "f1": 170, "tau": 0.15, "q": 0.9, "attack": 0.0008, "hold": 0.06, "decay": 1.0, "sat": 1.3, "gain": 0.8},
+      {"wave": "saw", "attack": 0.01, "decay": 0.12, "lp": 1500, "lp_sweep": -0.6, "vib_rate": 5.0, "vib_depth": 0.01, "delay": 0.3, "gain": 0.55,
+        "notes": [[57, 0.0, 0.3], [50, 0.5, 0.3], [57, 1.0, 0.3], [50, 1.5, 0.3]]},
+      {"type": "fm", "ratio": 1.5, "index": 3.5, "index_tau": 0.25, "attack": 0.004, "decay": 0.3, "delay": 0.3, "gain": 0.3,
+        "notes": [[69, 0.0, 0.0], [62, 0.5, 0.0], [69, 1.0, 0.0], [62, 1.5, 0.0]]},
+      {"type": "kick", "f0": 110, "f1": 55, "tau": 0.12, "attack": 0.006, "decay": 0.6, "sat": 2.4, "delay": 0.8, "gain": 0.6},
+      {"type": "kick", "f0": 110, "f1": 52, "tau": 0.14, "attack": 0.006, "decay": 0.8, "sat": 2.4, "delay": 1.3, "gain": 0.6}
+    ], "post": [
+      {"op": "hp", "hz": 28},
+      {"op": "comp", "thresh_db": -20, "ratio": 6, "attack": 0.004, "release": 0.25},
+      {"op": "sat", "k": 1.6},
+      {"op": "limit", "ceil_db": -10},
+      {"op": "echo", "time_ms": 250, "fb": 0.3, "lp_hz": 1100, "mix": 0.16, "tail": 0.35},
+      {"op": "reverb", "mix": 0.26, "size": 1.0, "fb": 0.8, "damp": 0.5, "pre_ms": 6, "tail": 0.5}
+    ]},
     "love_fire": {"seed": 71, "peak_db": -4.0, "layers": [
       {"type": "pluck", "decay": 1.1, "damp": 0.5, "pos": 0.2, "notes": [[79, 0.0, 0.0], [84, 0.09, 0.0], [88, 0.18, 0.0]], "gain": 0.8},
       {"type": "fm", "ratio": 2, "index": 1.1, "index_tau": 0.08, "attack": 0.003, "decay": 0.95, "notes": [[91, 0.0, 0.0], [96, 0.18, 0.0]], "gain": 0.16},

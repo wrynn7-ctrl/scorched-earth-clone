@@ -39,6 +39,13 @@ const LOVE_PULSE_SECONDS: float = 0.8
 const TAG_BASELINE_Y: float = -53.0
 const TAG_FONT_SIZE: int = 9
 const TAG_OUTLINE: int = 3
+## The team badge (section 42): a letter on the team colour, left of the name (or alone for a CPU).
+const BADGE_SIZE: float = 9.0
+const BADGE_GAP: float = 2.5
+## Badge and name together stay within this width (local units) so neighbours' tags never meet: a long name
+## beside a badge is drawn in a smaller size.
+const MAX_TAG_EXTENT: float = 130.0
+const MIN_TAG_FONT_SIZE: int = 6
 ## How fast the displayed fill follows the real value (fraction of the meter per second).
 const LOVE_FILL_SPEED: float = 1.1
 
@@ -50,6 +57,8 @@ var _dead: bool = false
 var _emblem_index: int = 0
 ## The name tag text ("" = no tag; only players who typed a name get one).
 var _name_tag: String = ""
+## The team shown as a badge on the tag (TeamStyle.NONE = no teams in this match).
+var _team: int = TeamStyle.NONE
 static var _tag_font: Font = null
 
 var _shield_hp: int = 0
@@ -149,6 +158,44 @@ func get_name_tag() -> String:
 	return _name_tag
 
 
+## The team badge beside the name (0..3); anything else removes it. A CPU tank has no name but still gets the badge.
+func set_team(team: int) -> void:
+	var t: int = team if TeamStyle.is_team(team) else TeamStyle.NONE
+	if t == _team:
+		return
+	_team = t
+	_redraw_all()
+
+
+func get_team() -> int:
+	return _team
+
+
+## Width of the whole tag (badge and name), in local units.
+func tag_extent() -> float:
+	var w: float = _name_width()
+	if _team != TeamStyle.NONE:
+		w += BADGE_SIZE + (BADGE_GAP if _name_tag != "" else 0.0)
+	return w
+
+
+## The name's font size: TAG_FONT_SIZE, smaller when a badge leaves too little room for a long name.
+func _name_font_size() -> int:
+	if _name_tag == "" or _team == TeamStyle.NONE:
+		return TAG_FONT_SIZE
+	var room: float = MAX_TAG_EXTENT - BADGE_SIZE - BADGE_GAP
+	var w: float = tag_width(_name_tag)
+	if w <= room:
+		return TAG_FONT_SIZE
+	return maxi(MIN_TAG_FONT_SIZE, floori(float(TAG_FONT_SIZE) * room / w))
+
+
+func _name_width() -> float:
+	if _name_tag == "":
+		return 0.0
+	return _get_tag_font().get_string_size(_name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _name_font_size()).x
+
+
 ## Width the widest possible tag (12 capital letters) takes, in local units: tests keep it clear of the neighbours.
 static func tag_width(text: String) -> float:
 	return _get_tag_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE).x
@@ -163,13 +210,34 @@ static func _get_tag_font() -> Font:
 
 
 func _draw_name_tag(c: Color) -> void:
-	if _name_tag == "":
+	if _name_tag == "" and _team == TeamStyle.NONE:
 		return
 	var font: Font = _get_tag_font()
-	var w: float = font.get_string_size(_name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE).x
-	var at := Vector2(-w * 0.5, TAG_BASELINE_Y)
-	_body.draw_string_outline(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE, TAG_OUTLINE, Color(NeonPalette.BG_DEEP, 0.9))
-	_body.draw_string(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE, c.lightened(0.2))
+	var total: float = tag_extent()
+	var left: float = -total * 0.5
+	if _team != TeamStyle.NONE:
+		_draw_team_badge(font, left)
+		left += BADGE_SIZE + BADGE_GAP
+	if _name_tag == "":
+		return
+	var at := Vector2(left, TAG_BASELINE_Y)
+	var fs: int = _name_font_size()
+	_body.draw_string_outline(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs, TAG_OUTLINE, Color(NeonPalette.BG_DEEP, 0.9))
+	_body.draw_string(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs, c.lightened(0.2))
+
+
+func _draw_team_badge(font: Font, x: float) -> void:
+	var r := Rect2(x, TAG_BASELINE_Y - BADGE_SIZE + 1.5, BADGE_SIZE, BADGE_SIZE)
+	var tc: Color = TeamStyle.color(_team)
+	if _dead:
+		tc = tc.darkened(0.45)
+	_body.draw_rect(r.grow(0.8), Color(NeonPalette.BG_DEEP, 0.9))
+	_body.draw_rect(r, tc)
+	var letter: String = TeamStyle.letter(_team)
+	var fs: int = 8
+	var lw: float = font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs).x
+	_body.draw_string(font, Vector2(r.position.x + (BADGE_SIZE - lw) * 0.5, r.end.y - 1.6), letter,
+			HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs, TeamStyle.INK)
 
 
 func get_color_index() -> int:

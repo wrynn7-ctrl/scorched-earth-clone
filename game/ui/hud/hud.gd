@@ -43,6 +43,11 @@ var _angle_panel: AnglePanel = null
 var _banner: TurnBanner = null
 ## The big "<NAME>'S TURN" call-out of pass-and-play (never takes input).
 var _big_banner: BigTurnBanner = null
+## "SUDDEN DEATH" call-out and the small tag that stays while it is active (section 42).
+var _sudden_banner: SuddenDeathBanner = null
+var _sudden_tag: SuddenDeathIndicator = null
+## Team per tank (0..3), empty without teams: the turn banners show a letter badge when it is set.
+var _teams: PackedInt32Array = PackedInt32Array()
 var _fire: FireButton = null
 var _power: PowerPanel = null
 var _top_row: HBoxContainer = null
@@ -149,6 +154,9 @@ func _build() -> void:
 	_top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_center.add_child(_top_row)
+	_sudden_tag = SuddenDeathIndicator.new()
+	_sudden_tag.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_center.add_child(_sudden_tag)
 	_banner = TurnBanner.new()
 	_banner.name = "Banner"
 	_top_row.add_child(_banner)
@@ -193,6 +201,8 @@ func _build() -> void:
 
 	_big_banner = BigTurnBanner.new()
 	add_child(_big_banner)
+	_sudden_banner = SuddenDeathBanner.new()
+	add_child(_sudden_banner)
 
 	_fade = HudFade.new()
 	_fade.name = "Fade"
@@ -261,7 +271,7 @@ func apply_scale() -> void:
 	_pause_btn.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
 	_tray.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_tray_row.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
-	for n: Node in [_wind, _angle_panel, _banner, _fire, _power, _money, _moves, _weapon_chip, _items, _popup]:
+	for n: Node in [_wind, _angle_panel, _banner, _fire, _power, _money, _moves, _weapon_chip, _items, _popup, _sudden_tag]:
 		n.call("apply_scale")
 	_items_toggle.custom_minimum_size = Vector2(UiScale.dp(70.0), maxf(UiScale.touch(), _weapon_chip.custom_minimum_size.y))
 	_items_toggle.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
@@ -391,7 +401,17 @@ func set_wind(w: int) -> void:
 	_wind.set_wind(w)
 
 
+## Team per tank for the badges on the banners (empty = no teams; Love matches never have any).
+func set_teams(teams: PackedInt32Array) -> void:
+	_teams = teams.duplicate() if not _love else PackedInt32Array()
+
+
+func team_of(player_index: int) -> int:
+	return _teams[player_index] if player_index >= 0 and player_index < _teams.size() else TeamStyle.NONE
+
+
 func show_turn(player_index: int, player_name: String = "") -> void:
+	_banner.set_team(team_of(player_index))
 	_banner.show_turn(player_index, player_name)
 	_banner.set_thinking(false)
 	_aim.set_color(PlayerLooks.color(player_index))
@@ -400,7 +420,7 @@ func show_turn(player_index: int, player_name: String = "") -> void:
 ## Pass-and-play: the big "<NAME>'S TURN" call-out in the player's colour. It fades out by itself
 ## and ignores the mouse, so aiming works straight through it.
 func show_big_turn(player_index: int, player_name: String) -> void:
-	_big_banner.show_turn(player_index, player_name, _love)
+	_big_banner.show_turn(player_index, player_name, _love, team_of(player_index))
 
 
 func hide_big_turn() -> void:
@@ -411,9 +431,29 @@ func get_big_banner() -> BigTurnBanner:
 	return _big_banner
 
 
+## The "SUDDEN DEATH" call-out (never in a Love match). Never takes input.
+func show_sudden_death() -> void:
+	if not _love:
+		_sudden_banner.play()
+
+
+func get_sudden_banner() -> SuddenDeathBanner:
+	return _sudden_banner
+
+
+## The persistent tag: on while sudden death is active in the round; `next_drain` is the HP of the next drain.
+func set_sudden_death_active(active: bool, next_drain: int = 0) -> void:
+	_sudden_tag.set_active(active and not _love, next_drain)
+
+
+func get_sudden_tag() -> SuddenDeathIndicator:
+	return _sudden_tag
+
+
 ## A computer player's turn: banner "CPU NORMAL — PLAYER 3" (their colour and emblem), with the
 ## small "thinking…" line when `thinking` is set.
 func show_cpu_turn(player_index: int, level: int, thinking: bool = true) -> void:
+	_banner.set_team(team_of(player_index))
 	_banner.show_cpu_turn(player_index, level)
 	_banner.set_thinking(thinking)
 	_aim.set_color(PlayerLooks.color(player_index))

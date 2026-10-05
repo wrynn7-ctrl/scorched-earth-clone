@@ -169,6 +169,8 @@ var _speed: float = 1.0
 var _shells: Dictionary = {}
 var _trail_pool: Array[ShellTrail] = []
 var _round_winner: int = -1
+## The winning team of the round that just ended (-1 = a draw, or no team game).
+var _round_winner_team: int = -1
 var _round_ended: bool = false
 var _timelines_played: int = 0
 ## Tank whose turn the HUD shows (the "you" marker follows it) and the tank that fired.
@@ -188,6 +190,8 @@ var cpu_action_override: Callable = Callable()
 ## How many AI answers were replaced by a pass.
 var cpu_fallbacks: int = 0
 var _configured_controllers: PackedInt32Array = PackedInt32Array()
+var _configured_teams: PackedInt32Array = PackedInt32Array()
+var _configured_friendly_fire: bool = true
 
 # --- autosave ---
 var _save_dirty: bool = false
@@ -209,6 +213,8 @@ var _frozen: bool = false
 var _haptics: HapticPlayer = null
 var _fire_timeline: bool = false
 var _fire_count: int = 0
+## How many `sudden_death` events were played back (tests).
+var sudden_death_events: int = 0
 
 
 func _init() -> void:
@@ -241,6 +247,12 @@ func set_player_names(names: PackedStringArray) -> void:
 ## Who controls each tank (SimConstants.CTRL_*), for configure()d matches (call before add_child()).
 func set_controllers(controllers: PackedInt32Array) -> void:
 	_configured_controllers = controllers.duplicate()
+
+
+## Teams for configure()d matches: team per tank (0..3), friendly fire on/off (call before add_child()).
+func set_teams(teams: PackedInt32Array, friendly_fire: bool = true) -> void:
+	_configured_teams = teams.duplicate()
+	_configured_friendly_fire = friendly_fire
 
 
 ## Enables autosaving to `path` (call before add_child()).
@@ -443,6 +455,7 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 	state = session.state
 	_love = state.settings.mode == SimConstants.MODE_LOVE
 	_hud.set_love_mode(_love)
+	_hud.set_teams(state.settings.teams if has_teams() else PackedInt32Array())
 	if restored:
 		_theme_choice = ThemeDefs.sanitize(session.meta.get("theme", ThemeDefs.DEFAULT_ID))
 	if not restored:
@@ -504,6 +517,13 @@ func _new_settings() -> MatchSettings:
 			settings.controllers = ShotArgs.controllers.duplicate()
 	if not _configured_controllers.is_empty():
 		settings.controllers = _configured_controllers.duplicate()
+	if base == null:
+		if not _configured_teams.is_empty():
+			settings.teams = _configured_teams.duplicate()
+			settings.friendly_fire = _configured_friendly_fire
+		elif not ShotArgs.teams.is_empty() and not _configured:
+			settings.teams = ShotArgs.teams.slice(0, settings.num_tanks)
+			settings.friendly_fire = ShotArgs.friendly_fire != 0
 	if base != null and Entitlement.is_full():
 		settings.full_unlocked = true  # bought since the setup screen (a restart picks it up)
 	settings.seed = _seed if _seed != 0 else (settings.seed if settings.seed != 0 else int(randi()))
@@ -568,6 +588,7 @@ func _rebuild_display() -> void:
 		v.visible = has_terrain
 		v.set_look(PlayerLooks.color_index(t.id), PlayerLooks.emblem_index(t.id))
 		v.set_name_tag(PlayerNames.typed(t.id) if not is_cpu_tank(t.id) else "")
+		v.set_team(team_of(t.id))
 		v.position = Vector2(float(t.x), float(t.y))
 		v.set_dead(not t.alive)
 		v.set_health(t.health, SimConstants.MAX_HEALTH)
@@ -581,6 +602,7 @@ func _rebuild_display() -> void:
 	_rebuild_wells()
 	_clear_shells()
 	_pour = {}
+	_refresh_sudden_tag()
 
 
 ## Shows this round's theme: "random" is resolved from the match seed and round index, so
@@ -676,11 +698,13 @@ func _begin_turn_ui(announce: bool = true) -> void:
 	_turn_tank = id
 	_ensure_selection(id)
 	if state.phase == SimConstants.PHASE_AIM and is_cpu_tank(id) and state.tanks[id].alive:
+		_refresh_sudden_tag()
 		_hud.hide_big_turn()
 		_begin_cpu_turn(id)
 		return
 	_cpu.stop()
 	_hud.show_turn(id)
+	_refresh_sudden_tag()
 	_announce_turn(id, announce)
 	_hud.set_angle_tenths(_aim_angle[id])
 	_hud.set_power(_aim_power[id])
@@ -709,6 +733,28 @@ func human_count() -> int:
 		if not is_cpu_tank(t.id):
 			n += 1
 	return n
+
+
+## Sudden death is on in this round (ARCHITECTURE section 40): standard mode, in a round, and the turn count has
+## reached the threshold. Derived from the match, so it holds after Continue as well.
+func sudden_death_active() -> bool:
+	return not _love and state.phase == SimConstants.PHASE_AIM and state.terrain != null \
+			and state.turn_number >= Simulation.sudden_death_turn(state.settings)
+
+
+## Shows or hides the small HUD tag from the match state (with the HP the next drain takes).
+func _refresh_sudden_tag() -> void:
+	var on: bool = sudden_death_active()
+	_hud.set_sudden_death_active(on, Simulation.sudden_death_amount(state.sudden_death_cycles + 1) if on else 0)
+
+
+## The `sudden_death` event: the big banner (the alarm and the haptic pulse come from the shared event feed in
+## _dispatch) and the persistent tag. Instant mode (tests, replays) skips the banner like it skips the turn banner.
+func _on_sudden_death() -> void:
+	sudden_death_events += 1
+	if not _instant:
+		_hud.show_sudden_death()
+	_refresh_sudden_tag()
 
 
 ## Money, weapon button, item tray and fuel readout for tank `id`.
@@ -1192,6 +1238,7 @@ func _play(events: Array[Dictionary]) -> void:
 	_fire_timeline = false
 	_timelines_played += 1
 	_round_winner = -1
+	_round_winner_team = -1
 	_round_ended = false
 	_popup_slot = 0
 	var quiet: bool = _is_move_only(events)
@@ -1466,9 +1513,13 @@ func _dispatch(e: Dictionary) -> void:
 			_on_heart_burst(e)
 		"love":
 			_on_love(e)
+		"sudden_death":
+			_on_sudden_death()
 		"round_end":
 			_round_ended = true
 			_round_winner = e["winner"]
+			_round_winner_team = e.get("winner_team", -1)
+			_hud.set_sudden_death_active(false)
 			if _love and _round_winner >= 0:
 				_love_celebrate(_round_winner)
 		# "ready" has no presentation of its own.
@@ -1644,6 +1695,10 @@ func _on_damage(e: Dictionary) -> void:
 		"beam":
 			_pop(tr("DMG_BEAM_FMT") % amount, NeonPalette.CYAN, at)
 			v.hit_flash(Color(0.8, 1.0, 1.0), false)
+		"sudden_death":
+			# Red with the word "drain" (colour is never the only cue); it bypasses shields, so no bubble flicker.
+			_pop(tr("DMG_SUDDEN_FMT") % amount, NeonPalette.BAD, at)
+			v.hit_flash(NeonPalette.BAD, false)
 		_:
 			_pop("-%d" % amount, PlayerLooks.color(id), at)
 
@@ -2218,8 +2273,9 @@ func _show_round_summary() -> void:
 	_set_busy(true)
 	_hud.visible = true
 	_world.visible = state.terrain != null
+	_hud.set_sudden_death_active(false)
 	_round_overlay.show_summary(_round_winner_for_summary(), _summary_rows(), state.round_index + 1, state.settings.rounds,
-			_cpu_buys)
+			_cpu_buys, state.settings.teams if has_teams() else PackedInt32Array(), _round_winner_team_for_summary())
 
 
 ## After a restore the winner is not remembered; it is the tank with the most round wins that
@@ -2236,9 +2292,36 @@ func _round_winner_for_summary() -> int:
 	return alive
 
 
+## The winning team for the summary: remembered from round_end, or (after a restore) the team the living tanks
+## belong to; -1 for a draw (nobody alive) and in games without teams.
+func _round_winner_team_for_summary() -> int:
+	if not has_teams():
+		return -1
+	if _round_ended:
+		return _round_winner_team
+	var team: int = -1
+	for t: TankState in state.tanks:
+		if t.alive:
+			if team >= 0 and t.team != team:
+				return -1
+			team = t.team
+	return team
+
+
+## Teams are on in this match (never in Love, whatever the settings say).
+func has_teams() -> bool:
+	return not _love and state != null and state.settings.has_teams()
+
+
+## The team of tank `id` (0..3), or TeamStyle.NONE without teams.
+func team_of(id: int) -> int:
+	return state.tanks[id].team if has_teams() else TeamStyle.NONE
+
+
 func _show_match_over() -> void:
 	_set_busy(true)
 	_hud.visible = true
+	_hud.set_sudden_death_active(false)
 	_world.visible = state.terrain != null
 	_summary_pending = false
 	_save_dirty = false
@@ -2248,6 +2331,12 @@ func _show_match_over() -> void:
 		_show_love_win()
 		return
 	var rows: Array[Dictionary] = _summary_rows()
+	if has_teams():
+		var teams := PackedInt32Array()
+		for t: TankState in state.tanks:
+			teams.append(t.team)
+		_match_overlay.show_team_standings(Simulation.team_standings(state), Simulation.standings(state), rows, teams)
+		return
 	_match_overlay.show_standings(Simulation.standings(state), rows)
 
 
@@ -2404,6 +2493,11 @@ func _apply_screenshot_setup() -> void:
 			continue
 		state.tanks[i].x = x
 		state.tanks[i].y = TankState.rest_y(state.terrain, x)
+		moved = true
+	for _i: int in range(ShotArgs.pass_turns):
+		if state.phase != SimConstants.PHASE_AIM:
+			break
+		session.submit({"kind": "pass", "tank": state.current_tank})
 		moved = true
 	if moved:
 		_rebuild_display()
