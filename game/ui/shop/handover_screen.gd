@@ -76,18 +76,32 @@ func _ready() -> void:
 func apply_scale() -> void:
 	_emblem.custom_minimum_size = Vector2.ONE * UiScale.dp(72.0)
 	_box.add_theme_constant_override("separation", roundi(UiScale.dp(10.0)))
-	_title.add_theme_font_size_override("font_size", UiScale.font(30.0))
 	_hint.add_theme_font_size_override("font_size", UiScale.font(15.0))
 	_tap_label.add_theme_font_size_override("font_size", UiScale.font(18.0))
 	# Wrap the title before it can leave the screen on a narrow phone at a large text size.
 	_title.custom_minimum_size.x = minf(get_viewport_rect().size.x * 0.9, UiScale.dp(640.0))
+	_fit_title()
+
+
+## One line when it can be: a long name shrinks the title (down to 60%) before it wraps.
+func _fit_title() -> void:
+	var base: int = UiScale.font(30.0)
+	var chosen: int = base
+	var font: Font = _title.get_theme_font("font")
+	var room: float = _title.custom_minimum_size.x
+	if font != null and room > 0.0 and _title.text != "":
+		var w: float = font.get_string_size(_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, base).x
+		if w > room:
+			chosen = maxi(roundi(base * 0.6), floori(base * room / w))
+	_title.add_theme_font_size_override("font_size", chosen)
 
 
 func show_player(player: int) -> void:
 	_player = player
 	_emblem.set_index(player)
-	_title.text = tr("SHOP_HANDOVER") % (player + 1)
+	_title.text = tr("SHOP_HANDOVER") % PlayerNames.label(player)
 	_title.add_theme_color_override("font_color", PlayerLooks.color(player))
+	_fit_title()
 	visible = true
 	if _pulse != null:
 		_pulse.kill()

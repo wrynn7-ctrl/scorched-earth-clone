@@ -36,7 +36,7 @@ func show_standings(order: Array[int], rows: Array[Dictionary]) -> void:
 	if order.size() >= 2 and _level(by_id[order[0]] as Dictionary, by_id[order[1]] as Dictionary):
 		winner = -1
 	if winner >= 0:
-		_title.text = tr("OVERLAY_MATCH_WINNER") % (winner + 1)
+		_title.text = tr("OVERLAY_MATCH_WINNER") % PlayerNames.label(winner)
 		_title.add_theme_color_override("font_color", PlayerLooks.color(winner))
 	else:
 		_title.text = tr("OVERLAY_DRAW")
@@ -48,7 +48,7 @@ func show_standings(order: Array[int], rows: Array[Dictionary]) -> void:
 		var r: Dictionary = by_id[id]
 		table_rows.append({
 			"id": id,
-			"label": "%d. %s" % [rank + 1, tr("HUD_PLAYER_N") % (id + 1)],
+			"label": "%d. %s" % [rank + 1, PlayerNames.label(id)],
 			"cells": PackedStringArray([str(r["wins"]), HudFormat.group(r["damage"] as int), str(r["kills"])]),
 		})
 	_table.set_data(PackedStringArray([tr("SUM_WINS"), tr("SUM_DAMAGE"), tr("SUM_KILLS")]), table_rows, winner)

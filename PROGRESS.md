@@ -96,7 +96,7 @@
 |---|---|---|
 | M6 contract (ARCHITECTURE §39–§42: teams, friendly-fire option, sudden death at 10 turns × tanks, names, turn banner) | lead | ✅ written |
 | M6-C Core: teams + team round end/pay + friendly-fire option + team standings; sudden death; save v4 | core-sim-dev | 🟡 in progress |
-| M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | 🟡 in progress |
+| M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | ✅ reviewed (662 show+ui tests; keyboard untested on device) |
 | M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting | ai-dev | ⬜ after M6-C |
 | M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ⬜ after M6-C |
 | M6-Q QA pass | qa-tester | ⬜ end |

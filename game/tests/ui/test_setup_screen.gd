@@ -84,7 +84,7 @@ func test_player_count_is_limited_to_2_through_8() -> void:
 	assert_eq(s.get_players_value_text(), "2")
 	s.set_players(5)
 	for i: int in range(8):
-		assert_eq(s.get_player_row(i).visible, i < 5, "row %d" % i)
+		assert_eq(s.get_player_slot(i).visible, i < 5, "row %d" % i)
 
 
 func test_colours_and_emblems_stay_unique() -> void:
@@ -115,7 +115,7 @@ func test_every_slot_starts_human() -> void:
 	await wait_process_frames(2)
 	assert_eq(s.get_kind_button(0).text, "HUMAN ▾")
 	assert_eq(s.get_kind_button(1).text, "HUMAN ▾")
-	assert_false(s.get_chip(1).visible, "no level chip on a human")
+	assert_true(s.get_name_field(1).visible, "a human has a name field")
 
 
 func test_start_hands_the_match_to_the_battle() -> void:
@@ -194,7 +194,7 @@ func test_layout_fits_every_screen() -> void:
 			for slot: int in range(1, 8):
 				s.set_controller(slot, SimConstants.CTRL_EXPERT)  # the widest chip text
 			await wait_process_frames(3)
-			assert_true(s.get_chip(7).visible, "%s: CPU chip shown" % label)
+			assert_eq(s.get_kind_button(7).text, "CPU · EXPERT ▾", "%s: the CPU row spells its level out" % label)
 			var rect := Rect2(Vector2.ZERO, vis).grow(1.5)
 			var all: Array[Control] = []
 			_controls(s, all)
@@ -210,9 +210,6 @@ func test_layout_fits_every_screen() -> void:
 			assert_true(s.get_scroll().get_global_rect().encloses(first), "%s: first player row visible" % label)
 			assert_true(rect.encloses(s.get_start_button().get_global_rect()), "%s: START on screen" % label)
 			assert_true(rect.encloses(s.get_watch_box().get_global_rect()), "%s: the Watch checkbox is on screen" % label)
-			for slot: int in [1, 7]:
-				var kb: Rect2 = s.get_kind_button(slot).get_global_rect().grow(1.5)
-				assert_true(kb.encloses(s.get_chip(slot).get_global_rect()), "%s: the chip stays inside its button" % label)
 			for b: Button in [s.get_color_button(0), s.get_emblem_button(0), s.get_kind_button(0)]:
 				assert_gte(UiScale.canvas_to_dp(minf(b.size.x, b.size.y)), 47.5, "%s: %s >= 48 dp" % [label, b.name])
 			vp.queue_free()
@@ -254,16 +251,17 @@ func test_choices_become_controllers_and_chips() -> void:
 	_pick(s, 3, SimConstants.CTRL_EXPERT)
 	assert_eq(s.build_settings().controllers, PackedInt32Array([0, 1, 3, 4]))
 	assert_eq(s.get_kind_button(0).text, "HUMAN ▾")
-	assert_eq(s.get_kind_button(2).text, "CPU ▾")
+	assert_eq(s.get_kind_button(2).text, "CPU · HARD ▾")
 	assert_false(s.get_kind_popup().visible, "choosing closes the picker")
-	assert_false(s.get_chip(0).visible)
-	assert_eq([s.get_chip_text(1), s.get_chip_text(2), s.get_chip_text(3)], ["EASY", "HARD", "EXPERT"], "the chip spells the level out")
+	assert_true(s.get_name_field(0).visible)
+	assert_eq([s.get_kind_button(1).text, s.get_kind_button(2).text, s.get_kind_button(3).text],
+			["CPU · EASY ▾", "CPU · HARD ▾", "CPU · EXPERT ▾"], "the button spells the level out")
 	for slot: int in [1, 2, 3]:
-		assert_true(s.get_chip(slot).visible)
+		assert_false(s.get_name_field(slot).visible, "a CPU has no name field")
 	# A CPU slot can go back to human.
 	_pick(s, 2, SimConstants.CTRL_HUMAN)
 	assert_eq(s.build_settings().controllers, PackedInt32Array([0, 1, 0, 4]))
-	assert_false(s.get_chip(2).visible)
+	assert_true(s.get_name_field(2).visible)
 	# Hidden slots keep their choice when the count shrinks and grows again.
 	s.set_players(2)
 	assert_eq(s.build_settings().controllers, PackedInt32Array([0, 1]))
@@ -366,8 +364,8 @@ func test_last_used_setup_is_saved_and_restored() -> void:
 	assert_eq(m.start_money, 25000)
 	assert_eq(m.wind_max, 100)
 	assert_eq(m.controllers, PackedInt32Array([0, 1, 3, 0, 4]))
-	assert_eq(again.get_kind_button(2).text, "CPU ▾", "the rows show the restored choices")
-	assert_eq(again.get_chip_text(4), "EXPERT")
+	assert_eq(again.get_kind_button(2).text, "CPU · HARD ▾", "the rows show the restored choices")
+	assert_eq(again.get_kind_button(4).text, "CPU · EXPERT ▾")
 
 
 func test_damaged_saved_setup_is_clamped() -> void:

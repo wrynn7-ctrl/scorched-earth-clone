@@ -105,6 +105,7 @@ static func save(file_path: String = "") -> bool:
 		cfg.set_value(SETUP_SECTION, "controllers", SetupPrefs.controllers_array())
 		cfg.set_value(SETUP_SECTION, "watch", SetupPrefs.watch)
 		cfg.set_value(SETUP_SECTION, "theme", SetupPrefs.theme)
+		cfg.set_value(SETUP_SECTION, "names", SetupPrefs.names_array())
 	return cfg.save(file_path if file_path != "" else path) == OK
 
 
@@ -122,6 +123,7 @@ static func _load_setup(cfg: ConfigFile) -> void:
 	var watch: Variant = cfg.get_value(SETUP_SECTION, "watch", false)
 	SetupPrefs.watch = watch as bool if typeof(watch) == TYPE_BOOL else false
 	SetupPrefs.theme = ThemeDefs.sanitize(cfg.get_value(SETUP_SECTION, "theme", ThemeDefs.DEFAULT_ID))
+	SetupPrefs.set_names_from(cfg.get_value(SETUP_SECTION, "names", []))
 
 
 static func _int_in(cfg: ConfigFile, key: String, fallback: int, lo: int, hi: int) -> int:

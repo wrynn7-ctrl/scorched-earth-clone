@@ -296,7 +296,7 @@ func setup(state: MatchState, submit: Callable) -> void:
 func show_player(player: int, tab: int = TAB_WEAPONS, select_id: String = "") -> void:
 	_player = player
 	_emblem.set_index(player)
-	_title.text = tr("SHOP_TITLE_FMT") % (player + 1)
+	_title.text = tr("SHOP_TITLE_FMT") % PlayerNames.label(player)
 	_title.add_theme_color_override("font_color", PlayerLooks.color(player))
 	_selected = select_id
 	visible = true

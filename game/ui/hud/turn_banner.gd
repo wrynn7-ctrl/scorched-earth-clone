@@ -150,7 +150,7 @@ func get_text() -> String:
 
 
 func _refresh() -> void:
-	var shown: String = _player_name if _player_name != "" else tr("HUD_PLAYER_N") % (_index + 1)
+	var shown: String = _player_name if _player_name != "" else PlayerNames.label(_index)
 	if _level > 0:
 		_label.text = tr("HUD_CPU_TURN_FMT") % [CpuNames.level_word(_level), shown]
 	else:

@@ -35,6 +35,10 @@ const LOVE_HEART_SIZE: float = 9.0
 const LOVE_HEART_POS: Vector2 = Vector2(5.0, -48.0)
 const LOVE_EMBLEM_POS: Vector2 = Vector2(-14.0, -48.0)
 const LOVE_PULSE_SECONDS: float = 0.8
+## The player's typed name floats above the emblem (ARCHITECTURE section 42). Local units.
+const TAG_BASELINE_Y: float = -53.0
+const TAG_FONT_SIZE: int = 9
+const TAG_OUTLINE: int = 3
 ## How fast the displayed fill follows the real value (fraction of the meter per second).
 const LOVE_FILL_SPEED: float = 1.1
 
@@ -44,6 +48,9 @@ var _health: int = 100
 var _max_health: int = 100
 var _dead: bool = false
 var _emblem_index: int = 0
+## The name tag text ("" = no tag; only players who typed a name get one).
+var _name_tag: String = ""
+static var _tag_font: Font = null
 
 var _shield_hp: int = 0
 var _shield_max: int = 1
@@ -128,6 +135,41 @@ func set_look(color_index: int, emblem_index: int) -> void:
 	_color_index = color_index
 	_emblem_index = emblem_index
 	_redraw_all()
+
+
+## The name floating above the tank ("" removes it). Long names are squeezed to the tag's width.
+func set_name_tag(text: String) -> void:
+	if text == _name_tag:
+		return
+	_name_tag = text
+	_redraw_all()
+
+
+func get_name_tag() -> String:
+	return _name_tag
+
+
+## Width the widest possible tag (12 capital letters) takes, in local units: tests keep it clear of the neighbours.
+static func tag_width(text: String) -> float:
+	return _get_tag_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE).x
+
+
+static func _get_tag_font() -> Font:
+	if _tag_font == null:
+		_tag_font = load(NameFilter.FONT_PATH) as Font
+		if _tag_font == null:
+			_tag_font = ThemeDB.fallback_font
+	return _tag_font
+
+
+func _draw_name_tag(c: Color) -> void:
+	if _name_tag == "":
+		return
+	var font: Font = _get_tag_font()
+	var w: float = font.get_string_size(_name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE).x
+	var at := Vector2(-w * 0.5, TAG_BASELINE_Y)
+	_body.draw_string_outline(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE, TAG_OUTLINE, Color(NeonPalette.BG_DEEP, 0.9))
+	_body.draw_string(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TAG_FONT_SIZE, c.lightened(0.2))
 
 
 func get_color_index() -> int:
@@ -523,6 +565,7 @@ func _draw_body() -> void:
 	if _compact:
 		NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), Vector2(0, COMPACT_MARKER_Y), 5.5, c)
 		return
+	_draw_name_tag(c)
 	if _love_mode:
 		NeonPalette.draw_emblem(_body, NeonPalette.tank_emblem(_emblem_index), LOVE_EMBLEM_POS, 5.0, c)
 		return  # the love meter (Love layer) takes the health bar's place

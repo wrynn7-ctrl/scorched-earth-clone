@@ -95,6 +95,9 @@ var _rounds: int = 3
 var _seed: int = 0
 var _players: int = 2
 var _instant: bool = false
+var _configured_names: PackedStringArray = PackedStringArray()
+## The turn the big banner last announced, [round_index, turn_number, tank] (no repeats for one turn).
+var _announced_turn: Array[int] = []
 var _configured: bool = false
 var _autosave_path: String = ""
 
@@ -228,6 +231,11 @@ func configure(rounds: int, seed_value: int, instant: bool = false, players: int
 ## 2 tanks, 1 round and no shop in the core.
 func set_mode(mode: int) -> void:
 	_configured_mode = mode
+
+
+## Player names for configure()d matches, one per tank, "" = PLAYER n (call before add_child()).
+func set_player_names(names: PackedStringArray) -> void:
+	_configured_names = names.duplicate()
 
 
 ## Who controls each tank (SimConstants.CTRL_*), for configure()d matches (call before add_child()).
@@ -414,9 +422,15 @@ func _start_match(resume: bool = false) -> void:
 		restored = MatchSession.restore(_autosave_path)
 		if restored != null:
 			PlayerLooks.from_dict(restored.meta.get("looks", {}) as Dictionary)
+			# Old saves have no names: PLAYER n.
+			PlayerNames.from_array(restored.meta.get("names", []))
 	if restored != null:
 		_adopt_session(restored, true)
 	else:
+		if _configured:
+			PlayerNames.set_names(_configured_names)
+		elif not ShotArgs.names.is_empty():
+			PlayerNames.set_names(ShotArgs.names)  # a quick match for screenshots
 		var fresh: MatchSession = MatchSession.create(_new_settings())
 		_adopt_session(fresh, false)
 
@@ -455,7 +469,8 @@ func _adopt_session(new_session: MatchSession, restored: bool) -> void:
 		_restore_flowers(session.meta.get("flowers", []))
 	_apply_initial_aim_override()
 	_sync_round_wins()
-	_enter_phase()
+	_announced_turn = []
+	_enter_phase(not restored)
 
 
 ## Skin Studio looks (docs/ARCHITECTURE.md section 35): a Human tank on this device wears the skin assigned to its
@@ -552,6 +567,7 @@ func _rebuild_display() -> void:
 		var v: TankView = _tank_views[t.id]
 		v.visible = has_terrain
 		v.set_look(PlayerLooks.color_index(t.id), PlayerLooks.emblem_index(t.id))
+		v.set_name_tag(PlayerNames.typed(t.id) if not is_cpu_tank(t.id) else "")
 		v.position = Vector2(float(t.x), float(t.y))
 		v.set_dead(not t.alive)
 		v.set_health(t.health, SimConstants.MAX_HEALTH)
@@ -628,7 +644,8 @@ func _apply_initial_aim_override() -> void:
 
 
 ## Shows whatever the phase calls for: shop, round summary, aim HUD or the final standings.
-func _enter_phase() -> void:
+## `announce` is false after a restore: the big turn banner is for a turn that just began.
+func _enter_phase(announce: bool = true) -> void:
 	match state.phase:
 		SimConstants.PHASE_SHOP:
 			_set_busy(true)
@@ -648,25 +665,50 @@ func _enter_phase() -> void:
 			_hud.visible = true
 			_hud.set_wind(state.wind)  # a love match (and a restored one) starts without a wind event
 			_set_busy(false)
-			_begin_turn_ui()
+			_begin_turn_ui(announce)
 			_run_start_hooks()
 
 
 ## HUD + preview for whoever's turn it is now. A computer player's turn locks the input and
 ## starts the CpuDriver instead (see _cpu_step).
-func _begin_turn_ui() -> void:
+func _begin_turn_ui(announce: bool = true) -> void:
 	var id: int = state.current_tank
 	_turn_tank = id
 	_ensure_selection(id)
 	if state.phase == SimConstants.PHASE_AIM and is_cpu_tank(id) and state.tanks[id].alive:
+		_hud.hide_big_turn()
 		_begin_cpu_turn(id)
 		return
 	_cpu.stop()
 	_hud.show_turn(id)
+	_announce_turn(id, announce)
 	_hud.set_angle_tenths(_aim_angle[id])
 	_hud.set_power(_aim_power[id])
 	_refresh_loadout(id)
 	_request_preview()
+
+
+## Pass-and-play only (two or more humans on this device): the big "<NAME>'S TURN" banner for a
+## human's turn. Never for a CPU, never twice for the same turn, never in instant (test/replay)
+## mode and never after a restore (`announce` false). It does not block anything.
+func _announce_turn(id: int, announce: bool) -> void:
+	var key: Array[int] = [state.round_index, state.turn_number, id]
+	var repeat: bool = key == _announced_turn
+	_announced_turn = key
+	if not announce or repeat or _instant or state.phase != SimConstants.PHASE_AIM or not state.tanks[id].alive:
+		return
+	if human_count() < 2:
+		return
+	_hud.show_big_turn(id, PlayerNames.label(id))
+
+
+## Tanks a person plays on this device (alive or not).
+func human_count() -> int:
+	var n: int = 0
+	for t: TankState in state.tanks:
+		if not is_cpu_tank(t.id):
+			n += 1
+	return n
 
 
 ## Money, weapon button, item tray and fuel readout for tank `id`.
@@ -2223,7 +2265,7 @@ func _make_meta() -> Dictionary:
 		for it: Dictionary in entry["items"] as Array[Dictionary]:
 			items.append([it["id"], it["units"]])
 		buys.append({"tank": entry["tank"], "level": entry["level"], "items": items})
-	var meta: Dictionary = {"looks": PlayerLooks.to_dict(state.tanks.size()), "round_money": money,
+	var meta: Dictionary = {"looks": PlayerLooks.to_dict(state.tanks.size()), "names": PlayerNames.to_array(state.tanks.size()), "round_money": money,
 			"summary_pending": _summary_pending, "cpu_buys": buys, "theme": _theme_choice}
 	if _love:
 		meta["flowers"] = _love_impacts.duplicate(true)

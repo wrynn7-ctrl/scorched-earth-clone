@@ -72,7 +72,7 @@ func apply_scale() -> void:
 ## caller's convenience; the strip does not move.)
 func show_win(winner: int, _winner_x: float = 0.5) -> void:
 	_winner = winner
-	_title.text = tr("LOVE_WIN_FMT") % (winner + 1)
+	_title.text = tr("LOVE_WIN_FMT") % PlayerNames.label(winner)
 	_title.add_theme_color_override("font_color", PlayerLooks.color(winner).lightened(0.15))
 	_heart_l.color = Color(1.0, 0.4, 0.64)
 	_heart_r.color = Color(1.0, 0.4, 0.64)

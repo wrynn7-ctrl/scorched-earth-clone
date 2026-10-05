@@ -41,6 +41,8 @@ var _fire_col: VBoxContainer = null
 var _wind: WindIndicator = null
 var _angle_panel: AnglePanel = null
 var _banner: TurnBanner = null
+## The big "<NAME>'S TURN" call-out of pass-and-play (never takes input).
+var _big_banner: BigTurnBanner = null
 var _fire: FireButton = null
 var _power: PowerPanel = null
 var _top_row: HBoxContainer = null
@@ -188,6 +190,9 @@ func _build() -> void:
 	_popup = WeaponPopup.new()
 	_popup.chosen.connect(func(id: String) -> void: weapon_selected.emit(id))
 	add_child(_popup)
+
+	_big_banner = BigTurnBanner.new()
+	add_child(_big_banner)
 
 	_fade = HudFade.new()
 	_fade.name = "Fade"
@@ -390,6 +395,20 @@ func show_turn(player_index: int, player_name: String = "") -> void:
 	_banner.show_turn(player_index, player_name)
 	_banner.set_thinking(false)
 	_aim.set_color(PlayerLooks.color(player_index))
+
+
+## Pass-and-play: the big "<NAME>'S TURN" call-out in the player's colour. It fades out by itself
+## and ignores the mouse, so aiming works straight through it.
+func show_big_turn(player_index: int, player_name: String) -> void:
+	_big_banner.show_turn(player_index, player_name, _love)
+
+
+func hide_big_turn() -> void:
+	_big_banner.hide_now()
+
+
+func get_big_banner() -> BigTurnBanner:
+	return _big_banner
 
 
 ## A computer player's turn: banner "CPU NORMAL — PLAYER 3" (their colour and emblem), with the

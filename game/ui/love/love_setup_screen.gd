@@ -348,6 +348,7 @@ func start_match() -> void:
 	BattleConfig.seed_value = 0
 	BattleConfig.theme = ThemeDefs.DEFAULT_ID
 	PlayerLooks.set_looks(_colors.duplicate(), _emblems.duplicate())
+	PlayerNames.reset()  # the Love Edition has no name fields: PLAYER 1 and PLAYER 2
 	# A new match replaces any autosave (the title asked for confirmation already).
 	SaveStore.delete(BattleConfig.autosave_path)
 	Transition.go(get_tree(), BATTLE_SCENE)

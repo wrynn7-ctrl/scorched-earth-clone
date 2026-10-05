@@ -44,7 +44,7 @@ func _init() -> void:
 func show_summary(winner: int, rows: Array[Dictionary], round_number: int, rounds: int,
 		cpu_buys: Array[Dictionary] = []) -> void:
 	if winner >= 0:
-		_title.text = tr("OVERLAY_ROUND_WINNER") % (winner + 1)
+		_title.text = tr("OVERLAY_ROUND_WINNER") % PlayerNames.label(winner)
 		_title.add_theme_color_override("font_color", PlayerLooks.color(winner))
 	else:
 		_title.text = tr("OVERLAY_DRAW")
@@ -55,7 +55,7 @@ func show_summary(winner: int, rows: Array[Dictionary], round_number: int, round
 		var id: int = r["id"]
 		table_rows.append({
 			"id": id,
-			"label": tr("HUD_PLAYER_N") % (id + 1),
+			"label": PlayerNames.label(id),
 			"cells": PackedStringArray([HudFormat.money_delta(r["earned"] as int), str(r["kills"]), str(r["wins"])]),
 		})
 	_table.set_data(PackedStringArray([tr("SUM_EARNED"), tr("SUM_KILLS"), tr("SUM_WINS")]), table_rows, winner)
@@ -77,7 +77,7 @@ func _set_cpu_lines(cpu_buys: Array[Dictionary]) -> void:
 		var id: int = entry["tank"]
 		var l := Label.new()
 		l.name = "Cpu%d" % id
-		l.text = tr("SUM_CPU_BUYS_FMT") % [tr("HUD_PLAYER_N") % (id + 1), CpuNames.level_word(entry["level"] as int),
+		l.text = tr("SUM_CPU_BUYS_FMT") % [PlayerNames.label(id), CpuNames.level_word(entry["level"] as int),
 				CpuShop.describe(entry["items"] as Array[Dictionary])]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL

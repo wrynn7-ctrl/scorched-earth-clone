@@ -35,6 +35,9 @@ const DEFAULT_MONEY_LEVEL: int = 1
 const DEFAULT_WIND_LEVEL: int = 2
 ## Humans sharing one device without the full game.
 const FREE_MAX_HUMANS: int = 2
+## From this screen width (dp) a human's name field sits in the same line as its colour, emblem and
+## picker; below it the field gets a line of its own (a 12-capital name needs about 150 dp).
+const NAME_INLINE_MIN_DP: float = 960.0
 
 ## Chip colour per level (the chip also spells the level out, so colour is never the only cue).
 const LEVEL_COLORS: Array[Color] = [Color.WHITE, NeonPalette.GOOD, NeonPalette.CYAN, NeonPalette.WARN, NeonPalette.MAGENTA]
@@ -48,6 +51,8 @@ var _emblems: PackedInt32Array = PackedInt32Array()
 ## SimConstants.CTRL_* for every slot (also the hidden ones, so shrinking and growing the
 ## player count keeps the choices).
 var _controllers: PackedInt32Array = PackedInt32Array()
+## The name typed for every slot ("" = PLAYER n). Hidden and CPU slots keep theirs.
+var _names: PackedStringArray = PackedStringArray()
 var _watch: bool = false
 ## False locks everything section 32 reserves for the full game. Follows Entitlement live.
 var _full_unlocked: bool = true
@@ -73,13 +78,14 @@ var _players_box: VBoxContainer = null
 var _players_caption: Label = null
 var _scroll: TouchScroll = null
 var _rows: VBoxContainer = null
+## One container per slot: the row (label, swatches, picker) and, on narrow screens, the name field below it.
+var _slots: Array[VBoxContainer] = []
 var _player_rows: Array[HBoxContainer] = []
+var _name_fields: Array[NameField] = []
 var _player_labels: Array[Label] = []
 var _color_buttons: Array[SwatchButton] = []
 var _emblem_buttons: Array[SwatchButton] = []
 var _kind_buttons: Array[Button] = []
-var _chips: Array[PanelContainer] = []
-var _chip_labels: Array[Label] = []
 var _picker: KindPicker = null
 var _theme_button: Button = null
 var _theme_picker: ThemePicker = null
@@ -103,12 +109,15 @@ func _init() -> void:
 		_emblems.append(i)
 	_controllers.resize(SimConstants.MAX_TANKS)
 	_controllers.fill(SimConstants.CTRL_HUMAN)
+	_names.resize(SimConstants.MAX_TANKS)
 	_full_unlocked = ThemeDefs.is_full_game()
 	_load_prefs()
 	if ShotArgs.players >= SimConstants.MIN_TANKS:
 		_players = clampi(ShotArgs.players, SimConstants.MIN_TANKS, SimConstants.MAX_TANKS)
 	for i: int in range(mini(ShotArgs.controllers.size(), SimConstants.MAX_TANKS)):
 		_controllers[i] = _allowed_level(ShotArgs.controllers[i])
+	for i: int in range(mini(ShotArgs.names.size(), SimConstants.MAX_TANKS)):
+		_names[i] = PlayerNames.sanitize(ShotArgs.names[i])
 	_enforce_free_rules()
 	_build()
 
@@ -120,6 +129,10 @@ func _ready() -> void:
 	Entitlement.hub().changed.connect(_on_entitlement_changed)
 	_refresh()
 	ShotHook.attach(self)
+	for i: int in range(SimConstants.MAX_TANKS):
+		_name_fields[i].set_name_text(_names[i])
+	if ShotArgs.focus_name > 0:
+		_name_fields[clampi(ShotArgs.focus_name - 1, 0, SimConstants.MAX_TANKS - 1)].grab_focus.call_deferred()
 	if ShotArgs.setup_picker > 0:
 		_open_kind_popup.call_deferred(clampi(ShotArgs.setup_picker - 1, 0, SimConstants.MAX_TANKS - 1))
 
@@ -148,6 +161,7 @@ func _load_prefs() -> void:
 	_theme = SetupPrefs.theme if _theme_allowed(SetupPrefs.theme) else ThemeDefs.DEFAULT_ID
 	for i: int in range(SimConstants.MAX_TANKS):
 		_controllers[i] = _allowed_level(SetupPrefs.controllers[i] if i < SetupPrefs.controllers.size() else 0)
+		_names[i] = SetupPrefs.names[i] if i < SetupPrefs.names.size() else ""
 	_enforce_free_rules()
 	_enforce_human_rule()
 
@@ -352,9 +366,13 @@ func _build_players() -> void:
 
 
 func _build_player_row(i: int) -> void:
+	var slot := VBoxContainer.new()
+	slot.name = "Slot%d" % i
+	_rows.add_child(slot)
+	_slots.append(slot)
 	var row := HBoxContainer.new()
 	row.name = "Player%d" % i
-	_rows.add_child(row)
+	slot.add_child(row)
 	_player_rows.append(row)
 	var label := Label.new()
 	label.name = "Label"
@@ -382,25 +400,16 @@ func _build_player_row(i: int) -> void:
 	kb.pressed.connect(_open_kind_popup.bind(i))
 	row.add_child(kb)
 	_kind_buttons.append(kb)
-	# The level chip sits inside the picker button's right end, so a CPU row needs no extra width.
-	var chip := PanelContainer.new()
-	chip.name = "Chip"
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.anchor_left = 1.0
-	chip.anchor_right = 1.0
-	chip.anchor_top = 0.5
-	chip.anchor_bottom = 0.5
-	chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	chip.grow_vertical = Control.GROW_DIRECTION_BOTH
-	var chip_label := Label.new()
-	chip_label.name = "Text"
-	chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	chip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.add_child(chip_label)
-	kb.add_child(chip)
-	_chips.append(chip)
-	_chip_labels.append(chip_label)
+	# Only Human slots have a name. The field starts below the row; _place_name_field moves it
+	# into the row on wide screens. (M6-U2: the team chip goes at the end of the row.)
+	var nf := NameField.new()
+	nf.name = "Name"
+	nf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nf.tooltip_text = tr("SETUP_NAME_TIP")
+	nf.committed.connect(_on_name_committed.bind(i))
+	nf.focus_entered.connect(_on_name_focus.bind(i))
+	slot.add_child(nf)
+	_name_fields.append(nf)
 
 
 func _open_kind_popup(index: int) -> void:
@@ -465,10 +474,11 @@ func apply_scale() -> void:
 	for b: Button in _kind_buttons:
 		b.custom_minimum_size = Vector2(UiScale.dp(92.0), touch)
 		b.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
-	for i: int in range(_chips.size()):
-		_chips[i].offset_right = -UiScale.dp(6.0)
-		_chips[i].add_theme_stylebox_override("panel", _chip_style(_controllers[i]))
-		_chip_labels[i].add_theme_font_size_override("font_size", UiScale.hud_font(10.0))
+	var inline_names: bool = names_inline()
+	for i: int in range(_name_fields.size()):
+		_name_fields[i].apply_scale()
+		_place_name_field(i, inline_names)
+		_slots[i].add_theme_constant_override("separation", roundi(UiScale.dp(3.0)))
 	_header.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 	_watch_box.custom_minimum_size = Vector2(0.0, touch)
 	_watch_box.add_theme_font_size_override("font_size", UiScale.hud_font(12.0))
@@ -741,7 +751,7 @@ func _refresh() -> void:
 	for i: int in range(_wind_buttons.size()):
 		_wind_buttons[i].set_pressed_no_signal(i == _wind_level)
 	for i: int in range(SimConstants.MAX_TANKS):
-		_player_rows[i].visible = i < _players
+		_slots[i].visible = i < _players
 		var col: Color = NeonPalette.tank_color(_colors[i])
 		_player_labels[i].add_theme_color_override("font_color", col)
 		_color_buttons[i].set_art(col)
@@ -776,29 +786,105 @@ func _refresh_locks() -> void:
 		LockBadge.mark(_wind_buttons[i], wind_locked(i), tr("LOCK_FULL_FMT") % label, label)
 
 
-## Slot i's picker button, level chip and tooltip.
+## Slot i's picker button (HUMAN, or CPU with its level spelled out) and name field.
 func _refresh_kind(i: int) -> void:
 	var level: int = _controllers[i]
 	var cpu: bool = level != SimConstants.CTRL_HUMAN
-	_kind_buttons[i].text = tr("SETUP_KIND_CPU") if cpu else tr("SETUP_HUMAN")
-	_kind_buttons[i].tooltip_text = CpuNames.full_name(level)
-	_chips[i].visible = cpu
-	if cpu:
-		_chip_labels[i].text = CpuNames.level_word(level)
-		_chip_labels[i].add_theme_color_override("font_color", LEVEL_COLORS[level])
-		_chips[i].add_theme_stylebox_override("panel", _chip_style(level))
+	var kb: Button = _kind_buttons[i]
+	kb.text = tr("SETUP_KIND_CPU_FMT") % CpuNames.level_word(level) if cpu else tr("SETUP_HUMAN")
+	kb.tooltip_text = CpuNames.full_name(level)
+	# Level colour on the text (the words are the cue, the colour only helps).
+	kb.add_theme_color_override("font_color", LEVEL_COLORS[clampi(level, 0, LEVEL_COLORS.size() - 1)] if cpu else NeonPalette.TEXT)
+	_name_fields[i].visible = not cpu
+	_name_fields[i].placeholder_text = tr("HUD_PLAYER_N") % (i + 1)
+	# Inline, the name takes the free width and the picker keeps its own; otherwise the picker fills the row.
+	kb.size_flags_horizontal = Control.SIZE_SHRINK_END if (names_inline() and not cpu) else Control.SIZE_EXPAND_FILL
 
 
-## A small outlined badge in the level's colour.
-func _chip_style(level: int) -> StyleBoxFlat:
-	var col: Color = LEVEL_COLORS[clampi(level, 0, LEVEL_COLORS.size() - 1)]
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(col, 0.16)
-	sb.border_color = col
-	sb.set_border_width_all(maxi(1, roundi(UiScale.dp(1.5))))
-	sb.set_corner_radius_all(roundi(UiScale.dp(8.0)))
-	sb.set_content_margin_all(UiScale.dp(4.0))
-	return sb
+# --- names ---
+
+## True when the name fields sit inside the player rows (wide screens).
+func names_inline() -> bool:
+	return UiScale.canvas_to_dp(get_viewport_rect().size.x) >= NAME_INLINE_MIN_DP
+
+
+## Puts slot i's name field into its row (before the picker) or below it.
+func _place_name_field(i: int, inline: bool) -> void:
+	var nf: NameField = _name_fields[i]
+	var target: Node = _player_rows[i] if inline else _slots[i]
+	if nf.get_parent() != target:
+		nf.get_parent().remove_child(nf)
+		target.add_child(nf)
+	if inline:
+		target.move_child(nf, _kind_buttons[i].get_index())
+	_refresh_kind(i)
+
+
+func _on_name_committed(player_name: String, blocked: bool, i: int) -> void:
+	_names[i] = player_name
+	if blocked:
+		_hint.text = tr("SETUP_NAME_BLOCKED") % (tr("HUD_PLAYER_N") % (i + 1))
+	elif _hint.text == tr("SETUP_NAME_BLOCKED") % (tr("HUD_PLAYER_N") % (i + 1)):
+		_hint.text = ""
+	_hint.visible = _hint.text != ""
+	_keyboard_shift(0.0)
+
+
+func _on_name_focus(i: int) -> void:
+	_scroll.ensure_control_visible(_name_fields[i])
+
+
+## Types `raw` into slot i's field and finishes the edit, as the keyboard's Done key would.
+## Returns the name that was kept ("" for an empty or blocked name).
+func set_player_name(i: int, raw: String) -> String:
+	_name_fields[i].text = raw
+	_name_fields[i].commit()
+	return _names[i]
+
+
+## What slot i will be called: its name, or PLAYER n.
+func get_player_name(i: int) -> String:
+	return _names[i] if _names[i] != "" else tr("HUD_PLAYER_N") % (i + 1)
+
+
+func get_name_field(i: int) -> NameField:
+	return _name_fields[i]
+
+
+## Names for the battle: a Human's typed name, "" for a CPU slot.
+func battle_names() -> PackedStringArray:
+	var out := PackedStringArray()
+	for i: int in range(_players):
+		out.append(_names[i] if _controllers[i] == SimConstants.CTRL_HUMAN else "")
+	return out
+
+
+## A tap anywhere else ends the edit (the keyboard goes away); Godot would keep the field focused.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and (event as InputEventMouseButton).pressed):
+		return
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused is NameField and not focused.get_global_rect().has_point((event as InputEventMouseButton).position):
+		focused.release_focus()
+
+
+func _process(_delta: float) -> void:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused is NameField and DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		var kb: float = float(DisplayServer.virtual_keyboard_get_height())
+		if kb > 0.0:
+			var room: float = get_viewport_rect().size.y - kb
+			# The field's rect already includes the shift applied so far.
+			_keyboard_shift(maxf(0.0, focused.get_global_rect().end.y + UiScale.dp(8.0) - room - _margin.offset_top))
+			return
+	if _margin.offset_top != 0.0:
+		_keyboard_shift(0.0)
+
+
+## Slides the whole layout up by `amount` canvas units so the focused field clears the on-screen keyboard.
+func _keyboard_shift(amount: float) -> void:
+	_margin.offset_top = -amount
+	_margin.offset_bottom = -amount
 
 
 # ======================================================================================
@@ -825,7 +911,7 @@ func build_settings() -> MatchSettings:
 
 ## Remembers the current choices in SetupPrefs and writes settings.cfg.
 func save_prefs() -> void:
-	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch, _theme)
+	SetupPrefs.remember(_players, _rounds, _money_level, _wind_level, _controllers, _watch, _theme, _names)
 	SettingsStore.save()
 
 
@@ -836,6 +922,7 @@ func start_match() -> void:
 	BattleConfig.seed_value = 0
 	BattleConfig.theme = _theme
 	PlayerLooks.set_looks(_colors.slice(0, _players), _emblems.slice(0, _players))
+	PlayerNames.set_names(battle_names())
 	# A new match replaces any autosave (the title asked for confirmation already).
 	SaveStore.delete(BattleConfig.autosave_path)
 	Transition.go(get_tree(), BATTLE_SCENE)
@@ -856,8 +943,13 @@ func get_back_button() -> Button:
 	return _back
 
 
+## The row of slot i (label, swatches, picker); the slot itself also holds a narrow screen's name field.
 func get_player_row(i: int) -> HBoxContainer:
 	return _player_rows[i]
+
+
+func get_player_slot(i: int) -> VBoxContainer:
+	return _slots[i]
 
 
 func get_color_button(i: int) -> SwatchButton:
@@ -878,14 +970,6 @@ func get_kind_popup() -> KindPicker:
 
 func get_controllers() -> PackedInt32Array:
 	return _controllers.slice(0, _players)
-
-
-func get_chip(i: int) -> PanelContainer:
-	return _chips[i]
-
-
-func get_chip_text(i: int) -> String:
-	return _chip_labels[i].text
 
 
 func get_watch_box() -> Button:
