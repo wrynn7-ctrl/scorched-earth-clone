@@ -12,7 +12,7 @@ const REQUIRED: Array[String] = [
 	"shield_up", "shield_hit", "shield_break", "repulsor_pulse",
 	"chute_pop", "repair_chime", "money_gain", "money_loss", "tank_destroyed", "round_win", "match_win",
 	"ui_tap", "ui_back", "ui_purchase", "ui_locked", "cpu_think_tick", "turn_blip",
-	"love_fire", "heart_burst", "love_win", "love_found",
+	"love_fire", "heart_burst", "love_win", "love_found", "sudden_death",
 ]
 const PATH: String = "user://test_audio_settings.cfg"
 ## Longest allowed file (seconds); every other sound stays under DEFAULT_MAX_SECONDS. The heavy redesign made the
@@ -194,6 +194,7 @@ func _event_table() -> Array:
 		[{"type": "tank_destroyed"}, "tank_destroyed"],
 		[{"type": "wind", "wind": 5}, ""],
 		[{"type": "turn", "tank": 1}, "turn_blip"],
+		[{"type": "sudden_death", "tick": 4}, "sudden_death"],
 		[{"type": "round_start", "round": 1}, ""],
 		[{"type": "round_end", "winner": 0}, "round_win"],
 		[{"type": "round_end", "winner": -1}, ""],

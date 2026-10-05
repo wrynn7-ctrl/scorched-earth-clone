@@ -98,7 +98,7 @@
 | M6-C Core: teams + team round end/pay + friendly-fire option + team standings; sudden death; save v4 | core-sim-dev | ✅ reviewed (939 core+qa tests; no-teams replays bit-identical to pre-M6) |
 | M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | ✅ reviewed (662 show+ui tests; keyboard untested on device) |
 | M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting | ai-dev | 🟡 in progress |
-| M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | 🟡 in progress |
+| M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ✅ reviewed (1,014 show+ui+qa tests) |
 | M6-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
