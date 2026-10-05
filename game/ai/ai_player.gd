@@ -124,6 +124,9 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	var best_sit: AiSituation = null
 	var best_score: int = 0
 	var far: Array[AiSituation] = []  # targets no weapon reaches from here
+	# The best plan that spares the shooter itself and only risks teammates (friendly fire on), if any.
+	var spare_sit: AiSituation = null
+	var spare_plan: Dictionary = {}
 	for target: TankState in _target_order(me, enemies, primary):
 		var sit: AiSituation = situation(state, me, level, prof, enemies, target)
 		if target == primary:
@@ -139,6 +142,10 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 		# Every option at this target would hurt us: remember the least bad one and look at
 		# the next target (one farther away may be safe to shoot at).
 		var score: int = (plan["enemy_dmg"] as int) - 3 * (plan["self_dmg"] as int) / 2
+		if plan["me_dmg"] == 0 and (plan["enemy_dmg"] as int) > 0 and (spare_sit == null
+				or (plan["ally_dmg"] as int) < (spare_plan["ally_dmg"] as int)):
+			spare_sit = sit
+			spare_plan = plan
 		if best_sit == null or score > best_score:
 			best_plan = plan
 			best_sit = sit
@@ -151,8 +158,10 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 	if best_score > 0 or (level == SimConstants.CTRL_EASY and (best_plan["self_dmg"] as int) <= EASY_SELF_HIT
 			and (best_plan["enemy_dmg"] as int) > 0):
 		return finalize(best_sit, best_plan)
-	if in_sudden_death(state):
-		return _desperate_shot(best_sit, best_plan)
+	# Only teammates stand in the way (friendly fire on): a pass would just waste the turn, so take the lowest-risk
+	# shot there is. Sudden death never passes at all (every option may then hurt the shooter too).
+	if in_sudden_death(state) or spare_sit != null or best_plan["me_dmg"] == 0:
+		return _low_risk_shot(level, best_sit, best_plan, spare_sit, spare_plan)
 	return {"kind": "pass", "tank": me.id}
 
 
@@ -164,30 +173,54 @@ static func in_sudden_death(state: MatchState) -> bool:
 			and state.turn_number >= Simulation.sudden_death_turn(state.settings)
 
 
-## Sudden death drains everybody every turn cycle, so waiting is never an option: the AI must shoot. Every real
-## option would hurt us (a pass was the answer outside sudden death), so send the least harmful one: either the
-## least-bad plan found already, or a full/steep Spark Dart lob that lands far from us (often off the map or
-## near an enemy). The guard is not relaxed: the option with the smallest estimated self-damage wins, and the
-## plan's better aim wins ties. Only model flights are spent (no real trace).
-static func _desperate_shot(sit: AiSituation, best_plan: Dictionary) -> Dictionary:
+## A shot instead of a pass, for when every plan would splash somebody on our side. A beginner (Easy, Normal) accepts
+## a plan that spares itself and only risks a teammate, as long as it also hurts an enemy at least as much as it
+## risks the teammate. Otherwise (and for Hard and Expert) the lowest-risk Spark Dart lob is sent. The shooter's own
+## safety always comes first: nothing with self damage is chosen while a plan without it exists.
+static func _low_risk_shot(level: int, best_sit: AiSituation, best_plan: Dictionary, spare_sit: AiSituation,
+		spare_plan: Dictionary) -> Dictionary:
+	if spare_sit != null and level <= SimConstants.CTRL_NORMAL \
+			and (spare_plan["ally_dmg"] as int) <= (spare_plan["enemy_dmg"] as int):
+		return finalize(spare_sit, spare_plan)
+	if spare_sit != null:
+		return _desperate_shot(spare_sit, spare_plan)
+	return _desperate_shot(best_sit, best_plan)
+
+
+## The least harmful way to fire: the plan found already (its better aim wins ties) or a full / three-quarter power
+## Spark Dart lob at a few angles, whichever risks the shooter least, then its teammates, then hurts an enemy most,
+## then comes down nearest the target. Only model flights are spent (no real trace).
+static func _desperate_shot(sit: AiSituation, base_plan: Dictionary) -> Dictionary:
 	var pick: Dictionary = {}
-	var pick_self: int = best_plan["self_dmg"]
-	var pick_enemy: int = best_plan["enemy_dmg"]
+	var pick_key: Array[int] = _risk_key(sit, base_plan, true)
 	for a_dir: int in DESPERATE_ANGLES:
 		for power: int in [SimConstants.MAX_POWER, SimConstants.MAX_POWER * 3 / 4]:
 			var plan: Dictionary = {"weapon": "spark_dart", "angle": AimSolver.actual_angle(sit.ctx, a_dir),
 					"power": power, "ok": true, "corrected": false, "prev_power": 0}
 			AiWeapons.rate_plan(sit, plan, "spark_dart")
-			var sd: int = plan["self_dmg"]
-			var ed: int = plan["enemy_dmg"]
-			if sd < pick_self or (sd == pick_self and ed > pick_enemy):
+			var key: Array[int] = _risk_key(sit, plan, false)
+			if _key_less(key, pick_key):
 				pick = plan
-				pick_self = sd
-				pick_enemy = ed
+				pick_key = key
 	if pick.is_empty():
-		return finalize(sit, best_plan)
+		return finalize(sit, base_plan)
 	return {"kind": "fire", "tank": sit.me.id, "angle": pick["angle"], "power": pick["power"],
 			"weapon": "spark_dart"}
+
+
+## Sort key of a rated plan, smaller is better: own damage, teammate damage, minus enemy damage, miss distance.
+## `aimed` plans were solved for the target, so their miss distance counts as 0.
+static func _risk_key(sit: AiSituation, plan: Dictionary, aimed: bool) -> Array[int]:
+	var ix: int = plan.get("impact_x", -1)
+	var miss: int = 0 if aimed else (100000 if ix < 0 else absi(ix - sit.target.x))
+	return [plan["me_dmg"], plan["ally_dmg"], -(plan["enemy_dmg"] as int), miss]
+
+
+static func _key_less(a: Array[int], b: Array[int]) -> bool:
+	for i: int in range(a.size()):
+		if a[i] != b[i]:
+			return a[i] < b[i]
+	return false
 
 
 # --- love mode ------------------------------------------------------------------------------------------

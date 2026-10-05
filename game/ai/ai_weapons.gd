@@ -72,13 +72,17 @@ static func rate_plan(sit: AiSituation, plan: Dictionary, id: String) -> int:
 	var h: Dictionary = estimate_harm(sit, plan, id)
 	plan["self_dmg"] = h["self"]
 	plan["enemy_dmg"] = h["enemy"]
+	plan["me_dmg"] = h["me"]
+	plan["ally_dmg"] = h["ally"]
+	plan["impact_x"] = h["ix"]
 	return (h["enemy"] as int) - 3 * (h["self"] as int) / 2
 
 
 static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dictionary:
 	var def: Dictionary = WeaponDefs.get_def(id)
 	var behavior: String = def.get("behavior", "")
-	var out: Dictionary = {"self": 0, "enemy": 0}
+	# "self" = "me" + "ally": the harm the guard counts. "ix" is the planned impact column (-1: none).
+	var out: Dictionary = {"self": 0, "enemy": 0, "me": 0, "ally": 0, "ix": -1}
 	var radius: int = def.get("r", 0)
 	var dmg: int = def.get("dmg", 0)
 	var spread: int = 0
@@ -104,6 +108,7 @@ static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dic
 			return out
 	if impact.x < 0:
 		return out  # the shell flies off the map: nothing explodes
+	out["ix"] = impact.x
 	var prof: Dictionary = sit.prof
 	var err_pm: int = 2 * ((prof["bias_max"] as int) + 2 * (prof["noise"] as int))
 	var reach: int = absi(impact.x - sit.me.x)
@@ -118,10 +123,12 @@ static func estimate_harm(sit: AiSituation, plan: Dictionary, id: String) -> Dic
 			# Teammates are protected only while friendly fire is on; with it off the blast does nothing to them.
 			if not AiTargets.is_protected(sit.state, sit.me, t):
 				continue
-			# A teammate costs a little less to risk than the shooter itself: it only has to be spared, the shooter
-			# would also pay the money penalty... both are judged, but the teammate gets a narrower error band.
-			var band: int = margin if t.id == sit.me.id else margin * ALLY_MARGIN_PCT / 100
-			out["self"] = (out["self"] as int) + Damage.amount(maxi(0, d - band), radius, dmg)
+			# A teammate gets a narrower error band than the shooter itself (see ALLY_MARGIN_PCT).
+			var mine: bool = t.id == sit.me.id
+			var band: int = margin if mine else margin * ALLY_MARGIN_PCT / 100
+			var amount: int = Damage.amount(maxi(0, d - band), radius, dmg)
+			out["self"] = (out["self"] as int) + amount
+			out["me" if mine else "ally"] = (out["me" if mine else "ally"] as int) + amount
 		else:
 			out["enemy"] = (out["enemy"] as int) + Damage.amount(d, radius, dmg)
 	return out
