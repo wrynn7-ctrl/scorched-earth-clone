@@ -46,6 +46,8 @@ const BADGE_GAP: float = 2.5
 ## beside a badge is drawn in a smaller size.
 const MAX_TAG_EXTENT: float = 130.0
 const MIN_TAG_FONT_SIZE: int = 6
+## Height of one extra row when NameTagLayout lifts a tag clear of its neighbour's (local units).
+const TAG_ROW_STEP: float = 12.0
 ## How fast the displayed fill follows the real value (fraction of the meter per second).
 const LOVE_FILL_SPEED: float = 1.1
 
@@ -59,6 +61,9 @@ var _emblem_index: int = 0
 var _name_tag: String = ""
 ## The team shown as a badge on the tag (TeamStyle.NONE = no teams in this match).
 var _team: int = TeamStyle.NONE
+## 0 = normal height; the battle lifts the tag of a tank whose neighbour is too close (NameTagLayout).
+var _tag_row: int = 0
+var _extent: float = 0.0
 static var _tag_font: Font = null
 
 var _shield_hp: int = 0
@@ -151,6 +156,7 @@ func set_name_tag(text: String) -> void:
 	if text == _name_tag:
 		return
 	_name_tag = text
+	_extent = _compute_extent()
 	_redraw_all()
 
 
@@ -164,6 +170,7 @@ func set_team(team: int) -> void:
 	if t == _team:
 		return
 	_team = t
+	_extent = _compute_extent()
 	_redraw_all()
 
 
@@ -171,8 +178,31 @@ func get_team() -> int:
 	return _team
 
 
-## Width of the whole tag (badge and name), in local units.
+## Width of the whole tag (badge and name), in local units (cached; changes with the name and the team).
 func tag_extent() -> float:
+	return _extent
+
+
+## Tag width in world units, 0 when there is nothing to show; what NameTagLayout needs.
+func tag_world_width() -> float:
+	return _extent * VISUAL_SCALE
+
+
+## Lifts the tag by `row` steps (0 = normal) so it clears a close neighbour's tag.
+func set_tag_row(row: int) -> void:
+	var r: int = maxi(0, row)
+	if r == _tag_row:
+		return
+	_tag_row = r
+	if _body != null:
+		_body.queue_redraw()
+
+
+func get_tag_row() -> int:
+	return _tag_row
+
+
+func _compute_extent() -> float:
 	var w: float = _name_width()
 	if _team != TeamStyle.NONE:
 		w += BADGE_SIZE + (BADGE_GAP if _name_tag != "" else 0.0)
@@ -209,10 +239,17 @@ static func _get_tag_font() -> Font:
 	return _tag_font
 
 
+func _tag_y() -> float:
+	return TAG_BASELINE_Y - float(_tag_row) * TAG_ROW_STEP
+
+
 func _draw_name_tag(c: Color) -> void:
 	if _name_tag == "" and _team == TeamStyle.NONE:
 		return
 	var font: Font = _get_tag_font()
+	if _tag_row > 0:
+		# A lifted tag keeps a thin tick down to its own tank, so it is still clearly that tank's.
+		_body.draw_line(Vector2(0, _tag_y() + 2.5), Vector2(0, TAG_BASELINE_Y + 1.5), Color(c, 0.55), 1.0, true)
 	var total: float = tag_extent()
 	var left: float = -total * 0.5
 	if _team != TeamStyle.NONE:
@@ -220,14 +257,14 @@ func _draw_name_tag(c: Color) -> void:
 		left += BADGE_SIZE + BADGE_GAP
 	if _name_tag == "":
 		return
-	var at := Vector2(left, TAG_BASELINE_Y)
+	var at := Vector2(left, _tag_y())
 	var fs: int = _name_font_size()
 	_body.draw_string_outline(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs, TAG_OUTLINE, Color(NeonPalette.BG_DEEP, 0.9))
 	_body.draw_string(font, at, _name_tag, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs, c.lightened(0.2))
 
 
 func _draw_team_badge(font: Font, x: float) -> void:
-	var r := Rect2(x, TAG_BASELINE_Y - BADGE_SIZE + 1.5, BADGE_SIZE, BADGE_SIZE)
+	var r := Rect2(x, _tag_y() - BADGE_SIZE + 1.5, BADGE_SIZE, BADGE_SIZE)
 	var tc: Color = TeamStyle.color(_team)
 	if _dead:
 		tc = tc.darkened(0.45)
@@ -295,8 +332,9 @@ func set_skin_glow_pulse(k: float) -> void:
 # --- shield / repulsor / chute / repair ---------------------------------------------------
 
 ## Shows (hp > 0) or hides the bubble. `max_hp` scales its brightness and the HP bar.
+## A wreck never shows one: core keeps shield_hp on dead tanks (drain and fall deaths bypass shields).
 func set_shield(hp: int, max_hp: int) -> void:
-	_shield_hp = maxi(0, hp)
+	_shield_hp = 0 if _dead else maxi(0, hp)
 	_shield_max = maxi(1, max_hp)
 	_break_t = -1.0
 	if _body != null:
@@ -335,7 +373,7 @@ func is_breaking() -> bool:
 
 
 func set_repulsor(active: bool) -> void:
-	_repulsor = active
+	_repulsor = active and not _dead
 	_update_processing()
 
 
@@ -687,6 +725,11 @@ func _draw_turret_glow() -> void:
 
 func _draw_aura() -> void:
 	var c: Color = _col()
+	if _dead:
+		# Never a bubble, repulsor ring or chute on a wreck; a hit flash may still finish.
+		if _hit_t > 0.0:
+			_draw_hit_flash()
+		return
 	if _repulsor:
 		_draw_repulsor()
 	if _shield_hp > 0:

@@ -152,6 +152,9 @@ var _aim_power: PackedInt32Array = PackedInt32Array()
 var _selected: PackedStringArray = PackedStringArray()
 var _round_money: PackedInt32Array = PackedInt32Array()
 var _summary_pending: bool = false
+## What the name-tag rows were last computed for (tank x positions and tag widths).
+var _tag_sig_x: PackedFloat32Array = PackedFloat32Array()
+var _tag_sig_w: PackedFloat32Array = PackedFloat32Array()
 
 # --- playback ---
 var _events: Array[Dictionary] = []
@@ -433,7 +436,8 @@ func _start_match(resume: bool = false) -> void:
 	if resume:
 		restored = MatchSession.restore(_autosave_path)
 		if restored != null:
-			PlayerLooks.from_dict(restored.meta.get("looks", {}) as Dictionary)
+			var looks: Variant = restored.meta.get("looks", {})
+			PlayerLooks.from_dict(looks if typeof(looks) == TYPE_DICTIONARY else {})
 			# Old saves have no names: PLAYER n.
 			PlayerNames.from_array(restored.meta.get("names", []))
 	if restored != null:
@@ -559,8 +563,9 @@ func _init_per_tank_data(restored: bool) -> void:
 		var saved: Variant = session.meta.get("round_money", [])
 		if typeof(saved) == TYPE_ARRAY and (saved as Array).size() == n:
 			for i: int in range(n):
-				_round_money[i] = int((saved as Array)[i])
-		_summary_pending = session.meta.get("summary_pending", false) as bool and state.phase == SimConstants.PHASE_SHOP
+				_round_money[i] = _meta_int((saved as Array)[i])
+		var summary_flag: Variant = session.meta.get("summary_pending", false)
+		_summary_pending = typeof(summary_flag) == TYPE_BOOL and summary_flag == true and state.phase == SimConstants.PHASE_SHOP
 	elif ShotArgs.select_weapon != "" and not _configured:
 		_selected[0] = ShotArgs.select_weapon
 
@@ -595,7 +600,7 @@ func _rebuild_display() -> void:
 		v.set_love_mode(_love)
 		v.set_love(t.love)
 		v.set_angle_tenths(t.angle)
-		v.set_shield(t.shield_hp if t.has_shield() else 0, _shield_max(t.shield_type))
+		v.set_shield(t.shield_hp if (t.has_shield() and t.alive) else 0, _shield_max(t.shield_type))
 		v.set_repulsor(t.repulsor_charge > 0 and t.alive)
 		_aim_angle[t.id] = t.angle
 		_aim_power[t.id] = t.power
@@ -1136,7 +1141,8 @@ func check_consistency() -> bool:
 	for t: TankState in state.tanks:
 		var v: TankView = _tank_views[t.id]
 		var want := Vector2(float(t.x), float(t.y))
-		var want_shield: int = t.shield_hp if t.has_shield() else 0
+		# A dead tank wants no shield or repulsor: core keeps them on a wreck, the view never shows them.
+		var want_shield: int = t.shield_hp if (t.has_shield() and t.alive) else 0
 		if _love and v.get_love() != t.love:
 			ok = false
 			push_error("BattleController: tank %d love meter shows %d but the state has %d" % [t.id, v.get_love(), t.love])
@@ -1365,9 +1371,27 @@ func _process(delta: float) -> void:
 			_frozen = true  # screenshot hook: hold this moment of the shot
 		_advance_playback()
 	_update_follow_cam(delta)
+	_update_name_tags()
 	_update_overlays()
 	_tick_autosave(delta)
 	_run_auto_hooks(delta)
+
+
+## Lifts a name tag when its neighbour's would touch it (NameTagLayout). Runs every frame but only does work
+## when a tank moved or a tag changed, which a comparison of a few numbers tells.
+func _update_name_tags() -> void:
+	var xs := PackedFloat32Array()
+	var ws := PackedFloat32Array()
+	for v: TankView in _tank_views:
+		xs.append(v.position.x)
+		ws.append(v.tag_world_width() if v.visible else 0.0)
+	if xs == _tag_sig_x and ws == _tag_sig_w:
+		return
+	_tag_sig_x = xs
+	_tag_sig_w = ws
+	var rows: PackedInt32Array = NameTagLayout.rows(xs, ws)
+	for i: int in range(rows.size()):
+		_tank_views[i].set_tag_row(rows[i])
 
 
 func _advance_playback() -> void:
@@ -2182,13 +2206,18 @@ func _love_reset() -> void:
 	_love_overlay.close_now()
 
 
+## A number from the autosave meta; anything else (the meta is outside the checksum) reads as 0.
+static func _meta_int(v: Variant) -> int:
+	return int(v) if (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) else 0
+
+
 func _restore_flowers(saved: Variant) -> void:
 	if typeof(saved) != TYPE_ARRAY or display_terrain == null:
 		return
 	for entry: Variant in saved as Array:
 		if typeof(entry) == TYPE_ARRAY and (entry as Array).size() >= 3:
 			var a: Array = entry
-			_love_impacts.append([int(a[0]), int(a[1]), int(a[2])])
+			_love_impacts.append([_meta_int(a[0]), _meta_int(a[1]), _meta_int(a[2])])
 	_flowers.restore(_love_impacts, display_terrain, _tank_columns())
 
 
@@ -2371,14 +2400,14 @@ func _cpu_buys_from_meta(saved: Variant) -> Array[Dictionary]:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var d: Dictionary = raw
-		var tank: int = int(d.get("tank", -1))
+		var tank: int = _meta_int(d.get("tank", -1))
 		if tank < 0 or tank >= state.tanks.size() or typeof(d.get("items", null)) != TYPE_ARRAY:
 			continue
 		var items: Array[Dictionary] = []
 		for it: Variant in d["items"] as Array:
 			if typeof(it) == TYPE_ARRAY and (it as Array).size() == 2 and Catalog.has(str((it as Array)[0])):
-				items.append({"id": str((it as Array)[0]), "units": int((it as Array)[1])})
-		out.append({"tank": tank, "level": int(d.get("level", 0)), "items": items})
+				items.append({"id": str((it as Array)[0]), "units": _meta_int((it as Array)[1])})
+		out.append({"tank": tank, "level": _meta_int(d.get("level", 0)), "items": items})
 	return out
 
 

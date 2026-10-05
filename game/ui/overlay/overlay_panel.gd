@@ -6,7 +6,14 @@ extends Control
 
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
 
+## A stat table never shrinks below this height (about a header and a row) to make the panel fit.
+const TABLE_FLOOR_DP: float = 48.0
+## Text shrinks to this fraction at most when the panel is still too tall with the table at its floor.
+const SQUEEZE_MIN: float = 0.7
+
 var _dim: ColorRect = null
+## Current text shrink factor (1 = none); see _squeeze_if_still_too_tall.
+var _squeeze: float = 1.0
 var _center: CenterContainer = null
 var _panel: PanelContainer = null
 var _margin: MarginContainer = null
@@ -84,11 +91,16 @@ func apply_scale() -> void:
 		var spec: Array = _btn_dp[b]
 		b.custom_minimum_size = Vector2(UiScale.dp(float(spec[0])), UiScale.touch())
 		b.add_theme_font_size_override("font_size", UiScale.font(float(spec[1])))
-	for l: Label in _labels:
-		l.add_theme_font_size_override("font_size", UiScale.font(float(_font_dp[l])))
+	_squeeze = 1.0
+	_apply_label_fonts()
 	for t: StatTable in _stat_tables:
 		t.apply_scale()
 	_fit_scrolls()
+
+
+func _apply_label_fonts() -> void:
+	for l: Label in _labels:
+		l.add_theme_font_size_override("font_size", UiScale.font(float(_font_dp[l]) * _squeeze))
 
 
 ## Sizes each stat-table scroll area to its content, but never so tall that the panel would
@@ -111,7 +123,19 @@ func _fit_scrolls() -> void:
 	var room: float = get_viewport_rect().size.y * 0.97 - _panel.get_combined_minimum_size().y
 	var scroll: ScrollContainer = _stat_scrolls[0]
 	var target: float = scroll.custom_minimum_size.y + room
-	scroll.custom_minimum_size.y = clampf(target, minf(UiScale.dp(72.0), _stat_tables[0].content_height()), _stat_tables[0].content_height())
+	scroll.custom_minimum_size.y = clampf(target, minf(TABLE_FLOOR_DP * UiScale.dp(1.0), _stat_tables[0].content_height()), _stat_tables[0].content_height())
+	_squeeze_if_still_too_tall()
+
+
+## The table is down to its floor and the panel is still taller than the screen (many wrapped member names on
+## a short phone): shrink the text a step, down to SQUEEZE_MIN, and measure again next frame.
+func _squeeze_if_still_too_tall() -> void:
+	var over: float = _panel.get_combined_minimum_size().y - get_viewport_rect().size.y * 0.97
+	if over <= 0.0 or _squeeze <= SQUEEZE_MIN:
+		return
+	_squeeze = maxf(SQUEEZE_MIN, _squeeze * 0.9)
+	_apply_label_fonts()
+	_refit_next_frame()
 
 
 ## Open and not on its way out (use this instead of `visible`).
@@ -125,6 +149,9 @@ func open() -> void:
 	visible = true
 	if is_inside_tree():
 		Transition.fade_in(self)  # a short alpha fade (none with reduce motion or headless)
+		if _squeeze < 1.0:
+			_squeeze = 1.0  # new content may be shorter; the fit squeezes again if needed
+			_apply_label_fonts()
 		_fit_scrolls()
 		_refit_next_frame()
 

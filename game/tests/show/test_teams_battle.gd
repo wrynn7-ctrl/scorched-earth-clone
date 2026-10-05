@@ -142,12 +142,73 @@ func test_badge_control_hides_without_a_team_and_draws_letter_and_colour() -> vo
 	assert_false(b.visible, "anything but 0..3 is no badge")
 
 
-func test_a_widest_name_and_a_badge_fit_the_lane_of_eight_tanks() -> void:
-	var v: TankView = (load("res://show/tank_view.tscn") as PackedScene).instantiate()
-	add_child_autofree(v)
-	v.set_name_tag("WWWWWWWWWWWW")
-	v.set_team(3)
-	assert_lt(v.tag_extent() * TankView.VISUAL_SCALE, 200.0, "badge + 12 capitals stay inside one of eight lanes")
+## Tanks are placed one per lane with a jitter of +-lane/5, so two neighbours can stand 3/5 of a lane apart
+## (124 units with 8 tanks), not a full 200: a badge and 12 capitals do NOT fit there on one row. The battle lifts
+## the tag of such a neighbour (NameTagLayout), so no two tags on the same row ever overlap.
+func test_a_widest_name_and_a_badge_get_their_own_row_beside_a_close_neighbour() -> void:
+	var a: TankView = (load("res://show/tank_view.tscn") as PackedScene).instantiate()
+	add_child_autofree(a)
+	a.set_name_tag("WWWWWWWWWWWW")
+	a.set_team(3)
+	var w: float = a.tag_world_width()
+	assert_gt(w, 124.0, "the widest tag is wider than the closest neighbours stand apart")
+	var xs := PackedFloat32Array([0.0, 124.0, 248.0, 372.0])
+	var ws := PackedFloat32Array([w, w, w, w])
+	var rows: PackedInt32Array = NameTagLayout.rows(xs, ws)
+	assert_eq(rows, PackedInt32Array([0, 1, 0, 1]), "neighbours alternate between two rows")
+	for i: int in range(4):
+		for j: int in range(i + 1, 4):
+			if rows[i] == rows[j]:
+				assert_gte(absf(xs[j] - xs[i]), (w + w) * 0.5 + NameTagLayout.GAP, "tags %d and %d on one row do not touch" % [i, j])
+
+
+func test_the_battle_keeps_eight_widest_tags_apart_for_many_seeds() -> void:
+	var names := PackedStringArray()
+	var teams: Array = []
+	var ctl: Array = []
+	for i: int in range(8):
+		names.append("WWWWWWWWWWWW")
+		teams.append(i % 2)
+		ctl.append(H)
+	var lifted: int = 0
+	for seed_value: int in range(4000, 4012):
+		var c: BattleController = (load(BATTLE) as PackedScene).instantiate()
+		c.configure(3, seed_value, true, 8)
+		c.set_controllers(PackedInt32Array(ctl))
+		c.set_player_names(names)
+		c.set_teams(PackedInt32Array(teams), true)
+		add_child_autofree(c)
+		if c.get_state().phase == SimConstants.PHASE_SHOP:
+			assert_true(c.quick_start())
+		_play_out(c)
+		c._process(0.016)
+		var views: Array[TankView] = []
+		for t: TankState in c.get_state().tanks:
+			views.append(c.get_tank_view(t.id))
+		for i: int in range(views.size()):
+			lifted += 1 if views[i].get_tag_row() > 0 else 0
+			for j: int in range(i + 1, views.size()):
+				if views[i].get_tag_row() != views[j].get_tag_row():
+					continue
+				var need: float = (views[i].tag_world_width() + views[j].tag_world_width()) * 0.5
+				assert_gte(absf(views[i].position.x - views[j].position.x), need, "seed %d: tags %d and %d overlap on row %d" % [seed_value, i, j, views[i].get_tag_row()])
+	assert_gt(lifted, 0, "some tags had to be lifted")
+
+
+func test_tag_rows_are_only_recomputed_when_something_changed() -> void:
+	var c: BattleController = _battle([H, H], [0, 1], true, PackedStringArray(["WWWWWWWWWWWW", "WWWWWWWWWWWW"]))
+	c._process(0.016)
+	var before: PackedFloat32Array = c.get("_tag_sig_x")
+	c.get_tank_view(0).position.x = c.get_tank_view(1).position.x - 40.0
+	c._process(0.016)
+	assert_ne(c.get("_tag_sig_x"), before, "a moved tank is noticed")
+	assert_ne(c.get_tank_view(0).get_tag_row(), c.get_tank_view(1).get_tag_row(), "and the two close tags take different rows")
+
+
+func test_a_tank_without_a_tag_takes_no_room() -> void:
+	var rows: PackedInt32Array = NameTagLayout.rows(PackedFloat32Array([0.0, 10.0, 20.0]), PackedFloat32Array([100.0, 0.0, 100.0]))
+	assert_eq(rows[1], 0)
+	assert_eq(rows[2], 1)
 
 
 # --- round summary ---------------------------------------------------------------------------------------

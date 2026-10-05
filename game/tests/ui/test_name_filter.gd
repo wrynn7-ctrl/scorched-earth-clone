@@ -101,6 +101,25 @@ func test_innocent_names_with_blocked_letters_inside_pass() -> void:
 		assert_true(NameFilter.is_allowed(w), "%s is fine" % w)
 
 
+func test_more_realistic_names_with_look_alike_letters_pass() -> void:
+	# The folds v>u, ph>f, 8>b, 9>g, +>t, (>c, |>i/l and the one-letter wildcard must not catch real names.
+	for w: String in ["Phil", "Sophia", "Vicky", "Victor", "Vance", "Raphael", "Phuket", "Stephen", "Joseph", "Olivia", "Ivan",
+			"Davina", "Cassandra", "Genevieve", "Steve", "Beth", "Cob", "C-3PO", "R2-D2", "Mr. T", "Ace 99", "Agent 8", "9Lives",
+			"Dr. Who?", "Nova+", "(Max)", "Ann*", "Lu|u", "Vega", "Vlad", "Kovacs", "Nguyen", "Uhura", "***", "Mr *", "A*B"]:
+		assert_true(NameFilter.is_allowed(w), "%s is fine" % w)
+
+
+func test_look_alike_spellings_are_blocked() -> void:
+	for w: String in ["fvck", "8itch", "ni99er", "sh1+", "d|ck", "phuck", "(unt", "f*ck", "f**k", "sh*t", "p*ssy", "cvnt", "ßhit",
+			"ßlut", "fvk", "pvssy", "f#ck", "sh%t", "f*u*c*k", "Phuq", "bi+ch", "d1ck", "SH*T", "fu*k", "c*nt", "wh*re"]:
+		assert_false(NameFilter.is_allowed(w), "%s is blocked" % w)
+
+
+func test_a_name_made_of_wildcards_alone_is_not_blocked() -> void:
+	for w: String in ["***", "*", "a**", "**s", "?!?"]:
+		assert_true(NameFilter.is_allowed(w), "%s is fine" % w)
+
+
 func test_empty_is_allowed() -> void:
 	assert_true(NameFilter.is_allowed(""))
 	assert_true(NameFilter.is_allowed("   "))

@@ -20,7 +20,13 @@ const MAX_LENGTH: int = 12
 ## The font every name is drawn with (see assets/fonts). A glyph it lacks would show as a box.
 const FONT_PATH: String = "res://assets/fonts/orbitron-latin-700-normal.woff2"
 ## Letters standing in for symbols and digits. "1" is tried as both i and l (see _folds).
-const LEET: Dictionary = {"0": "o", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"}
+const LEET: Dictionary = {
+	"0": "o", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i", "8": "b", "9": "g", "+": "t", "(": "c",
+}
+## Characters that hide a letter ("f*ck"). Inside the matcher they all read as WILDCARD.
+const MASKS: PackedStringArray = ["*", "#", "%", "?"]
+const WILDCARD: String = "?"
+const MIN_REAL_LETTERS: int = 2
 const ACCENTS: Dictionary = {
 	"a": "àáâãäå", "c": "ç", "e": "èéêë", "i": "ìíîï", "n": "ñ", "o": "òóôõöø", "u": "ùúûü", "y": "ýÿ",
 }
@@ -107,32 +113,56 @@ static func _get_font() -> Font:
 # Matching
 # ======================================================================================
 
-## The name as plain lowercase letters with single spaces between words; every symbol that is not a
-## letter, digit or leetspeak stand-in becomes a space. A "1" gives two readings (i and l).
+## Readings of the name as plain lowercase letters with single spaces between words; every symbol that is
+## not a letter, digit or stand-in becomes a space. Some characters are ambiguous, so each one gets its own
+## axis and the readings are the combinations (at most 32, and only the axes the name uses):
+##   "1" and "|"  i or l          "v"  v or u (no blocked word is spelled with a v, except "vagina")
+##   "ß"          ss or b         "ph" f or ph
+##   "*" "#" "%" "?"  one unknown letter ("f*ck") or a separator ("f*u*c*k")
 static func _folds(text: String) -> Array[String]:
-	var variants: Array[String] = [_fold(text, "i")]
-	if text.contains("1"):
-		variants.append(_fold(text, "l"))
-	return variants
+	var lower: String = text.to_lower()
+	var il: bool = lower.contains("1") or lower.contains("|")
+	var vu: bool = lower.contains("v")
+	var eszett: bool = lower.contains("\u00df")
+	var mask: bool = false
+	for m: String in MASKS:
+		if lower.contains(m):
+			mask = true
+	var out: Array[String] = []
+	for a: int in range(2 if il else 1):
+		for b: int in range(2 if vu else 1):
+			for c: int in range(2 if eszett else 1):
+				for d: int in range(2 if mask else 1):
+					var folded: String = _fold(lower, "l" if a == 1 else "i", b == 1, "b" if c == 1 else "ss", d == 0)
+					out.append(folded)
+					if folded.contains("ph"):
+						out.append(folded.replace("ph", "f"))
+	return out
 
 
-static func _fold(text: String, one_as: String) -> String:
+static func _fold(lower: String, one_as: String, v_as_u: bool, eszett_as: String, mask_as_wildcard: bool) -> String:
 	if _accent_map.is_empty():
 		for letter: String in ACCENTS:
 			var chars: String = ACCENTS[letter]
 			for i: int in range(chars.length()):
 				_accent_map[chars[i]] = letter
 	var out: String = ""
-	for raw_ch: String in text.to_lower():
+	for raw_ch: String in lower:
 		var ch: String = raw_ch
 		if _accent_map.has(raw_ch):
 			ch = _accent_map[raw_ch] as String
-		elif raw_ch == "1":
+		elif raw_ch == "1" or raw_ch == "|":
 			ch = one_as
+		elif raw_ch == "v":
+			ch = "u" if v_as_u else "v"
+		elif raw_ch == "\u00df":
+			ch = eszett_as
+		elif MASKS.has(raw_ch):
+			ch = WILDCARD if mask_as_wildcard else " "
 		elif LEET.has(raw_ch):
 			ch = LEET[raw_ch] as String
 		var c: int = ch.unicode_at(0)
-		out += ch if (c >= 0x61 and c <= 0x7A) else " "
+		out += ch if ((c >= 0x61 and c <= 0x7A) or ch == WILDCARD or ch.length() > 1) else " "
 	return out
 
 
@@ -166,13 +196,21 @@ static func _tokens(folded: String) -> PackedStringArray:
 static func _contains_severe(joined: String) -> bool:
 	for word: String in NameBlocklist.SUBSTRINGS:
 		for start: int in range(joined.length()):
-			if not _ends(joined, start, word).is_empty():
-				return true
+			for end: int in _ends(joined, start, word):
+				if _real_letters(joined.substr(start, end - start)) >= MIN_REAL_LETTERS:
+					return true
 	return false
+
+
+## Letters that are not a wildcard. A match made mostly of wildcards ("***") proves nothing.
+static func _real_letters(text: String) -> int:
+	return text.length() - text.count(WILDCARD)
 
 
 ## `token` is [prefix] + blocked word (+ blocked word) + [suffix], nothing else.
 static func _is_blocked_word(token: String) -> bool:
+	if _real_letters(token) < MIN_REAL_LETTERS:
+		return false
 	var starts: Array[int] = [0]
 	for prefix: String in NameBlocklist.PREFIXES:
 		starts.append_array(_ends(token, 0, prefix, true))
@@ -211,7 +249,7 @@ static func _match_runs(text: String, pos: int, runs: Array, index: int, out: Ar
 	var letter: String = run[0]
 	var need: int = run[1]
 	var have: int = 0
-	while pos + have < text.length() and text[pos + have] == letter:
+	while pos + have < text.length() and (text[pos + have] == letter or text[pos + have] == WILDCARD):
 		have += 1
 	for count: int in range(need, (need if exact else have) + 1):
 		if count <= have:

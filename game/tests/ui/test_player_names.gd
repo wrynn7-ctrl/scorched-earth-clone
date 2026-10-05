@@ -427,9 +427,18 @@ func test_summary_and_results_fit_with_the_widest_names() -> void:
 		await wait_process_frames(1)
 
 
-func test_the_widest_tag_is_narrower_than_tanks_two_players_apart() -> void:
-	# With 8 tanks on a 1600 wide world a tank has ~200 units; a tag is drawn at 1.5x.
+func test_the_widest_tag_needs_a_second_row_beside_the_closest_neighbour() -> void:
+	# 8 tanks on a 1600 wide world: a lane is 200 units, but the jitter lets two neighbours stand 3/5 of a lane
+	# (120 units) apart. A tag is drawn at 1.5x, so 12 capitals do not fit between them on one row.
+	var closest: float = 200.0 * 3.0 / 5.0
 	var w: float = TankView.tag_width(W12) * TankView.VISUAL_SCALE
-	assert_lt(w, 200.0, "a 12 capital tag (%.0f units) stays inside one of eight lanes" % w)
 	var narrow: float = TankView.tag_width("ANNA") * TankView.VISUAL_SCALE
 	assert_lt(narrow, w)
+	assert_gt(w, closest, "the widest tag is wider than the closest neighbours' distance (%.0f units)" % w)
+	assert_lt(narrow + NameTagLayout.GAP, closest, "short names still share one row")
+	var xs := PackedFloat32Array([0.0, closest, 2.0 * closest, 3.0 * closest])
+	var rows: PackedInt32Array = NameTagLayout.rows(xs, PackedFloat32Array([w, w, w, w]))
+	assert_eq(rows, PackedInt32Array([0, 1, 0, 1]), "the widest tags alternate between two rows")
+	assert_eq(NameTagLayout.rows(xs, PackedFloat32Array([narrow, narrow, narrow, narrow])), PackedInt32Array([0, 0, 0, 0]))
+	for i: int in range(3):
+		assert_gte(2.0 * closest, w + NameTagLayout.GAP, "tags two lanes-ish apart (%d) on the same row clear each other" % i)

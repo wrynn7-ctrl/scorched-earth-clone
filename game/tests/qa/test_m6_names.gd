@@ -328,6 +328,7 @@ func test_undocumented_disguises_are_reported_as_gaps() -> void:
 		if NameFilter.is_allowed(s):
 			gaps.append(s)
 	gut.p("NAMES gaps (not blocked): %s" % str(gaps))
+	assert_eq(gaps.size(), 0, "every known look-alike is blocked")
 	if not gaps.is_empty():
 		pending("BUG (low): NameFilter lets simple look-alike spellings through: %s. LEET/ACCENTS in game/ui/names/name_filter.gd:20-24 fold only 0 1 3 4 5 7 @ $ ! and Latin accents; 'v' for u, '8' b, '9' g, '+' t, '|' i/l, '*' censor, 'ph' f are not folded (a courtesy filter, so low)." % str(gaps))
 
@@ -670,28 +671,32 @@ func test_love_win_overlay_fits_the_widest_name() -> void:
 ## +-segment/5, so two neighbours can stand as close as 3/5 of a segment (120 world units with 8 tanks), not a
 ## full lane (the show test assumes 200). Two long names (plus badges) then run into each other.
 func test_adjacent_name_tags_do_not_collide_with_long_names_at_eight_players() -> void:
-	var w12: float = TankView.tag_width(W12) * TankView.VISUAL_SCALE
+	# Neighbours can stand closer than a 12-capital tag is wide (3/5 of a lane), so the battle stacks tags in rows
+	# (NameTagLayout). The real requirement: no two tags on the same row overlap, and the rows that exist suffice.
 	var badge_cap: float = TankView.MAX_TAG_EXTENT * TankView.VISUAL_SCALE
 	var closest: int = 100000
-	var collide_plain: int = 0
-	var collide_badge: int = 0
-	var pairs: int = 0
+	var overlaps: int = 0
+	var max_row: int = 0
 	for seed_value: int in range(24):
 		var s := MatchSettings.new()
 		s.seed = 4000 + seed_value
 		s.num_tanks = 8
 		s.teams = PackedInt32Array([0, 1, 0, 1, 0, 1, 0, 1])
 		var state: MatchState = QaUtil.started_match(s)
+		var xs := PackedFloat32Array()
+		var widths := PackedFloat32Array()
+		for t: TankState in state.tanks:
+			xs.append(float(t.x))
+			widths.append(badge_cap)
 		for i: int in range(7):
-			var d: int = state.tanks[i + 1].x - state.tanks[i].x
-			closest = mini(closest, d)
-			pairs += 1
-			if w12 > float(d):  # two equal tags: half a width each side
-				collide_plain += 1
-			if badge_cap > float(d):
-				collide_badge += 1
-	gut.p("NAME TAGS at 8 players: closest neighbours %d units apart over %d pairs; a 12-capital tag is %.0f units wide (%.0f with a badge): %d / %d pairs collide without / with a badge" % [
-			closest, pairs, w12, badge_cap, collide_plain, collide_badge])
-	if collide_plain > 0 or collide_badge > 0:
-		pending("BUG (low): with 8 players, neighbouring tanks can stand only %d units apart (Simulation._place_tanks jitter +-seg/5 leaves 3/5 of a %d unit lane), while a 12-capital name tag is %.0f units wide on screen (%.0f with a team badge, TankView.MAX_TAG_EXTENT %.0f x 1.5). %d of %d neighbour pairs (%d without badges) in 24 seeded 8-tank rounds would draw overlapping tags if both players use 12-letter names of wide capitals. tests/show/test_teams_battle.gd:150 and test_player_names.gd:430 assume a full 200 unit lane." % [
-				closest, 1600 / 8, w12, badge_cap, TankView.MAX_TAG_EXTENT, collide_badge, pairs, collide_plain])
+			closest = mini(closest, state.tanks[i + 1].x - state.tanks[i].x)
+		var rows: PackedInt32Array = NameTagLayout.rows(xs, widths)
+		for i: int in range(8):
+			max_row = maxi(max_row, rows[i])
+			for j: int in range(i + 1, 8):
+				if rows[i] == rows[j] and absf(xs[i] - xs[j]) < (widths[i] + widths[j]) * 0.5:
+					overlaps += 1
+	gut.p("NAME TAGS at 8 players: closest neighbours %d units apart; widest tag %.0f units; highest row used %d; same-row overlaps %d" % [
+			closest, badge_cap, max_row, overlaps])
+	assert_eq(overlaps, 0, "no two name tags on the same row overlap")
+	assert_lt(max_row, NameTagLayout.MAX_ROWS, "the rows that exist are enough")

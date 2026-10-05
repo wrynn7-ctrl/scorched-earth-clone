@@ -690,4 +690,7 @@ hidden.
   show `TEAM A WINS` with members grouped, and the match result uses `team_standings`.
 - **Sudden death:** a `SUDDEN DEATH` banner with sound and a haptic pulse when it starts. Drain damage pops up as
   usual, and a small HUD indicator stays on while it's active.
+- **As built (M6-QF):** name tags that would overlap are lifted into rows (`NameTagLayout`, up to 3 rows, with a tick
+  line to the tank). NameFilter also folds v/u, 8/b, 9/g, +/t, (/c, |/i/l, ß, ph/f and treats `* # % ?` as a
+  one-letter wildcard. Dead tanks never draw shields or repulsor rings.
 - All strings go through `tr()`.
