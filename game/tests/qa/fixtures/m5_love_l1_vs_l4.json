@@ -7,12 +7,12 @@
 		"wind": 30,
 		"human": -1
 	},
-	"initial_fp": "4189b462a80a5c76",
+	"initial_fp": "5e481afc8ad9ffd6",
 	"steps": [
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "01b72daf927e636b",
+			"fp": "905f35f4548631fe",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "51c82fe1bf130ba4",
 			"angle": 414,
@@ -22,7 +22,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "2ca7b6d54aa50eac",
+			"fp": "6ffad62749a9aca1",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "2ce1d75f1730b159",
 			"angle": 1364,
@@ -32,7 +32,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "bc215455e6e7a85f",
+			"fp": "2487625dd71ef18c",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "f37e98f42527b07b",
 			"angle": 414,
@@ -42,7 +42,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "111f8cbccb3571a1",
+			"fp": "5b4140ab81d4d5ee",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "06936a6c4fc42920",
 			"angle": 1364,
@@ -52,7 +52,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "6af80e3e2ad39d1c",
+			"fp": "21e21b8ba79b858e",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "268526f2b273e606",
 			"angle": 414,
@@ -62,9 +62,9 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "2f4af7212fd8ecac",
+			"fp": "e414f7e1ae21d8e4",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,round_end",
-			"evh": "8b41ca746991295f",
+			"evh": "2ce0e1c9145419b3",
 			"angle": 1364,
 			"power": 655,
 			"weapon": "heart"
@@ -72,7 +72,7 @@
 	],
 	"final_phase": "match_over",
 	"winner": 1,
-	"final_fp": "2f4af7212fd8ecac",
+	"final_fp": "e414f7e1ae21d8e4",
 	"love": [
 		100,
 		0

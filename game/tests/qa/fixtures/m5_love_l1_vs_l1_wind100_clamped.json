@@ -7,12 +7,12 @@
 		"wind": 100,
 		"human": -1
 	},
-	"initial_fp": "e07cbc483612f7f0",
+	"initial_fp": "cd053dcc222fd839",
 	"steps": [
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "a8e65d44e4cdfa74",
+			"fp": "81a5bb6ae415bebb",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "adfc248769498af8",
 			"angle": 381,
@@ -22,7 +22,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "e96cd04686b9c9bd",
+			"fp": "ea493c1d997cce57",
 			"ev": "fire,projectile,projectile_end,wind,turn",
 			"evh": "b6bf1877ae07477d",
 			"angle": 1339,
@@ -32,7 +32,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "aa53c1ce3987b965",
+			"fp": "08d04edafe581004",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "2408f2c0ad0e998b",
 			"angle": 381,
@@ -42,7 +42,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "1cbed3296da27b87",
+			"fp": "f2792c3c9da69916",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "b9abf3a6047827fd",
 			"angle": 1339,
@@ -52,7 +52,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "73fb6bdae250738b",
+			"fp": "bd39b311ba2e30a9",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "8e57beeec5f763da",
 			"angle": 381,
@@ -62,7 +62,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "1a50b5fbab58ff0e",
+			"fp": "de15c9f0051ad4ec",
 			"ev": "fire,projectile,projectile_end,wind,turn",
 			"evh": "5cd47f5e573d99e3",
 			"angle": 1339,
@@ -72,7 +72,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "f4868a8ce27dff84",
+			"fp": "4dc9ef62e32dd223",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "59b23dbf5945970e",
 			"angle": 381,
@@ -82,7 +82,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "a820b58f13dcc429",
+			"fp": "e51757a441efa457",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "59b8c2759cf1ad6b",
 			"angle": 1339,
@@ -92,7 +92,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "727c5174f4b57cb4",
+			"fp": "dc28ede2ade39801",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "d83b85b864753c18",
 			"angle": 381,
@@ -102,7 +102,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "47569ad42db8cbd2",
+			"fp": "b25f72e6f72803f0",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "493c57f7bcea5c14",
 			"angle": 1339,
@@ -112,7 +112,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "e9609521faad6533",
+			"fp": "77c6e80127b8d118",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "a10105f224e864ab",
 			"angle": 381,
@@ -122,7 +122,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "a6eac4f4db8d730e",
+			"fp": "a50f738e0769270e",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "90573bc72ed7dc02",
 			"angle": 1339,
@@ -132,7 +132,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "88da726561041243",
+			"fp": "ba7cc2cfa7a209c6",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "6b455ddf1e27c2ff",
 			"angle": 381,
@@ -142,7 +142,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "a57112b26e695a7a",
+			"fp": "b64173ae35ac58d8",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "1b65d04f4edbb79e",
 			"angle": 1339,
@@ -152,7 +152,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "5860b31785969cee",
+			"fp": "e388b0986d0d6453",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "6664b96c9dab451f",
 			"angle": 381,
@@ -162,7 +162,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "df704e14babf99ca",
+			"fp": "5e60b8ee29563109",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "97201ad62b0c7ff8",
 			"angle": 1339,
@@ -172,7 +172,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "63e9d6cbdbdffe97",
+			"fp": "0fb62b189d0589d0",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "43bd1de179d722db",
 			"angle": 381,
@@ -182,7 +182,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "3007e853fa2c0335",
+			"fp": "60a49468a8647d52",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "c5519ee392b1e297",
 			"angle": 1339,
@@ -192,7 +192,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "5840e3573e546370",
+			"fp": "caedddc11f06ad28",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "f7be866fdfce46ba",
 			"angle": 381,
@@ -202,7 +202,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "1200abd42ba841d9",
+			"fp": "fe35b93fd8d69dcf",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "83ccfb0c2be7a71e",
 			"angle": 1339,
@@ -212,7 +212,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "7836f8512b24e32d",
+			"fp": "19db4a41d8684426",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "19415cb610815fcc",
 			"angle": 381,
@@ -222,7 +222,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "2d2518898350b492",
+			"fp": "59ddd339de33cec8",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "fdabd207331a4c5b",
 			"angle": 1339,
@@ -232,7 +232,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "f61dd387c3d824f2",
+			"fp": "75e20f04b56153e4",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "feeadc66bea6d937",
 			"angle": 381,
@@ -242,7 +242,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "70303385f445b11b",
+			"fp": "d57c5c0d57ed54cd",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "c8b11d67a4c35f11",
 			"angle": 1339,
@@ -252,7 +252,7 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "5002d3e11fef4f9b",
+			"fp": "87a73a7041a1b838",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,wind,turn",
 			"evh": "c3e4cf22f8939ba5",
 			"angle": 381,
@@ -262,7 +262,7 @@
 		{
 			"kind": "fire",
 			"tank": 1,
-			"fp": "0bc7919883751892",
+			"fp": "70ca7733808706df",
 			"ev": "fire,projectile,projectile_end,heart_burst,wind,turn",
 			"evh": "f6e16542a2c14d6c",
 			"angle": 1339,
@@ -272,9 +272,9 @@
 		{
 			"kind": "fire",
 			"tank": 0,
-			"fp": "8607c11a5460226a",
+			"fp": "b3564754db072f12",
 			"ev": "fire,projectile,projectile_end,heart_burst,love,round_end",
-			"evh": "b20eaee02d55b893",
+			"evh": "e036d8164398a048",
 			"angle": 381,
 			"power": 692,
 			"weapon": "heart"
@@ -282,7 +282,7 @@
 	],
 	"final_phase": "match_over",
 	"winner": 0,
-	"final_fp": "8607c11a5460226a",
+	"final_fp": "b3564754db072f12",
 	"love": [
 		0,
 		100

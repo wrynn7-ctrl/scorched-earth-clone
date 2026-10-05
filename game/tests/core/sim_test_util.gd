@@ -148,3 +148,21 @@ static func power_for_target(state: MatchState, angle: int, target_x: int) -> in
 			best_d = d
 			best_p = p
 	return best_p
+
+
+## The fingerprint a no-teams state had before M6 (SAVE_VERSION 3): the current serialization with the three
+## fields M6 added (settings.teams + friendly_fire, MatchState.sudden_death_cycles) cut out. Returns "" for a
+## state that cannot have an old form (teams in use, friendly fire off, sudden death started).
+static func pre_m6_fingerprint(state: MatchState) -> String:
+	if state.settings.teams.size() != 0 or not state.settings.friendly_fire or state.sudden_death_cycles != 0:
+		return ""
+	var bytes: PackedByteArray = StateSerial.serialize(state)
+	# settings: seed 8, num_tanks/rounds/wind_max 12, start_money 8, full_unlocked 4, controllers (4 + 4n), mode 4
+	var teams_at: int = 8 + 12 + 8 + 4 + 4 + 4 * state.settings.controllers.size() + 4
+	# then (teams count 4, friendly_fire 4), state seed 8, round 4, wind 4, rng 32, current 4, turn 4
+	var cycles_at: int = teams_at + 8 + 8 + 4 + 4 + 32 + 4 + 4
+	var out := PackedByteArray()
+	out.append_array(bytes.slice(0, teams_at))
+	out.append_array(bytes.slice(teams_at + 8, cycles_at))
+	out.append_array(bytes.slice(cycles_at + 4))
+	return StateSerial.hash_hex(out)

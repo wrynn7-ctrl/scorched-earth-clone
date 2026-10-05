@@ -51,7 +51,10 @@ func _mutate(obj: Object, field: String) -> bool:
 			obj.set(field, SimConstants.PHASE_SHOP if v != SimConstants.PHASE_SHOP else SimConstants.PHASE_AIM)
 		TYPE_PACKED_INT32_ARRAY:
 			var a: PackedInt32Array = (v as PackedInt32Array).duplicate()
-			a[0] += 1
+			if a.is_empty():
+				a.append(1)  # e.g. MatchSettings.teams (empty = no teams)
+			else:
+				a[0] += 1
 			obj.set(field, a)
 		TYPE_PACKED_INT64_ARRAY:
 			var b: PackedInt64Array = (v as PackedInt64Array).duplicate()
@@ -138,6 +141,9 @@ func test_every_field_survives_save_load_with_extreme_values() -> void:
 	state.settings.full_unlocked = false
 	state.settings.controllers = PackedInt32Array([4, 0, 3])
 	state.settings.mode = SimConstants.MODE_LOVE
+	state.settings.teams = PackedInt32Array([3, 0, 1])
+	state.settings.friendly_fire = false
+	state.sudden_death_cycles = 2000000000
 	state.seed = 9223372036854775807
 	state.round_index = 2
 	state.wind = -100

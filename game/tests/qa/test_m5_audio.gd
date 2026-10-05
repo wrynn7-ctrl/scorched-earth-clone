@@ -11,7 +11,7 @@ const M5 = preload("res://tests/qa/qa_m5.gd")
 ## Event types that are deliberately silent as one-shots (loops, or the sound belongs to another event).
 ## This is the list in audio_director.gd's closing comment of sound_for_event().
 const EXPLICIT_SILENT: Array[String] = ["projectile", "projectile_end", "terrain_carve", "wind", "beam", "tank_fall",
-		"tank_move", "well_on", "well_off", "flames", "ready", "repulsor_down", "round_start"]
+		"tank_move", "well_on", "well_off", "flames", "ready", "repulsor_down", "round_start", "sudden_death"]
 
 var _ad: Node = null
 
@@ -69,6 +69,9 @@ func _samples() -> Dictionary:
 		"wind": [{"type": "wind", "wind": -7}],
 		"turn": [{"type": "turn", "tank": 1}],
 		"round_end": [{"type": "round_end", "winner": 0}, {"type": "round_end", "winner": -1}],
+		# TEMPORARY SILENCE: section 42 wants a sound + banner when sudden death starts; the show layer adds the
+		# sound, then moves "sudden_death" off EXPLICIT_SILENT above.
+		"sudden_death": [{"type": "sudden_death"}],
 		"round_start": [{"type": "round_start", "round": 0}],
 		"money": [{"type": "money", "delta": 5, "reason": "damage"}, {"type": "money", "delta": -5, "reason": "self_damage"},
 				{"type": "money", "delta": -5, "reason": "buy"}, {"type": "money", "delta": 5, "reason": "sell"},

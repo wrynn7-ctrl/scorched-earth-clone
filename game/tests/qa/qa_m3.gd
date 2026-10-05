@@ -431,12 +431,15 @@ static func audit(before: Dictionary, state: MatchState, action: Dictionary, eve
 				hp[tgt] = e["health"]
 				if removed <= 0:
 					errs.append("damage event #%d removes %d HP" % [idx, removed])
-				if attacker < 0:
+				# The sudden-death drain (section 40) is nobody's damage: no money, no credit, no kill.
+				if attacker < 0 or e["cause"] == "sudden_death":
 					continue
 				var expect: Array[Dictionary] = []
 				var team_a: int = tb[attacker]["team"]
 				var team_t: int = tb[tgt]["team"]
 				if team_a == team_t:
+					if attacker != tgt and not state.settings.friendly_fire:
+						errs.append("damage #%d hurts teammate %d of shooter %d with friendly fire off" % [idx, tgt, attacker])
 					var pen: int = mini(removed * SimConstants.CREDIT_PER_HP, money[attacker])
 					if pen > 0:
 						expect.append({"tank": attacker, "delta": -pen, "reason": "self_damage"})
@@ -470,20 +473,27 @@ static func audit(before: Dictionary, state: MatchState, action: Dictionary, eve
 	var pay_expected: Array[Dictionary] = []
 	if round_end_at >= 0:
 		var winner: int = events[round_end_at]["winner"]
+		var winner_team: int = events[round_end_at]["winner_team"]
 		var alive_ids: Array[int] = []
+		var alive_teams: Dictionary = {}
 		for t: TankState in state.tanks:
 			if t.alive:
 				alive_ids.append(t.id)
-		if alive_ids.size() > 1:
-			errs.append("round_end with %d tanks alive" % alive_ids.size())
-		if alive_ids.is_empty() and winner != -1:
-			errs.append("round_end winner %d with nobody alive" % winner)
-		if alive_ids.size() == 1 and winner != alive_ids[0]:
-			errs.append("round_end winner %d but only tank %d is alive" % [winner, alive_ids[0]])
-		for id: int in alive_ids:
-			pay_expected.append({"tank": id, "delta": SimConstants.SURVIVE_PAY, "reason": "survive"})
-			if id == winner:
-				pay_expected.append({"tank": id, "delta": SimConstants.WIN_PAY, "reason": "win"})
+				alive_teams[t.team] = true
+		if alive_teams.size() > 1:
+			errs.append("round_end with %d teams alive" % alive_teams.size())
+		if alive_ids.is_empty() and (winner != -1 or winner_team != -1):
+			errs.append("round_end winner %d / team %d with nobody alive" % [winner, winner_team])
+		if not alive_ids.is_empty() and (winner != alive_ids[0] or winner_team != state.tanks[alive_ids[0]].team):
+			errs.append("round_end winner %d / team %d but the lowest living tank is %d (team %d)" % [winner,
+					winner_team, alive_ids[0], state.tanks[alive_ids[0]].team])
+		# Section 39: survive pay to the living, win pay (and the round win) to the whole winning team,
+		# alive or not, in tank id order.
+		for t: TankState in state.tanks:
+			if t.alive:
+				pay_expected.append({"tank": t.id, "delta": SimConstants.SURVIVE_PAY, "reason": "survive"})
+			if winner_team >= 0 and t.team == winner_team:
+				pay_expected.append({"tank": t.id, "delta": SimConstants.WIN_PAY, "reason": "win"})
 		var pay_events: Array[Dictionary] = []
 		for j: int in range(round_end_at + 1, events.size()):
 			pay_events.append(events[j])
@@ -500,11 +510,10 @@ static func audit(before: Dictionary, state: MatchState, action: Dictionary, eve
 				if got2["money"] != money[want2["tank"]]:
 					errs.append("pay event reports balance %d, expected %d" % [got2["money"], money[want2["tank"]]])
 			consumed[round_end_at + 1 + k] = true
-		if winner >= 0 and state.tanks[winner].round_wins != (tb[winner]["wins"] as int) + 1:
-			errs.append("winner %d round_wins %d -> %d" % [winner, tb[winner]["wins"], state.tanks[winner].round_wins])
 		for t: TankState in state.tanks:
-			if t.id != winner and t.round_wins != (tb[t.id]["wins"] as int):
-				errs.append("tank %d round_wins changed without winning" % t.id)
+			var won: bool = winner_team >= 0 and t.team == winner_team
+			if t.round_wins != (tb[t.id]["wins"] as int) + (1 if won else 0):
+				errs.append("tank %d round_wins %d -> %d (won=%s)" % [t.id, tb[t.id]["wins"], t.round_wins, str(won)])
 	# Shop money.
 	for idx: int in range(events.size()):
 		var e2: Dictionary = events[idx]
@@ -682,6 +691,8 @@ static func check_timeline(action: Dictionary, events: Array[Dictionary]) -> Arr
 			"pass": "wind", START_ROUND: "round_start", "use_item": ""}.get(kind, "")
 	if kind == "pass" and ts[0] == "well_off":
 		first = "well_off"  # a well that expires at this turn change is announced first
+	if kind == "pass" and (ts[0] == "sudden_death" or (ts[0] == "damage" and events[0]["cause"] == "sudden_death")):
+		first = ts[0]  # the turn change started or ran a sudden-death drain (section 40)
 	if first != "" and ts[0] != first and not (kind in ["buy", "sell"] and ts[0] == "money"):
 		errs.append("%s timeline starts with %s" % [kind, ts[0]])
 	var body: Array[String] = ts.duplicate()
@@ -706,13 +717,16 @@ static func check_timeline(action: Dictionary, events: Array[Dictionary]) -> Arr
 			"tank_destroyed":
 				last_destroyed = i
 			"damage", "tank_fall", "chute", "shield_hit", "shield_down", "terrain_settle", "explosion":
-				last_hit = i
+				# the sudden-death drain comes after the shot's own deaths (section 40)
+				if not (ts[i] == "damage" and events[i]["cause"] == "sudden_death"):
+					last_hit = i
 			"round_end", "wind":
 				end_at = mini(end_at, i)
 	if last_destroyed >= 0 and (last_hit > last_destroyed or last_destroyed > end_at):
 		errs.append("tank_destroyed not after all damage / before the turn event")
 	for i: int in range(ts.size()):
-		if ts[i] == "tank_fall" and i + 1 < ts.size() and ts[i + 1] == "damage" and events[i + 1]["cause"] != "fall":
+		if ts[i] == "tank_fall" and i + 1 < ts.size() and ts[i + 1] == "damage" and events[i + 1]["cause"] != "fall" \
+				and events[i + 1]["cause"] != "sudden_death":
 			errs.append("tank_fall followed by a non-fall damage")
 		if ts[i] == "damage" and events[i]["cause"] == "fall" and (i == 0 or (ts[i - 1] != "tank_fall" and ts[i - 1] != "chute")):
 			errs.append("damage(fall) not directly after its tank_fall")

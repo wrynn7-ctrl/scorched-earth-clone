@@ -131,10 +131,10 @@ func test_pinned_golden_fingerprints() -> void:
 	assert_eq(Simulation.fingerprint(s), PINS_NEW[2])
 
 
-## Fingerprints pinned before M6. M6 only ADDED three fields to the serialization (teams, friendly_fire,
-## sudden_death_cycles). Cutting them out of the new bytes must give the old fingerprints exactly, which
-## proves a no-teams match plays bit-identically to before (short of sudden death in very long rounds).
 const PINS_NEW: Array[String] = ["12972443f46cbb76", "258741f5e3435474", "343ea5e3283c262d"]
+## The same three states' fingerprints before M6. M6 only ADDED three fields to the serialization (teams,
+## friendly_fire, sudden_death_cycles); cutting them out of the new bytes must give these exact values, which
+## proves a no-teams match plays bit-identically to before (short of sudden death in very long rounds).
 const PINS_M5: Array[String] = ["bf70a16bc169cf24", "1cd4005ebc97c24d", "be53e5acd5f9a17b"]
 
 
@@ -153,30 +153,14 @@ func _buy_and_begin(s: MatchState) -> void:
 	SimTestUtil.begin_round(s)
 
 
-## The pre-M6 fingerprint of a no-teams state: the new serialization minus the three added fields.
-func _legacy_fingerprint(state: MatchState) -> String:
-	var bytes: PackedByteArray = StateSerial.serialize(state)
-	var n_ctrl: int = state.settings.controllers.size()
-	var teams_at: int = 8 + 4 + 4 + 4 + 8 + 4 + 4 + 4 * n_ctrl + 4
-	assert_eq(state.settings.teams.size(), 0, "legacy form only exists without teams")
-	assert_true(state.settings.friendly_fire)
-	assert_eq(state.sudden_death_cycles, 0)
-	var cycles_at: int = teams_at + 8 + 8 + 4 + 4 + 32 + 4 + 4
-	var out := PackedByteArray()
-	out.append_array(bytes.slice(0, teams_at))
-	out.append_array(bytes.slice(teams_at + 8, cycles_at))
-	out.append_array(bytes.slice(cycles_at + 4))
-	return StateSerial.hash_hex(out)
-
-
 func test_no_teams_states_still_hash_to_the_pre_m6_fingerprints() -> void:
 	var s: MatchState = _pinned_match()
-	assert_eq(_legacy_fingerprint(s), PINS_M5[0])
+	assert_eq(SimTestUtil.pre_m6_fingerprint(s), PINS_M5[0])
 	_buy_and_begin(s)
-	assert_eq(_legacy_fingerprint(s), PINS_M5[1])
+	assert_eq(SimTestUtil.pre_m6_fingerprint(s), PINS_M5[1])
 	Simulation.apply_action(s, SimTestUtil.fire(0, 450, 700))
 	Simulation.apply_action(s, SimTestUtil.fire(1, 1350, 650))
-	assert_eq(_legacy_fingerprint(s), PINS_M5[2], "ten-odd actions later the whole state is still the old one")
+	assert_eq(SimTestUtil.pre_m6_fingerprint(s), PINS_M5[2], "ten-odd actions later the whole state is still the old one")
 
 
 func test_a_team_match_has_its_own_pinned_fingerprint() -> void:

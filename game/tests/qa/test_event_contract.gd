@@ -104,7 +104,7 @@ func _check_everything(before: MatchState, ev: Array[Dictionary], after: MatchSt
 	var total: Dictionary = {}
 	for d: Dictionary in QaUtil.find(ev, "damage"):
 		var tid: int = d["tank"]
-		assert_true(["explosion", "fall"].has(d["cause"]))
+		assert_true(["explosion", "fall", "sudden_death"].has(d["cause"]))
 		assert_gt(d["amount"] as int, 0)
 		last_health[tid] = d["health"]
 		total[tid] = (total.get(tid, 0) as int) + (d["amount"] as int)

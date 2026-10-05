@@ -132,12 +132,13 @@ action started). Order of events within one impact: `explosion → terrain_carve
 | `explosion` | x, y, radius, weapon |
 | `terrain_carve` | x, y, radius |
 | `terrain_settle` | x0, x1, falls (from `Terrain.settle`) |
-| `damage` | tank, amount, health, cause (`explosion`/`fall`) |
+| `damage` | tank, amount, health, cause (`explosion`/`fall`/…/`sudden_death`, see the event contract test) |
 | `tank_fall` | tank, from_y, to_y |
 | `tank_destroyed` | tank |
 | `wind` | wind |
 | `turn` | tank |
-| `round_end` | winner (tank id, or −1 for a draw) |
+| `round_end` | winner (lowest living tank id, or −1 for a draw), winner_team (M6, §39; −1 for a draw) |
+| `sudden_death` | (none; emitted once when the round reaches 10 × num_tanks turns, §40, then drain `damage`* → `tank_destroyed`* in id order on each wrap of the turn order) |
 | `round_start` | round (emitted only by `start_round`, followed by `wind` and `turn`) |
 
 The **show** layer keeps its own copy of the terrain and re-applies `terrain_carve`/`terrain_settle` by calling the same
@@ -659,6 +660,9 @@ hidden.
   - Then the round-end check runs, and the next turn goes to the next living tank.
   - If the drain destroys every remaining tank, the round is a draw (`winner = -1`, `winner_team = -1`, no
     survive pay).
+- **As built (M6-C):** the wrap that reaches the threshold turn is the first drain, so the banner and the first 5 HP
+  arrive together. With friendly fire off, a teammate-caused fall still moves the tank (`tank_fall`) but costs no HP,
+  and a Drift Chute is not consumed. `Economy.pay_round(state, winner_team, …)`.
 - Bump `SaveCodec.SAVE_VERSION` to 4. Old saves are refused, which the owner has been told. Regenerate golden
   fixtures only where a fixture round crosses the threshold, and list them.
 
