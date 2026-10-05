@@ -160,6 +160,8 @@ static func _decide(state: MatchState, me: TankState) -> Dictionary:
 		return finalize(best_sit, best_plan)
 	# Only teammates stand in the way (friendly fire on): a pass would just waste the turn, so take the lowest-risk
 	# shot there is. Sudden death never passes at all (every option may then hurt the shooter too).
+	if state.turn_number == 18 and me.id == 3:
+		print("DBG best ", best_plan, " spare ", spare_plan, " score ", best_score)
 	if in_sudden_death(state) or spare_sit != null or best_plan["me_dmg"] == 0:
 		return _low_risk_shot(level, best_sit, best_plan, spare_sit, spare_plan)
 	return {"kind": "pass", "tank": me.id}
