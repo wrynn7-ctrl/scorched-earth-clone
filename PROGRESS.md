@@ -7,11 +7,14 @@
 | M3 — Full single-player loop | ✅ Done 2026-10-02 (owner: works well; edge + scrollbar fixes confirmed on device) |
 | M4 — AI opponents | ✅ Done 2026-10-03 (owner: very good; Easy too sharp → retune; angle buttons → screen-relative) |
 | M5 — Polish, sound, effects | ✅ Done 2026-10-04 (owner: sound redesign "much better"; audio delay fix "works great") |
-| M6 — Local pass-and-play | ⬜ Not started |
+| M6 — Local pass-and-play | 🟡 In progress (teams, names, turn banner, sudden death) |
 | M7 — Online multiplayer | ⬜ Not started |
 | M8 — Play Store release prep | ⬜ Not started |
 
 ## Log
+
+### 2026-10-05
+- M6 decisions (owner): banner only between human turns; names remembered; teams yes (team per tank in setup, friendly fire chosen per match, own wallet + team win bonus); sudden death after 10 × tank-count total turns.
 
 ### 2026-10-04
 - Owner confirmed the sound redesign and the 48 kHz audio-delay fix on the phone. **M5 done.**
@@ -87,6 +90,16 @@
 | M5-QF QA fixes: love save win check, free saves with full-tier items, skin clamp/cap/opaque bake, billing grant-before-ack, audio type safety | core-sim-dev + show-ui-dev | ✅ reviewed (core 546, qa 292 green; 0 pending bugs) |
 | M5-SND Owner feedback: sounds too wimpy → heavy sci-fi redesign (all sounds), soothing romantic Love sounds + sweeter win melody, vibration on shots/explosions (ARCHITECTURE §33a) | show-ui-dev | ✅ reviewed (35 sounds regenerated, 3.3 MB; 892 show+ui+qa tests; needs ear-check on device) |
 | M5-LAT Owner: all sounds ~750 ms late on Bluetooth headphones → 48 kHz mix rate (native on current phones), audio latency line in diagnostics | lead | ✅ confirmed on owner's phone |
+
+## M6 tasks
+| Task | Agent | Status |
+|---|---|---|
+| M6 contract (ARCHITECTURE §39–§42: teams, friendly-fire option, sudden death at 10 turns × tanks, names, turn banner) | lead | ✅ written |
+| M6-C Core: teams + team round end/pay + friendly-fire option + team standings; sudden death; save v4 | core-sim-dev | 🟡 in progress |
+| M6-U1 Names (setup, remembered, filter) + turn banner + named shop hand-over | show-ui-dev | 🟡 in progress |
+| M6-A AI: enemy-only targeting, teammate guard per friendly-fire setting | ai-dev | ⬜ after M6-C |
+| M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ⬜ after M6-C |
+| M6-Q QA pass | qa-tester | ⬜ end |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.

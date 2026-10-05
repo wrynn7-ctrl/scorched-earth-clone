@@ -613,3 +613,77 @@ hidden.
   - otherwise, fire the closest-landing max-power Spark Dart.
 - **Shop:** after a long round spent out of range (≥ 10 turns per tank, last shot lost or > 300 cells from every
   enemy), buy 1 Fuel Cell (2 after ≥ 25 turns per tank). The AI never holds more than 200 fuel units.
+
+---
+
+# M6 — Local pass-and-play, teams, sudden death (owner decisions 2026-10-05, binding)
+
+## 39. Teams (core)
+- `MatchSettings.teams: PackedInt32Array`. It is either empty (no teams: every tank is its own team, `team = id`,
+  exactly as today) or has `num_tanks` entries, each 0..3 (team A..D), with at least 2 distinct values.
+  `MatchSettings.friendly_fire: bool` (default `true`) is only meaningful with teams. Both are serialized,
+  fingerprinted and validated (`invalid_settings` on a bad length, value or a single team).
+- Love mode: `teams` must be empty (validation error otherwise). Teams are allowed in the free version, inside its
+  4-tank / 2-human caps.
+- `new_match` sets `TankState.team` from `teams` (or `id`). `StateSerial` validates that every tank's team matches
+  the settings.
+- **Round end:** the round ends when the living tanks all belong to at most one team (when there are no teams this
+  is the same rule as now: ≤ 1 tank alive). `round_end` gets `"winner_team": int` (the surviving team, or -1 for a
+  draw when nobody is alive). `"winner"` stays: the lowest-id living tank, or -1. Event field order is fixed and
+  documented in the event table.
+- **Round pay:** every living tank +1000 (survive). Every tank on the winning team, **alive or destroyed**, gets
+  +2500 (win) and `round_wins += 1`. With no teams this is identical to today.
+- **Damage between teammates** (attacker ≠ target, same team):
+  - `friendly_fire = true`: damage applies. The attacker pays the self-damage penalty (−15/HP, today's rule), gets
+    no damage credit, and gets no kill bonus or kill count.
+  - `friendly_fire = false`: the hit does nothing: no shield loss, no damage, no money, and no event. This includes
+    fall damage that a teammate's shot caused. Self-damage is unchanged (you can still hurt yourself).
+- Seekers and other enemy-targeting logic already use `team`. Audit every `team` / `id` comparison in core so
+  "enemy" always means "other team".
+- **Standings:** per tank as now (round_wins, then damage_dealt, kills, id). The match winner in team games is the
+  team with the most round wins. Teammates share round_wins, so ties are broken by the team's summed damage_dealt,
+  then kills, then the lowest team id. Expose `Simulation.team_standings(state) -> Array[int]` (team ids, best first;
+  empty without teams).
+
+## 40. Sudden death (core)
+- It applies in standard mode only, never in Love mode.
+- **Threshold:** when `turn_number` (turns played this round, reset at round start) reaches
+  `SUDDEN_DEATH_TURNS_PER_TANK (10) × settings.num_tanks` (2 tanks → 20 turns, 3 → 30, …), emit once
+  `{"type": "sudden_death", "tick"}`.
+- **Drain:** from then on, every time the turn order wraps around (the next living tank's index ≤ the current
+  tank's index), a cycle completes. Every living tank loses
+  `min(SUDDEN_DEATH_BASE (5) × cycles_completed, SUDDEN_DEATH_MAX (25))` HP: 5, 10, 15, 20, 25, 25, … The counter
+  is `MatchState.sudden_death_cycles`, serialized and reset at round start.
+  - The drain uses cause `"sudden_death"` and attacker -1. It **bypasses shields** and gives no money or kill credit.
+  - It emits `damage` / `tank_destroyed` as usual, in tank-id order.
+  - Then the round-end check runs, and the next turn goes to the next living tank.
+  - If the drain destroys every remaining tank, the round is a draw (`winner = -1`, `winner_team = -1`, no
+    survive pay).
+- Bump `SaveCodec.SAVE_VERSION` to 4. Old saves are refused, which the owner has been told. Regenerate golden
+  fixtures only where a fixture round crosses the threshold, and list them.
+
+## 41. AI with teams and sudden death (game/ai)
+- Targets are enemies only (other team). The self-damage guard keeps protecting teammates when
+  `friendly_fire = true`, and ignores teammates when it is false (self is always protected).
+- The out-of-reach rule and pacing are unchanged. In sudden death the AI may take riskier shots (it must not
+  pass), but the self-damage guard still holds.
+
+## 42. Pass-and-play UI (game/ui, game/show)
+- **Names:** each Human slot in setup has a name field: 1–12 characters, trimmed, filtered by `NameFilter`
+  (`game/ui/names/name_filter.gd`). The filter has a small built-in blocklist with simple leetspeak folding, and M7
+  will reuse it. Empty or blocked names fall back to `PLAYER n`. Names are remembered per slot in SettingsStore and
+  stored in autosave meta (UI only, never in core state). CPU slots show their level name, e.g. "CPU · HARD".
+- **Turn banner:** when two or more humans share the device, each human turn starts with a big
+  `<NAME>'S TURN` banner in the player's colour. It fades out on its own and never blocks input. No cover screen.
+  The shop hand-over uses names: `<NAME> — YOUR SHOP`.
+- **Teams in setup:** each slot has a team chip (— / A / B / C / D, colour-coded; A cyan, B magenta, C lime,
+  D amber, distinct from the player colours by shape plus a letter). "—" on every slot means no teams.
+  - If any slot has a team, every slot needs one, and at least 2 teams must be used. Otherwise START is disabled
+    with a hint.
+  - A **Friendly fire** toggle (default ON) appears when teams are on.
+  - Team settings are remembered with the other setup choices.
+- **Teams in battle:** a team letter badge on each tank's name tag and HUD entry. The round summary and results
+  show `TEAM A WINS` with members grouped, and the match result uses `team_standings`.
+- **Sudden death:** a `SUDDEN DEATH` banner with sound and a haptic pulse when it starts. Drain damage pops up as
+  usual, and a small HUD indicator stays on while it's active.
+- All strings go through `tr()`.
