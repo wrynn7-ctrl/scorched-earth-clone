@@ -49,14 +49,15 @@ static func add_money(state: MatchState, tank_id: int, delta: int, reason: Strin
 	return applied
 
 
-## Round pay after round_end: survivors +1000, the winner +2500 more (and a round win).
+## Round pay after round_end (section 39): every living tank +1000 (survive); every tank on the
+## winning team, alive or destroyed, +2500 more (win) and a round win. `winner_team` is -1 for a draw
+## (nobody paid a win). Without teams a team is one tank, so this is the plain "last tank standing" rule.
 ## Events are emitted in tank id order, survive before win.
-static func pay_round(state: MatchState, winner: int, tick: int, events: Array[Dictionary]) -> void:
+static func pay_round(state: MatchState, winner_team: int, tick: int, events: Array[Dictionary]) -> void:
 	for t: TankState in state.tanks:
-		if not t.alive:
-			continue
-		add_money(state, t.id, SimConstants.SURVIVE_PAY, "survive", tick, events)
-		if t.id == winner:
+		if t.alive:
+			add_money(state, t.id, SimConstants.SURVIVE_PAY, "survive", tick, events)
+		if winner_team >= 0 and t.team == winner_team:
 			t.round_wins += 1
 			add_money(state, t.id, SimConstants.WIN_PAY, "win", tick, events)
 
@@ -85,3 +86,43 @@ static func _better(a: TankState, b: TankState) -> bool:
 	if a.kills != b.kills:
 		return a.kills > b.kills
 	return a.id < b.id
+
+
+## Team ids, best first (section 39): most round_wins (teammates share them, the highest member is
+## used), then the team's summed damage_dealt, then summed kills, then the lower team id. Empty when
+## the match has no teams.
+static func team_standings(state: MatchState) -> Array[int]:
+	var order: Array[int] = []
+	if not state.settings.has_teams():
+		return order
+	var wins: Dictionary = {}
+	var dmg: Dictionary = {}
+	var kills: Dictionary = {}
+	for t: TankState in state.tanks:
+		if not wins.has(t.team):
+			order.append(t.team)
+			wins[t.team] = 0
+			dmg[t.team] = 0
+			kills[t.team] = 0
+		wins[t.team] = maxi(wins[t.team] as int, t.round_wins)
+		dmg[t.team] = (dmg[t.team] as int) + t.damage_dealt
+		kills[t.team] = (kills[t.team] as int) + t.kills
+	# Insertion sort: stable and deterministic. Dictionaries are only looked up, never iterated.
+	for i: int in range(1, order.size()):
+		var cur: int = order[i]
+		var j: int = i - 1
+		while j >= 0 and _team_better(cur, order[j], wins, dmg, kills):
+			order[j + 1] = order[j]
+			j -= 1
+		order[j + 1] = cur
+	return order
+
+
+static func _team_better(a: int, b: int, wins: Dictionary, dmg: Dictionary, kills: Dictionary) -> bool:
+	if wins[a] != wins[b]:
+		return (wins[a] as int) > (wins[b] as int)
+	if dmg[a] != dmg[b]:
+		return (dmg[a] as int) > (dmg[b] as int)
+	if kills[a] != kills[b]:
+		return (kills[a] as int) > (kills[b] as int)
+	return a < b

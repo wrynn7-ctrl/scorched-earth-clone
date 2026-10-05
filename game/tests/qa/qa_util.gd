@@ -26,7 +26,7 @@ const EVENT_FIELDS: Dictionary = {
 	"tank_destroyed": {"tank": TYPE_INT},
 	"wind": {"wind": TYPE_INT},
 	"turn": {"tank": TYPE_INT},
-	"round_end": {"winner": TYPE_INT},
+	"round_end": {"winner": TYPE_INT, "winner_team": TYPE_INT},
 	# M3 (sections 18-20)
 	"money": {"tank": TYPE_INT, "delta": TYPE_INT, "money": TYPE_INT, "reason": TYPE_STRING},
 	"shield_hit": {"tank": TYPE_INT, "absorbed": TYPE_INT, "hp": TYPE_INT},
@@ -51,6 +51,8 @@ const EVENT_FIELDS: Dictionary = {
 	# Love mode (section 37)
 	"heart_burst": {"x": TYPE_INT, "y": TYPE_INT, "radius": TYPE_INT},
 	"love": {"tank": TYPE_INT, "amount": TYPE_INT, "love": TYPE_INT, "from": TYPE_INT},
+	# Sudden death (section 40)
+	"sudden_death": {},
 	# Not in the section 10 table: only emitted by Simulation.start_round().
 	"round_start": {"round": TYPE_INT},
 }
@@ -415,7 +417,8 @@ static func check_order(events: Array[Dictionary], literal: bool) -> Array[Strin
 			"projectile_end": rank = 2
 			"explosion": rank = 3
 			"terrain_carve": rank = 4
-			"damage": rank = 5 if e["cause"] == "explosion" else 8
+			"damage": rank = 5 if e["cause"] == "explosion" else (9 if e["cause"] == "sudden_death" else 8)
+			"sudden_death": rank = 9  # after the shot's own events; its drain damage and deaths follow
 			"terrain_settle": rank = 6
 			"tank_fall": rank = 7
 			"chute": rank = 7

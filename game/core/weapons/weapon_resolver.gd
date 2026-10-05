@@ -191,7 +191,7 @@ static func blast(state: MatchState, attacker: int, ex: int, ey: int, radius: in
 	var rect: Rect2i = state.terrain.carve_circle(ex, ey, radius)
 	events.append({"type": "terrain_carve", "tick": tick, "x": ex, "y": ey, "radius": radius})
 	if strip:
-		strip_fields(state, ex, ey, radius, tick, events)
+		strip_fields(state, ex, ey, radius, tick, events, attacker)
 	for d: Dictionary in Damage.compute(state, ex, ey, radius, max_damage):
 		var target: int = d["tank"]
 		var amount: int = d["amount"]
@@ -215,11 +215,12 @@ static func blast(state: MatchState, attacker: int, ex: int, ey: int, radius: in
 
 ## Removes the shield and the repulsor charge of every alive tank whose centre
 ## (x, y - SHIELD_CENTER_DY) is within `radius` of (ex, ey): `shield_down`, `repulsor_down`.
+## A teammate of `attacker` is skipped when friendly fire is off (section 39).
 static func strip_fields(state: MatchState, ex: int, ey: int, radius: int, tick: int,
-		events: Array[Dictionary]) -> void:
+		events: Array[Dictionary], attacker: int = -1) -> void:
 	var r2: int = radius * radius
 	for t: TankState in state.tanks:
-		if not t.alive:
+		if not t.alive or Simulation.is_friendly_fire_immune(state, attacker, t.id):
 			continue
 		var dx: int = t.x - ex
 		var dy: int = t.y - SimConstants.SHIELD_CENTER_DY - ey

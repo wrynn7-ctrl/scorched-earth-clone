@@ -21,7 +21,7 @@ static func new_match(settings: MatchSettings) -> MatchState:
 	for i: int in range(state.settings.num_tanks):
 		var t := TankState.new()
 		t.id = i
-		t.team = i
+		t.team = state.settings.team_of(i)
 		t.color_index = i
 		t.money = state.settings.start_money
 		state.tanks.append(t)
@@ -65,6 +65,7 @@ static func _begin_round(state: MatchState) -> Array[Dictionary]:
 	state.wells.clear()
 	state.current_tank = r % n
 	state.turn_number = 0
+	state.sudden_death_cycles = 0
 	state.phase = SimConstants.PHASE_AIM
 	var events: Array[Dictionary] = []
 	events.append({"type": "round_start", "tick": 0, "round": r})
@@ -101,6 +102,19 @@ static func _place_tanks(state: MatchState, n: int, rng: Rng) -> void:
 ## Tank ids, best first (section 18).
 static func standings(state: MatchState) -> Array[int]:
 	return Economy.standings(state)
+
+
+## Team ids, best first (section 39); empty when the match has no teams.
+static func team_standings(state: MatchState) -> Array[int]:
+	return Economy.team_standings(state)
+
+
+## True when `attacker` is a different tank on the same team as `target` and friendly fire is off
+## (section 39): such a hit does nothing at all. Self-damage and attacker -1 are never immune.
+static func is_friendly_fire_immune(state: MatchState, attacker: int, target: int) -> bool:
+	if state.settings.friendly_fire or attacker < 0 or attacker >= state.tanks.size() or attacker == target:
+		return false
+	return state.tanks[attacker].team == state.tanks[target].team
 
 
 # --- actions ---------------------------------------------------------------------------
@@ -433,7 +447,9 @@ static func _apply_use_item(state: MatchState, action: Dictionary, events: Array
 ## The one place damage is dealt (section 21). Shields absorb everything except cause "fall"
 ## (`shield_hit`, then `shield_down` at 0); the rest reduces health (`damage`, nominal
 ## amount after the shield). Credits use the HP actually removed: enemy +15/HP, kill +1500,
-## yourself or a teammate -15/HP (never below 0 money). `attacker` -1 means nobody.
+## yourself or a teammate -15/HP (never below 0 money; a teammate gets no credit, kill bonus or
+## kill count). With friendly fire off a teammate's hit does nothing at all (section 39).
+## `attacker` -1 means nobody.
 ## A tank reaching 0 health is marked dead (the caller emits `tank_destroyed`).
 ## Returns the HP actually removed from health.
 static func apply_damage(state: MatchState, attacker: int, target: int, amount: int, cause: String,
@@ -441,8 +457,10 @@ static func apply_damage(state: MatchState, attacker: int, target: int, amount: 
 	var t: TankState = state.tanks[target]
 	if not t.alive or amount <= 0:
 		return 0
+	if is_friendly_fire_immune(state, attacker, target):
+		return 0
 	var remaining: int = amount
-	if cause != "fall" and t.has_shield():
+	if cause != "fall" and cause != "sudden_death" and t.has_shield():
 		var absorbed: int = mini(t.shield_hp, remaining)
 		t.shield_hp -= absorbed
 		remaining -= absorbed
@@ -491,19 +509,11 @@ static func emit_destroyed(state: MatchState, was_alive: Array[bool], tick: int,
 # --- turns -----------------------------------------------------------------------------------
 
 ## round_end (+ round pay, then shop / match_over), or the next alive tank's turn plus a wind
-## drift.
+## drift. After the threshold turn the sudden-death drain runs on every wrap of the turn order
+## (section 40).
 static func _finish_turn(state: MatchState, tick: int, events: Array[Dictionary]) -> void:
-	var alive_count: int = 0
-	var last_alive: int = -1
-	for t: TankState in state.tanks:
-		if t.alive:
-			alive_count += 1
-			last_alive = t.id
-	if alive_count <= 1:
-		events.append({"type": "round_end", "tick": tick, "winner": last_alive})
-		Economy.pay_round(state, last_alive, tick, events)
-		var last_round: bool = state.round_index + 1 >= state.settings.rounds
-		state.phase = SimConstants.PHASE_MATCH_OVER if last_round else SimConstants.PHASE_SHOP
+	if _round_over(state):
+		_end_round(state, tick, events)
 		return
 	var n: int = state.tanks.size()
 	var next: int = state.current_tank
@@ -512,8 +522,23 @@ static func _finish_turn(state: MatchState, tick: int, events: Array[Dictionary]
 		if state.tanks[cand].alive:
 			next = cand
 			break
-	state.current_tank = next
+	var wrapped: bool = next <= state.current_tank
 	state.turn_number += 1
+	var sudden: bool = _sudden_death_active(state)
+	if sudden and state.turn_number == sudden_death_turn(state.settings):
+		events.append({"type": "sudden_death", "tick": tick})
+	if sudden and wrapped:
+		_drain(state, tick, events)
+		if _round_over(state):
+			_end_round(state, tick, events)
+			return
+		# The drain may have destroyed the tank that was next; the next living tank takes the turn.
+		for step: int in range(1, n + 1):
+			var cand: int = (state.current_tank + step) % n
+			if state.tanks[cand].alive:
+				next = cand
+				break
+	state.current_tank = next
 	_expire_wells(state, tick, events)
 	var wind_rng: Rng = Rng.from_state(state.wind_rng_state)
 	var wm: int = state.settings.wind_max
@@ -521,6 +546,60 @@ static func _finish_turn(state: MatchState, tick: int, events: Array[Dictionary]
 	state.wind_rng_state = wind_rng.get_state()
 	events.append({"type": "wind", "tick": tick, "wind": state.wind})
 	events.append({"type": "turn", "tick": tick, "tank": next})
+
+
+## Turns played in a round after which sudden death begins (section 40).
+static func sudden_death_turn(settings: MatchSettings) -> int:
+	return SimConstants.SUDDEN_DEATH_TURNS_PER_TANK * settings.num_tanks
+
+
+## True once the round has reached its sudden-death turn (standard mode only).
+static func _sudden_death_active(state: MatchState) -> bool:
+	return state.settings.mode != SimConstants.MODE_LOVE \
+			and state.turn_number >= sudden_death_turn(state.settings)
+
+
+## HP the next drain takes from every living tank, for the given completed cycle count.
+static func sudden_death_amount(cycles: int) -> int:
+	return mini(SimConstants.SUDDEN_DEATH_BASE * cycles, SimConstants.SUDDEN_DEATH_MAX)
+
+
+## One sudden-death cycle: every living tank loses HP in id order (cause "sudden_death", no attacker,
+## shields bypassed, no money), then `tank_destroyed` for the tanks it killed, in id order.
+static func _drain(state: MatchState, tick: int, events: Array[Dictionary]) -> void:
+	state.sudden_death_cycles += 1
+	var amount: int = sudden_death_amount(state.sudden_death_cycles)
+	var was_alive: Array[bool] = _alive_flags(state)
+	for t: TankState in state.tanks:
+		if t.alive:
+			apply_damage(state, -1, t.id, amount, "sudden_death", tick, events)
+	emit_destroyed(state, was_alive, tick, events)
+
+
+## True when the living tanks belong to at most one team (section 39).
+static func _round_over(state: MatchState) -> bool:
+	var team: int = -1
+	for t: TankState in state.tanks:
+		if t.alive:
+			if team >= 0 and t.team != team:
+				return false
+			team = t.team
+	return true
+
+
+## Emits round_end, pays the round, and moves to the shop or match_over.
+static func _end_round(state: MatchState, tick: int, events: Array[Dictionary]) -> void:
+	var winner: int = -1
+	var winner_team: int = -1
+	for t: TankState in state.tanks:
+		if t.alive:
+			winner = t.id
+			winner_team = t.team
+			break
+	events.append({"type": "round_end", "tick": tick, "winner": winner, "winner_team": winner_team})
+	Economy.pay_round(state, winner_team, tick, events)
+	var last_round: bool = state.round_index + 1 >= state.settings.rounds
+	state.phase = SimConstants.PHASE_MATCH_OVER if last_round else SimConstants.PHASE_SHOP
 
 
 ## Removes wells with turn_number >= expires_turn (section 21), keeping owner order.

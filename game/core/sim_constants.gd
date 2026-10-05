@@ -91,3 +91,12 @@ const REPULSOR_RADIUS: int = 60
 const REPULSOR_PUSH: int = 131072  # 2.00 cell/tick^2 at the centre, Q16.16 (tuned in M3-C2)
 const REPULSOR_CHARGE: int = 100
 const REPAIR_HEAL: int = 40
+
+## Teams (section 39): ids 0..3 are teams A..D. An empty `teams` array means no teams.
+const MAX_TEAMS: int = 4
+
+## Sudden death (section 40): starts at SUDDEN_DEATH_TURNS_PER_TANK x num_tanks turns; each completed
+## turn-order cycle after that drains min(BASE x cycles, MAX) HP from every living tank.
+const SUDDEN_DEATH_TURNS_PER_TANK: int = 10
+const SUDDEN_DEATH_BASE: int = 5
+const SUDDEN_DEATH_MAX: int = 25

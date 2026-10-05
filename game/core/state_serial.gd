@@ -69,6 +69,10 @@ static func write(b: StreamPeerBuffer, state: MatchState) -> void:
 	for c: int in st.controllers:
 		b.put_32(c)
 	b.put_32(st.mode)
+	b.put_32(st.teams.size())
+	for tm: int in st.teams:
+		b.put_32(tm)
+	b.put_32(1 if st.friendly_fire else 0)
 	b.put_64(state.seed)
 	b.put_32(state.round_index)
 	b.put_32(state.wind)
@@ -76,6 +80,7 @@ static func write(b: StreamPeerBuffer, state: MatchState) -> void:
 		b.put_64(w)
 	b.put_32(state.current_tank)
 	b.put_32(state.turn_number)
+	b.put_32(state.sudden_death_cycles)
 	b.put_32(phase_code(state.phase))
 	b.put_32(state.tanks.size())
 	for t: TankState in state.tanks:
@@ -130,7 +135,7 @@ static func _write_tank(b: StreamPeerBuffer, t: TankState) -> void:
 ## Parses what write() produced. Returns null if the data is truncated or inconsistent.
 static func read(b: StreamPeerBuffer) -> MatchState:
 	var s := MatchState.new()
-	if b.get_available_bytes() < 8 + 4 * 3 + 8 + 4 + 8 + 4 + 4 + 4 + 32 + 12:
+	if b.get_available_bytes() < 8 + 4 * 3 + 8 + 4 + 8 + 4 + 4 + 4 + 4 + 4 + 32 + 12:
 		return null
 	var st: MatchSettings = s.settings
 	st.seed = b.get_64()
@@ -148,6 +153,15 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 		ctrl[i] = b.get_32()
 	st.controllers = ctrl
 	st.mode = b.get_32()
+	var n_teams: int = b.get_32()
+	if n_teams < 0 or n_teams > MAX_TANKS_READ or b.get_available_bytes() < n_teams * 4 + 4 + 8 + 4 * 3 + 4 + 32 + 12:
+		return null
+	var teams := PackedInt32Array()
+	teams.resize(n_teams)
+	for i: int in range(n_teams):
+		teams[i] = b.get_32()
+	st.teams = teams
+	st.friendly_fire = b.get_32() != 0
 	s.seed = b.get_64()
 	s.round_index = b.get_32()
 	s.wind = b.get_32()
@@ -157,6 +171,7 @@ static func read(b: StreamPeerBuffer) -> MatchState:
 	s.wind_rng_state = words
 	s.current_tank = b.get_32()
 	s.turn_number = b.get_32()
+	s.sudden_death_cycles = b.get_32()
 	var phase: String = phase_name(b.get_32())
 	if phase == "":
 		return null
@@ -278,6 +293,10 @@ static func _validate_header(state: MatchState) -> String:
 		if st.num_tanks != 2 or st.rounds != 1 or st.wind_max > SimConstants.LOVE_WIND_MAX or st.start_money != 0:
 			return "love mode settings (tanks %d, rounds %d, wind_max %d, money %d)" % [st.num_tanks,
 					st.rounds, st.wind_max, st.start_money]
+	if st.mode == SimConstants.MODE_LOVE and not st.teams.is_empty():
+		return "settings.teams in love mode"
+	if st.validate() != "":
+		return "settings.teams %s with %d tanks" % [str(st.teams), st.num_tanks]
 	if st.controllers.size() != st.num_tanks:
 		return "settings.controllers size %d != num_tanks %d" % [st.controllers.size(), st.num_tanks]
 	var top: int = SimConstants.CTRL_MAX if st.full_unlocked else SimConstants.CTRL_FREE_MAX
@@ -295,6 +314,9 @@ static func _validate_header(state: MatchState) -> String:
 		return "wind %d beyond +-%d" % [state.wind, st.wind_max]
 	if state.turn_number < 0 or state.turn_number > MAX_COUNTER:
 		return "turn_number %d" % state.turn_number
+	var err: String = _validate_sudden_death(state)
+	if err != "":
+		return err
 	if state.current_tank < 0 or state.current_tank >= state.tanks.size():
 		return "current_tank %d" % state.current_tank
 	if state.wind_rng_state.size() != 4:
@@ -307,6 +329,22 @@ static func _validate_header(state: MatchState) -> String:
 	# Only a match that has not started yet has an unseeded wind stream (all zero words).
 	if not any_set and state.round_index >= 0:
 		return "wind_rng_state is all zero"
+	return ""
+
+
+## sudden_death_cycles (section 40): none before the sudden-death turn, never in love mode, and at most
+## one cycle per turn played since the threshold (the wrap that reaches it counts).
+static func _validate_sudden_death(state: MatchState) -> String:
+	var cycles: int = state.sudden_death_cycles
+	if cycles < 0:
+		return "sudden_death_cycles %d" % cycles
+	if cycles == 0:
+		return ""
+	if state.settings.mode == SimConstants.MODE_LOVE or state.round_index < 0:
+		return "sudden_death_cycles %d outside a standard round" % cycles
+	var threshold: int = Simulation.sudden_death_turn(state.settings)
+	if state.turn_number < threshold or cycles > state.turn_number - threshold + 1:
+		return "sudden_death_cycles %d at turn %d (threshold %d)" % [cycles, state.turn_number, threshold]
 	return ""
 
 
@@ -335,15 +373,29 @@ static func _validate_flow(state: MatchState) -> String:
 		var err: String = _validate_love_flow(state)
 		if err != "":
 			return err
+	return _validate_round_flow(state)
+
+
+## Who may be alive in each phase. A round is over exactly when the living tanks form at most one
+## team (section 39), so "aim" needs two teams alive and a finished round (shop / match_over after
+## a round) at most one. Love mode ends by a full meter instead and is exempt from the second rule.
+static func _validate_round_flow(state: MatchState) -> String:
+	var teams_alive: int = 0
+	var alive: int = 0
+	var seen: int = 0
+	for t: TankState in state.tanks:
+		if t.alive:
+			alive += 1
+			if (seen & (1 << t.team)) == 0:
+				seen |= 1 << t.team
+				teams_alive += 1
 	if state.phase == SimConstants.PHASE_AIM:
-		var alive: int = 0
-		for t: TankState in state.tanks:
-			if t.alive:
-				alive += 1
-		if alive < 2:
-			return "aim phase with %d tank(s) alive" % alive
+		if teams_alive < 2:
+			return "aim phase with %d tank(s) alive on %d team(s)" % [alive, teams_alive]
 		if not state.tanks[state.current_tank].alive:
 			return "current_tank %d is dead" % state.current_tank
+	elif state.round_index >= 0 and state.settings.mode != SimConstants.MODE_LOVE and teams_alive > 1:
+		return "round over with %d teams alive" % teams_alive
 	return ""
 
 
@@ -377,6 +429,8 @@ static func _validate_tank(state: MatchState, t: TankState, n: int) -> String:
 	var st: MatchSettings = state.settings
 	if t.id != state.tanks.find(t):
 		return "id does not match its position"
+	if t.team != st.team_of(t.id):
+		return "team %d does not match the settings" % t.team
 	if t.team < 0 or t.team >= SimConstants.MAX_TANKS or t.color_index < 0 or t.color_index >= SimConstants.MAX_TANKS:
 		return "team/color"
 	if t.health < 0 or t.health > SimConstants.MAX_HEALTH:

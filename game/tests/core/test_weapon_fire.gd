@@ -158,7 +158,8 @@ func test_lost_shell_burns_nothing() -> void:
 
 
 func test_team_damage_costs_the_shooter() -> void:
-	var s: MatchState = U.flat_state(2)
+	# Three tanks: with only two on one team the round would end (section 39) and pay out.
+	var s: MatchState = U.flat_state(3)
 	s.tanks[1].team = 0
 	s.tanks[0].money = 1000
 	_hit_tank_one(s, "ember_rain")

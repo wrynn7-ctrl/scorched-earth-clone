@@ -5,7 +5,7 @@ extends RefCounted
 ## is no terrain change and no damage. Every alive tank other than the shooter within `r` gains
 ## love with the section 11 falloff (`amount` at the centre, at least 1), capped at LOVE_MAX.
 ## Events: `heart_burst`, then `love` per tank in id order; a full meter ends the match with
-## `round_end {winner = shooter}` (the phase becomes "match_over"; Simulation then skips the
+## `round_end {winner = shooter, winner_team = its team}` (the phase becomes "match_over"; Simulation then skips the
 ## turn change). A lost or timed-out shell emits no burst.
 
 
@@ -34,6 +34,7 @@ static func resolve(state: MatchState, tank_id: int, action: Dictionary, def: Di
 	if full:
 		# The shooter wins; round_wins keeps Simulation.standings consistent with the winner.
 		state.tanks[tank_id].round_wins += 1
-		events.append({"type": "round_end", "tick": tick, "winner": tank_id})
+		events.append({"type": "round_end", "tick": tick, "winner": tank_id,
+				"winner_team": state.tanks[tank_id].team})
 		state.phase = SimConstants.PHASE_MATCH_OVER
 	return tick

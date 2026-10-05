@@ -39,6 +39,9 @@ static func apply_fall(state: MatchState, tank_id: int, from_y: int, to_y: int, 
 	var amt: int = (to_y - from_y - SimConstants.FALL_SAFE) / SimConstants.FALL_DMG_DIV
 	if amt <= 0:
 		return
+	# Friendly fire off: a teammate's shot made this tank fall, which costs nothing and keeps the chute.
+	if Simulation.is_friendly_fire_immune(state, attacker, tank_id):
+		return
 	var t: TankState = state.tanks[tank_id]
 	var chute: int = Catalog.index_of("drift_chute")
 	if t.inventory[chute] > 0:
