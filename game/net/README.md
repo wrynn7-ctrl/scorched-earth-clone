@@ -91,7 +91,7 @@ Settings keys: `rounds, wind_max, start_money, mode (0 standard, 1 Love), teams,
 State: `om.state` (the authoritative `MatchState`, only this class mutates it), `om.fork_state()` (a copy for previews
 and the shop), `om.my_seats` (several = shared phone), `om.seats()`, `om.seat_name(tank)`, `om.status`
 (`playing|over|abandoned`), `om.turn_info()`, `om.is_my_turn()`, `om.live_seconds_left()`, `om.now_ms()` (server time),
-`om.is_online(uid)`, `om.connection` (`LIVE|RECONNECTING|OFFLINE|CLOSED`), `om.is_disputed()`, `om.replay`.
+`om.is_online(uid)`, `om.connection` (`LIVE|RECONNECTING|OFFLINE|CLOSED`), `om.is_disputed()`, `om.replay`, `om.streams_ready()` (meta, actions and msgs streams connected, each with its initial snapshot applied; the `ready` signal fires once when that first becomes true).
 
 `turn_info()` = `{tank, uid, deadline, liveDeadline?, index, mine, shop, resolving, cpu, name}`. `shop` is the shop phase
 (tank -2; `mine` while one of my seats is not ready). `resolving` is a CPU turn or "needs resolve" that some member's
@@ -104,7 +104,7 @@ Acting:
 - `await om.submit_many([...])`: several shop actions (buy, sell, ready) in one update; an aim action goes alone. Use it to
   send a whole shop visit on READY.
 - `wait_online_sec` (2nd argument, default 0) keeps retrying while offline for that long ("actions queued").
-- `await om.send_message(index, seat)` quick message 0..7 (3 s limit, `RATE_LIMITED`). The update carries `lastMsgKey/{uid}` = the message's key: the rules accept
+- `await om.send_message(index, seat)` quick message 0..7 (3 s limit; `RATE_LIMITED` only when the client cooldown or the database's `lastMsg` shows the limiter was the reason, any other refusal is `PERMISSION` with the rules' reason). The update carries `lastMsgKey/{uid}` = the message's key: the rules accept
   exactly one message per update, under that key.
 - `await om.abandon()` host only.
 

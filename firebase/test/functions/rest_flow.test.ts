@@ -108,7 +108,8 @@ describe('REST client flow (what M7-N will do)', () => {
 
     // The functions kept the lists in step while the turn moved.
     await eventually(async () => (await value(`userMatches/${host.uid}/${matchId}/yourTurn`)) === true, 'host flagged');
-    assert.equal(await value(`userMatches/${bob.uid}/${matchId}/yourTurn`), false);
+    // the trigger updates every member's entry in parallel, so bob's flag may trail the host's by a moment
+    await eventually(async () => (await value(`userMatches/${bob.uid}/${matchId}/yourTurn`)) === false, 'bob not flagged');
 
     // The host's turn: the final shot ends the match.
     ok(

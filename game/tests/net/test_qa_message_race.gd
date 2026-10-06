@@ -18,8 +18,7 @@ func _pair() -> Dictionary:
 
 
 func _msg_stream_up(m: OnlineMatch) -> bool:
-	var s: NetStream = m._streams[3]
-	return is_instance_valid(s) and s.is_connected_now
+	return m.streams_ready()
 
 
 func test_a_message_sent_after_the_receivers_message_stream_is_up_arrives() -> void:
@@ -58,3 +57,40 @@ func test_a_message_sent_right_after_the_receiver_opened_the_match_is_not_lost()
 		mg.close()
 		await get_tree().create_timer(3.2).timeout  # the 3 s limiter belongs to the match, a new match starts fresh anyway
 	assert_eq(lost, 0, "%d of %d quick messages sent right after the receiver opened the match were lost" % [lost, tries])
+
+
+func test_streams_ready_and_the_ready_signal_after_open() -> void:
+	if not _need_emulator():
+		return
+	var c: Dictionary = await _pair()
+	var mg: OnlineMatch = c["mg"]
+	var fired: Array = []
+	mg.ready.connect(func() -> void: fired.append(true))
+	assert_true(await _until(func() -> bool: return mg.streams_ready(), 15.0), "meta, actions and msgs streams are up with their snapshots")
+	assert_true(fired.size() <= 1, "ready is emitted once")
+	assert_true(mg.streams_ready())
+	mg.close()
+	assert_false(mg.streams_ready(), "a closed match is not ready")
+
+
+func test_a_refused_message_is_a_rate_limit_only_when_the_limiter_explains_it() -> void:
+	if not _need_emulator():
+		return
+	var c: Dictionary = await _pair()
+	var mh: OnlineMatch = c["mh"]
+	assert_true(await _until(func() -> bool: return mh.streams_ready(), 15.0))
+	# a real rate limit: another write of this account's limiter inside 3 s (as a second phone would make) is RATE_LIMITED
+	assert_true((await mh.send_message(1, mh.my_seats[0])).ok)
+	mh._last_msg_ms = -1000000  # as if this phone did not know about the other message
+	var limited: NetResult = await mh.send_message(1, mh.my_seats[0])
+	assert_true(limited.is_code(NetError.Code.RATE_LIMITED), str(limited))
+	# another reason: the match is no longer running, the limiter is long over: PERMISSION with the rules' reason
+	await get_tree().create_timer(3.4).timeout
+	assert_true((await mh.abandon()).ok)
+	var refused: NetResult = await mh.send_message(1, mh.my_seats[0])
+	assert_false(refused.ok)
+	assert_true(refused.is_code(NetError.Code.PERMISSION), "not a rate limit: %s" % str(refused))
+	assert_false(refused.is_code(NetError.Code.RATE_LIMITED))
+	# and the client-side cooldown did not start for a message that was never sent
+	var again: NetResult = await mh.send_message(1, mh.my_seats[0])
+	assert_true(again.is_code(NetError.Code.PERMISSION), str(again))

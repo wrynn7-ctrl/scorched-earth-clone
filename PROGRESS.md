@@ -8,7 +8,7 @@
 | M4 — AI opponents | ✅ Done 2026-10-03 (owner: very good; Easy too sharp → retune; angle buttons → screen-relative) |
 | M5 — Polish, sound, effects | ✅ Done 2026-10-04 (owner: sound redesign "much better"; audio delay fix "works great") |
 | M6 — Local pass-and-play | 🟡 Built + QA green; waiting for owner phone test |
-| M7 — Online multiplayer | 🟡 In progress (emulator-first) |
+| M7 — Online multiplayer | 🟡 Built + QA green on the emulator; needs the owner's Firebase project for phone tests |
 | M8 — Play Store release prep | ⬜ Not started |
 
 ## Log
@@ -116,7 +116,7 @@
 | M7-R Android: FCM plugin, Google sign-in plugin, share sheet + deep links, FIREBASE_SETUP.md | release-eng | ✅ reviewed (APK +1.5 MB; builds with/without Firebase; Kotlin untested on device; CI steps applied) |
 | M7-G Gaps: add-friend by uid for match members; send purchase token to verifyPurchase | backend-dev | ✅ reviewed (106 rules + 170 functions + 88 net + 660 ui tests) |
 | M7-Q QA: multi-client emulator scenarios, disconnects, tampering | qa-tester | ✅ reviewed (rules attacks + 3,000-write fuzz, 20 chaos matches, 2,000-name parity; 7 medium + ~10 low) |
-| M7-QF-B Backend/net fixes for M7-Q | backend-dev | 🟡 in progress |
+| M7-QF-B Backend/net fixes for M7-Q | backend-dev | ✅ reviewed (159 rules + 239 functions + 104 net tests; 0 pending; filter parity 0 diffs) |
 | M7-QF-U UI fixes for M7-Q (back button with confirm, stale lobby ids, UI-flow test race) | show-ui-dev | ✅ reviewed (show+ui 1,025 green 5/5; UI-flow test 5/5) |
 
 ## Decisions / notes

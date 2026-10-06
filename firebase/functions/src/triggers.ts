@@ -95,16 +95,21 @@ export async function pruneTokens(deps: Deps, uid: string, keep: string): Promis
   await deps.db.ref(`users/${uid}/fcm`).transaction((current: Record<string, string> | null) => {
     removed = 0;
     if (current === null) return null; // first pass has no data; the SDK retries with the real value
-    const keys = Object.keys(current);
-    if (keys.length <= MAX_PUSH_TOKENS) return current;
-    const others = keys.filter((key) => key !== keep).sort();
-    const drop = others.slice(0, keys.length - MAX_PUSH_TOKENS);
-    const next: Record<string, string> = { ...current };
-    for (const key of drop) delete next[key];
-    removed = drop.length;
+    const next = trimTokens(current, keep);
+    removed = Object.keys(current).length - Object.keys(next).length;
     return next;
   });
   return removed;
+}
+
+/** The token map cut down to MAX_PUSH_TOKENS: `keep` stays, and among the others the ones that sort first go. Pure. */
+export function trimTokens(current: Record<string, string>, keep: string): Record<string, string> {
+  const keys = Object.keys(current);
+  if (keys.length <= MAX_PUSH_TOKENS) return current;
+  const drop = keys.filter((key) => key !== keep).sort().slice(0, keys.length - MAX_PUSH_TOKENS);
+  const next: Record<string, string> = { ...current };
+  for (const key of drop) delete next[key];
+  return next;
 }
 
 export const onNameWrite = onValueWritten({ ...options, ref: '/users/{uid}/name' }, async (event) => {

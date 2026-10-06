@@ -917,3 +917,26 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
     blocked pair gets `unknown_code`.
   - `Entitlement.purchase_token()` → `NetAccount.sync_full(token)` → `verifyPurchase` runs in the background when the
     Online screen opens. A non-blocking RETRY strip shows on failure.
+
+## 54. M7-QF as built (security hardening after M7-Q)
+- **Ids:** 8–128 characters of `[A-Za-z0-9_-]`, never starting with `__`. Match callables first check that the match
+  exists.
+- **Turn deadlines:** a new `deadline` or `liveDeadline` may be at most 5 s in the past.
+- **CPU turns:** an `auto` / `auto_shop` `level` must equal the seat's level (rules plus NetReplay
+  `bad_auto_level`). A CPU seat never times out; a stuck CPU turn gets an `auto` entry from the sweep.
+- **Joining:** the already-seated check is repeated inside the transaction.
+- **Names:** every server copy of a name passes `checkName`. The server filter deletes exactly the characters the
+  game's font can't draw (generated `name_glyphs.json`). Parity with the client filter is 0 differences on the
+  2,000-string corpus.
+- **Status over:** `status: over` is a claim. Clients confirm it with their replay and otherwise dispute it
+  (`status_over_early`).
+- **Messages:** exactly one message per update (`lastMsgKey/{uid}`).
+- **Push tokens:** at most 5 per user (the `onPushTokenAdded` trigger prunes).
+- **Social limits:**
+  - `reportName` only for friends or players who share a match;
+  - a 24 h friend-request cooldown after a decline (`friendCooldowns`);
+  - `block` needs an existing uid;
+  - `ensureProfile` won't recreate a deleted account.
+- **Client API:**
+  - `OnlineMatch.streams_ready()` and a `ready` signal;
+  - `send_message` returns RATE_LIMITED only for real rate limits, otherwise PERMISSION with the reason.

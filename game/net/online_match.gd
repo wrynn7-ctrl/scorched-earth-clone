@@ -30,11 +30,13 @@ extends RefCounted
 ##   connection_changed(connection) Connection.LIVE / RECONNECTING / OFFLINE / CLOSED
 ##   disputed(reason, index)        stop playing; the host may abandon()
 ##   failed(code, reason)           a background write (resolve, timeout) failed for a reason the player may care about
-##   opened(), closed()
+##   opened(), ready(), closed()
 ##
 ## Shared phone: `my_seats` holds every seat of this account; submit() accepts an action for any of them.
 
 signal opened()
+## Meta, actions and msgs streams are connected and each has delivered its initial snapshot (see streams_ready()). Emitted once.
+signal ready()
 signal closed()
 signal entry_applied(index: int, result: Dictionary)
 signal turn_changed(turn: Dictionary)
@@ -97,6 +99,7 @@ var _writing: bool = false
 var _streams: Array[NetStream] = []
 var _meta_stream: NetStream = null
 var _actions_stream: NetStream = null
+var _msg_stream: NetStream = null
 var _presence_streams: Dictionary = {}
 var _online_flags: Dictionary = {}
 var _fp_remote: Dictionary = {}
@@ -106,6 +109,11 @@ var _msgs_seen: Dictionary = {}
 var _open_at_ms: int = 0
 ## The database says "over" but the replay has not reached the end (yet): when since, 0 = not the case.
 var _over_claimed_since: int = 0
+## Which streams have delivered their first snapshot, and whether `ready` was emitted.
+var _snap_meta: bool = false
+var _snap_actions: bool = false
+var _snap_msgs: bool = false
+var _ready_emitted: bool = false
 var _last_msg_ms: int = -1000000
 var _last_beat_ms: int = -1000000
 var _offline_since: int = 0
@@ -186,6 +194,31 @@ func close() -> void:
 
 func is_open() -> bool:
 	return _open
+
+
+## True when the meta, actions and msgs streams are connected and each has applied its initial snapshot. A quick message
+## written before the msgs stream was up is still shown (see _handle_message), but a UI or test that wants to be sure nothing is
+## in flight waits for this (or for the `ready` signal). Drops back to false while a stream is reconnecting.
+func streams_ready() -> bool:
+	if not _open or not (_snap_meta and _snap_actions and _snap_msgs):
+		return false
+	for s: NetStream in [_meta_stream, _actions_stream, _msg_stream]:
+		if s == null or not is_instance_valid(s) or not s.is_connected_now:
+			return false
+	return true
+
+
+func _note_snapshot(which: int) -> void:
+	match which:
+		0:
+			_snap_meta = true
+		1:
+			_snap_actions = true
+		_:
+			_snap_msgs = true
+	if not _ready_emitted and streams_ready():
+		_ready_emitted = true
+		ready.emit()
 
 
 ## The authoritative state after every entry received so far. The simulation is only ever changed by this class.
@@ -459,7 +492,8 @@ func _make_turn(want: Dictionary) -> Dictionary:
 # --- messages ----------------------------------------------------------------------------------------------------------
 
 ## Sends quick message `msg` (0..MSG_COUNT-1) as `seat` (default: the first of my seats). Failure codes: RATE_LIMITED
-## (one per 3 s; checked here first and by the rules), INVALID, ILLEGAL_ACTION `not_your_seat`.
+## (one per 3 s; checked here first and by the rules; a rules refusal is RATE_LIMITED only when `lastMsg` shows the limiter
+## was the reason, otherwise it is PERMISSION), INVALID, ILLEGAL_ACTION `not_your_seat`.
 func send_message(msg: int, seat: int = -1) -> NetResult:
 	if not _open:
 		return NetResult.failure(NetError.Code.CLOSED, "closed")
@@ -480,9 +514,20 @@ func send_message(msg: int, seat: int = -1) -> NetResult:
 		"lastMsgKey/" + uid: key,
 	}
 	var res: NetResult = await _net.db.patch("matches/%s" % match_id, update)
-	if not res.ok and res.code == NetError.Code.PERMISSION:
+	if not res.ok and res.code == NetError.Code.PERMISSION and await _limiter_explains_denial():
 		return NetResult.failure(NetError.Code.RATE_LIMITED, "rate_limited")
-	return res
+	if not res.ok:
+		_last_msg_ms = -1000000  # nothing was sent, so the client-side cooldown must not run
+	return res  # any other refusal (left the match, match not running...) stays PERMISSION with the rules' reason
+
+
+## True when the database's own `lastMsg/{uid}` timestamp is younger than the 3 s limit (the rules refused for the limiter,
+## for instance because another phone of this account just sent one), so a denied message is a rate limit and nothing else.
+func _limiter_explains_denial() -> bool:
+	var last: NetResult = await _net.db.get_value("matches/%s/lastMsg/%s" % [match_id, uid])
+	if not last.ok or typeof(last.value) != TYPE_INT:
+		return false
+	return now_ms() - (last.value as int) < NetProtocol.MSG_INTERVAL_MS + TIMEOUT_MARGIN_MS
 
 
 ## The host gives the match up (status abandoned). Anyone else gets PERMISSION.
@@ -670,6 +715,7 @@ func _start_streams() -> void:
 	var db: NetDb = _net.db
 	_meta_stream = db.stream("matches/%s/meta" % match_id)
 	_meta_stream.value_changed.connect(_on_meta)
+	_meta_stream.value_changed.connect(func(_v: Variant) -> void: _note_snapshot(0))  # after _on_meta: the first one is the snapshot
 	_meta_stream.connected.connect(_on_stream_state)
 	_meta_stream.disconnected.connect(_on_stream_state)
 	_actions_stream = db.stream("matches/%s/actions" % match_id, Callable(self, "_actions_params"), false)
@@ -680,6 +726,7 @@ func _start_streams() -> void:
 	fp_stream.value_changed.connect(_on_fp)
 	var msg_stream: NetStream = db.stream("matches/%s/msgs" % match_id, NetDb.last_n(5), false)
 	msg_stream.event_received.connect(_on_msgs_event)
+	_msg_stream = msg_stream
 	_streams = [_meta_stream, _actions_stream, fp_stream, msg_stream]
 	_sync_presence_streams()
 
@@ -694,6 +741,7 @@ func _on_actions_event(kind: String, path: String, data: Variant) -> void:
 	if path == "/":
 		if kind == "put":
 			_ingest_snapshot(data)
+			_note_snapshot(1)
 		elif typeof(data) == TYPE_DICTIONARY:
 			var keys: Array = (data as Dictionary).keys()
 			keys.sort_custom(func(a: Variant, b: Variant) -> bool: return str(a).to_int() < str(b).to_int())
@@ -711,6 +759,8 @@ func _on_msgs_event(kind: String, path: String, data: Variant) -> void:
 		if typeof(data) == TYPE_DICTIONARY:
 			for key: Variant in (data as Dictionary).keys():
 				_handle_message(str(key), (data as Dictionary)[key], kind == "put")
+		if kind == "put":
+			_note_snapshot(2)
 		return
 	var parts: PackedStringArray = path.split("/", false)
 	if parts.size() == 1:
@@ -821,7 +871,8 @@ func _send_heartbeat() -> void:
 ## The stored turn must agree with the simulation once we are caught up; a short grace covers the moment between
 ## the log and the turn arriving as separate events.
 func _check_turn(now: int) -> void:
-	if replay.disputed or status != NetProtocol.STATUS_PLAYING or replay.count != _server_count or _turn_raw.is_empty():
+	if replay.disputed or status != NetProtocol.STATUS_PLAYING or replay.count != _server_count or _turn_raw.is_empty() \
+			or _over_claimed_since != 0:  # a claimed "over" is judged by _check_over (its reason is the useful one)
 		_turn_bad_since = 0
 		return
 	var why: String = replay.check_turn(_turn_raw)
