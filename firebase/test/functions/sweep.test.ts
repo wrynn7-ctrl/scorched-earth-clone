@@ -53,7 +53,7 @@ describe('functions: timeoutSweep (fake clock)', () => {
     const clock = { now: deadline + 1000 };
     const result = await runTimeoutSweep(directDeps(clock), { matchIds: [match.matchId] });
     assert.deepEqual(result.timeouts, [match.matchId]);
-    assert.deepEqual(await value(`matches/${match.matchId}/actions/5`), { kind: 'timeout', tank: 1 });
+    assert.deepEqual(await value(`matches/${match.matchId}/actions/5`), { kind: 'timeout', tank: 1, async: 1 });
     assert.equal(await value(`matches/${match.matchId}/meta/actionCount`), 6);
     assert.deepEqual(await value(`matches/${match.matchId}/meta/turn`), { tank: -1, uid: 'any', deadline: 0, index: 5 });
     assert.equal(await value(`matches/${match.matchId}/meta/status`), 'playing');
@@ -82,7 +82,7 @@ describe('functions: timeoutSweep (fake clock)', () => {
     const clock = { now: deadline + 1000 };
     const result = await runTimeoutSweep(directDeps(clock), { matchIds: [match.matchId] });
     assert.deepEqual(result.ended, [match.matchId]);
-    assert.deepEqual(await value(`matches/${match.matchId}/actions/5`), { kind: 'timeout', tank: 1 });
+    assert.deepEqual(await value(`matches/${match.matchId}/actions/5`), { kind: 'timeout', tank: 1, async: 1 });
     assert.equal(await value(`matches/${match.matchId}/meta/status`), 'over');
     assert.equal(await value(`matchCodes/${match.code}`), null);
     assert.equal(await value(`userMatches/${match.host.uid}/${match.matchId}/status`), 'over');
@@ -105,7 +105,7 @@ describe('functions: timeoutSweep (fake clock)', () => {
     const match = await startedMatch();
     const deadline = Date.now() + 10 * HOUR;
     await bobsTurn(match, deadline);
-    await db.ref(`matches/${match.matchId}/actions/5`).set({ kind: 'timeout', tank: 1 });
+    await db.ref(`matches/${match.matchId}/actions/5`).set({ kind: 'timeout', tank: 1, async: 1 });
     const result = await runTimeoutSweep(directDeps({ now: deadline + 1000 }), { matchIds: [match.matchId] });
     assert.deepEqual(result.timeouts, [match.matchId]);
     assert.equal(await value(`matches/${match.matchId}/meta/actionCount`), 6);

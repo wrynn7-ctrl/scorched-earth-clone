@@ -173,41 +173,64 @@ describe('rules: action log - shop phase', () => {
 describe('rules: action log - timeouts', () => {
   useRulesEnv();
   let count = 0;
-  const timeoutEntry = { kind: 'timeout', tank: 0 };
+  // `async: 1` is the hard-deadline kind (the AI plays), without it a timeout is a live skip (ARCHITECTURE section 52).
+  const asyncEntry = { kind: 'timeout', tank: 0, async: 1 };
+  const liveEntry = { kind: 'timeout', tank: 0 };
 
   beforeEach(async () => {
     count = await seedAll({ turn: turnFor(0, 'host', 3, { deadline: Date.now() - 1000 }) }); // hard deadline passed
   });
 
-  it('lets any member write a timeout once the hard deadline has passed', async () => {
-    await assertSucceeds(update(ref(as('bob')), append(count, [timeoutEntry], { tank: -1, uid: 'any', deadline: 0, index: 4 })));
+  it('lets any member write an async timeout once the hard deadline has passed', async () => {
+    await assertSucceeds(update(ref(as('bob')), append(count, [asyncEntry], { tank: -1, uid: 'any', deadline: 0, index: 4 })));
   });
 
   it('lets the same update carry the CPU turns that follow the timeout', async () => {
-    await assertSucceeds(update(ref(as('bob')), append(count, [timeoutEntry, auto(2)], NEXT_TURN(1, 'bob'))));
+    await assertSucceeds(update(ref(as('bob')), append(count, [asyncEntry, auto(2)], NEXT_TURN(1, 'bob'))));
   });
 
-  it('refuses a timeout before the deadline, for the wrong tank, or from a non-member', async () => {
+  it('refuses an async timeout before the deadline, for the wrong tank, or from a non-member', async () => {
     await seed({ [`matches/${MID}/meta/turn`]: turnFor(0, 'host') });
-    await assertFails(update(ref(as('bob')), append(count, [timeoutEntry])));
+    await assertFails(update(ref(as('bob')), append(count, [asyncEntry])));
     await seed({ [`matches/${MID}/meta/turn`]: turnFor(0, 'host', 3, { deadline: Date.now() - 1000 }) });
-    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'timeout', tank: 1 }])));
-    await assertFails(update(ref(as('cat')), append(count, [timeoutEntry])));
+    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'timeout', tank: 1, async: 1 }])));
+    await assertFails(update(ref(as('cat')), append(count, [asyncEntry])));
+  });
+
+  it('refuses a timeout without async after the hard deadline alone: that is not a live skip', async () => {
+    await assertFails(update(ref(as('bob')), append(count, [liveEntry])));
+  });
+
+  it('accepts only async: 1 as the optional field', async () => {
+    await assertFails(update(ref(as('bob')), append(count, [{ ...asyncEntry, async: 2 }])));
+    await assertFails(update(ref(as('bob')), append(count, [{ ...asyncEntry, async: true }])));
+    await assertFails(update(ref(as('bob')), append(count, [{ ...asyncEntry, level: 2 }])));
+  });
+
+  it('refuses an async field on any other kind of entry', async () => {
+    await seed({ [`matches/${MID}/meta/turn`]: turnFor(0, 'host') });
+    await assertFails(update(ref(as('host')), append(count, [{ kind: 'pass', tank: 0, async: 1 }])));
   });
 
   it('refuses a timeout on a CPU seat', async () => {
     await seed({ [`matches/${MID}/meta/turn`]: turnFor(2, 'cpu', 3, { deadline: Date.now() - 1000 }) });
-    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'timeout', tank: 2 }, auto(2)])));
+    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'timeout', tank: 2, async: 1 }, auto(2)])));
   });
 
   it('allows a live skip after the live deadline only while the holder is online', async () => {
     const live = turnFor(0, 'host', 3, { deadline: Date.now() + HOUR, liveDeadline: Date.now() - 500 });
     await seed({ [`matches/${MID}/meta/turn`]: live });
-    await assertFails(update(ref(as('bob')), append(count, [timeoutEntry]))); // no heartbeat at all
+    await assertFails(update(ref(as('bob')), append(count, [liveEntry]))); // no heartbeat at all
     await seed({ [`matches/${MID}/presence/host`]: Date.now() - 200000 });
-    await assertFails(update(ref(as('bob')), append(count, [timeoutEntry]))); // stale heartbeat: async rules apply
+    await assertFails(update(ref(as('bob')), append(count, [liveEntry]))); // stale heartbeat: only the async kind (after the hard deadline) is possible
     await seed({ [`matches/${MID}/presence/host`]: Date.now() - 1000 });
-    await assertSucceeds(update(ref(as('bob')), append(count, [timeoutEntry], { tank: -1, uid: 'any', deadline: 0, index: 4 })));
+    await assertSucceeds(update(ref(as('bob')), append(count, [liveEntry], { tank: -1, uid: 'any', deadline: 0, index: 4 })));
+  });
+
+  it('does not let the live deadline stand in for the hard one: an async timeout still needs the hard deadline', async () => {
+    const live = turnFor(0, 'host', 3, { deadline: Date.now() + HOUR, liveDeadline: Date.now() - 500 });
+    await seed({ [`matches/${MID}/meta/turn`]: live, [`matches/${MID}/presence/host`]: Date.now() - 1000 });
+    await assertFails(update(ref(as('bob')), append(count, [asyncEntry])));
   });
 
   it('refuses a live skip before the live deadline', async () => {
@@ -215,13 +238,14 @@ describe('rules: action log - timeouts', () => {
       [`matches/${MID}/meta/turn`]: turnFor(0, 'host', 3, { liveDeadline: Date.now() + 30000 }),
       [`matches/${MID}/presence/host`]: Date.now() - 1000,
     });
-    await assertFails(update(ref(as('bob')), append(count, [timeoutEntry])));
+    await assertFails(update(ref(as('bob')), append(count, [liveEntry])));
   });
 
-  it('lets a shop timeout target a human seat after the shop deadline', async () => {
+  it('lets a shop timeout (always async) target a human seat after the shop deadline', async () => {
     await seed({ [`matches/${MID}/meta/turn`]: turnFor(-2, 'any', 3, { deadline: Date.now() - 1000 }) });
-    await assertSucceeds(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 1 }])));
-    await assertFails(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 2 }])));
+    await assertSucceeds(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 1, async: 1 }])));
+    await assertFails(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 1 }])));
+    await assertFails(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 2, async: 1 }])));
   });
 });
 
