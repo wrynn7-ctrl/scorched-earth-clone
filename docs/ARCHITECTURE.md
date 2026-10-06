@@ -694,3 +694,171 @@ hidden.
   line to the tank). NameFilter also folds v/u, 8/b, 9/g, +/t, (/c, |/i/l, ß, ph/f and treats `* # % ?` as a
   one-letter wildcard. Dead tanks never draw shields or repulsor rings.
 - All strings go through `tr()`.
+
+---
+
+# M7 — Online play with friends (Firebase; owner decisions 2026-10-06, binding)
+
+Owner decisions:
+- Build and test against the Firebase **Local Emulator Suite** first. The owner creates the real project later
+  (Blaze plan with a budget alert), following `docs/FIREBASE_SETUP.md` (to be written in M7-R).
+- **Friends list plus friend codes** (request → accept), and match invite codes/links.
+- **Quick messages only:** preset phrases and emotes, never typed text.
+- Online supports **CPU tanks, teams, Love Edition** (both players must have found it) and **shared-phone seats**
+  (one phone controls several seats).
+- PLAN §7 still applies: live and async in the same match, turn timers, automatic anonymous sign-in with optional
+  Google sign-in, block/report with names auto-hidden after 3 reports, and "Delete my online data". **Only full
+  owners can host; free players can join** and use the host's full rules inside that match.
+
+## 43. Repository layout and tooling
+- `firebase/`, owned by backend-dev:
+  - `firebase.json` (emulators: auth, database, functions; fixed ports) and `.firebaserc` (project alias `demo-craterline`
+    for the emulator, with the real id added later);
+  - `database.rules.json`;
+  - `functions/` in TypeScript (Node 22, firebase-functions v2), with `package.json`, a committed `package-lock.json`
+    and `tsconfig.json`;
+  - `test/`: rules and functions tests (mocha/jest plus `@firebase/rules-unit-testing`), run by
+    `tools/firebase/test.sh`, which starts the emulators via `firebase emulators:exec`.
+- `game/net/`, owned by backend-dev: the Godot client. Pure GDScript over `HTTPClient` / `HTTPRequest`. No native
+  Firebase SDK in the client except the two Android plugins in §49.
+- Never commit secrets: service-account JSON, keystores (except the debug one) or real API keys. The Firebase *web
+  config* (project id, API key) is not secret, but it lives in `game/net/net_config.gd` with an emulator default and
+  is swapped by the build.
+- CI gets a `firebase` job: `npm ci`, then lint, typecheck, and the emulator tests. The Godot net tests run against
+  the emulator in the same job.
+
+## 44. Accounts, names, friends, blocks (data model)
+Realtime Database paths (`uid` is a Firebase Auth uid):
+- `users/{uid}`: `{name, nameHidden: bool, friendCode, created, protocol}`, plus server-only `full: bool` (written only
+  by the purchase function) and `fcm/{tokenHash}: token`.
+- `friendCodes/{CODE}`: uid. Codes are 8 characters from an unambiguous alphabet (no 0/O/1/I), assigned by a
+  function on first sign-in.
+- `friendRequests/{toUid}/{fromUid}`: `{name, at}`. `friends/{uid}/{friendUid}`: `{since}`, written in both directions
+  by the accept function.
+- `blocks/{uid}/{blockedUid}`: true. A block removes the friendship and pending requests both ways (function). The
+  rules refuse friend requests, invites and match joins between a blocked pair, in either direction.
+- `invites/{toUid}/{matchId}`: `{fromUid, fromName, at}`. Writable only by a member of that match who is a friend of
+  the recipient and not blocked.
+- `reports/{reportId}`: `{reporterUid, targetUid, reason, at}`. `nameReports/{targetUid}/{reporterUid}`: true. A function
+  sets `users/{uid}/nameHidden = true` once 3 distinct reporters exist. Hidden names show as "PLAYER" plus a short id.
+  The owner reviews reports in the Firebase console (guide in `docs/FIREBASE_SETUP.md`).
+- Names: the client filters with `NameFilter`, and a function re-checks every name write with the same blocklist
+  (shared JSON generated from `name_blocklist.gd`). A rejected name is replaced with "PLAYER".
+- **Auth:** anonymous sign-in through the Identity Toolkit REST API, with tokens refreshed through the Secure Token
+  API. The refresh token is stored in `user://net_auth.cfg`. Optional Google sign-in (§49) links the anonymous account
+  so it survives a phone change.
+- **Delete my online data:** a callable function removes the user's nodes, friendships, requests, invites and match
+  seats (seats become CPU Normal, so running matches can continue), then deletes the Auth user. A web request page
+  comes in M8.
+
+## 45. Matches (data model)
+- `matchCodes/{CODE}`: matchId. Codes are 6 characters from the same alphabet and expire when the match ends.
+- `matches/{matchId}/meta`:
+  - `{hostUid, code, protocol, created, status: "lobby"|"playing"|"over"|"abandoned"}`;
+  - `settings`: the MatchSettings JSON;
+  - `seed`;
+  - `seats`: an array of `{kind: "human"|"cpu", uid?, name?, level?}`, one per tank. One uid may hold several seats
+    (shared phone);
+  - `timers: {liveSec: 60, asyncHours: 72, asyncTimeout: "auto"|"end"}`;
+  - `turn: {tank, uid|"cpu"|"any", deadline, index}`;
+  - `actionCount`.
+- `matches/{matchId}/actions/{i}`: the ordered log (i = 0, 1, 2, …), write-once.
+- `matches/{matchId}/fp/{i}/{uid}`: a fingerprint reported after the entry at index i that ended a turn.
+- `matches/{matchId}/presence/{uid}`: a server timestamp heartbeat every 30 s. "Online" means less than 75 s old.
+  REST has no onDisconnect.
+- `matches/{matchId}/msgs/{pushId}`: `{uid, seat, msg: int, at}`. `msg` is an index into the preset table (§48). The
+  rules allow only integers inside the table range, rate-limited to 1 per 3 s per uid via a `lastMsg` timestamp.
+- `userMatches/{uid}/{matchId}`: `{updated, yourTurn: bool, status}`, maintained by functions for the "Your matches"
+  list.
+- **Protocol version:** `NetProtocol.VERSION` (int) is bumped whenever the simulation, the AI or the log format
+  changes. A client refuses to join or play a match with a different protocol and asks the player to update.
+  `users/{uid}/protocol` lets the inviter see that an update is needed.
+- **Hosting** requires `users/{uid}/full == true` (rules). In the emulator a test-only function sets it. Free clients
+  can join, and the match's `settings.full_unlocked` is true when the host is full.
+- **Love Edition online:** `settings.mode = MODE_LOVE`, 2 human seats, no CPUs and no teams. The client only offers
+  it, and only shows love invites, when `love_found` is true. A client without it treats a love invite as "unknown
+  match type", and the invite is hidden.
+
+## 46. The action log and turns (online determinism)
+- Log entries are core action Dictionaries (`normalize_action` JSON), plus three net-only markers that `NetReplay`
+  expands deterministically before calling `Simulation.apply_action`:
+  - `{"kind": "auto", "tank": n, "level": L}`: that tank's turn is played by `AiPlayer` at level L. Used for every CPU
+    turn, and for a timed-out human in async mode with `asyncTimeout = "auto"` (L = 2).
+  - `{"kind": "auto_shop", "tank": n, "level": L}`: the CPU's whole shop visit (the CpuShop/AiShop buys, then `ready`).
+  - `{"kind": "timeout", "tank": n}`: live mode, a pass. In async mode it means auto-play or ending the match,
+    depending on `timers.asyncTimeout`.
+- **Start of round:** when the shop phase reaches all-ready, `NetReplay` calls `Simulation.start_round` itself. It is
+  never logged.
+- **Who writes what:** the client whose action ends a human turn (or a shop `ready`) simulates locally, appends its
+  entry, then appends the `auto` / `auto_shop` entries for any CPU turns that follow, up to the next human turn, the
+  round end or match over. It sets `meta/turn` and `actionCount` in **one multi-path update**.
+- **Optimistic concurrency:** the update is conditional on `actionCount` (REST ETag / `if-match`, or a rule requiring
+  `newData.actionCount == data.actionCount + k` and that `actions/{actionCount}` doesn't exist). On a conflict, the
+  client refetches, replays and retries if its action is still legal. The shop phase is concurrent, and this
+  serializes it.
+- **Rules check** (§7.3, best-effort for a friends-only game):
+  - the writer is a seat holder;
+  - action indices are consecutive and write-once;
+  - a non-shop action's `tank` is a seat held by the writer (or a CPU seat, for `auto`) and equals `meta/turn.tank`;
+  - shop actions (buy, sell, ready) target only the writer's own seats;
+  - field ranges are valid;
+  - a `timeout` entry is allowed for any member only once `now > meta/turn.deadline`.
+- **Full validation is client-side:** every client replays the log through the real simulation. An entry that fails
+  `validate_action`, or a `meta/turn` that disagrees with the simulation, marks the match "disputed". Play stops with
+  a clear message, and the host can abandon. Fingerprints are compared at each turn end, and a mismatch is reported
+  the same way.
+- **Async timeouts with nobody online:** a scheduled function (every 15 min) writes the `timeout` entry and sets
+  `meta/turn = {tank: -1, uid: "any"}` ("needs resolve"). The first client that opens the match replays, appends the
+  following CPU entries and sets the real turn. It also notifies the members (§47).
+
+## 47. Notifications and live updates
+- **Live updates:** the client keeps a REST streaming connection (Server-Sent Events) on `matches/{id}/meta` and
+  `actions`, reconnects with backoff, and catches up from its last known index.
+- **Push (FCM):** a function triggers on `meta/turn` changes and notifies the uid whose turn it is, if their presence
+  is stale: "Your turn in <host name>'s match". It also notifies on invites, accepted friend requests and match over.
+  The data payload carries matchId, and tapping it opens the match. With the emulator, FCM sends are mocked and
+  recorded for tests.
+
+## 48. Online UI (game/ui)
+- **Title → ONLINE:**
+  - first visit: name setup (NameFilter);
+  - tabs: **Your matches** (your turn first, then waiting, then finished), **Friends** (list, add by code, requests,
+    block), **Join** (enter a code);
+  - **Host** (full only; free shows the Unlock screen).
+- **Match lobby:**
+  - seats show humans with names, CPU level chips, team chips and a "this phone" marker for shared seats;
+  - the host can add or remove CPUs, set teams, friendly fire, rounds, money, wind and theme, and the live/async
+    timers;
+  - invite friends from the list, or share the code (Android share sheet, §49);
+  - START when every human seat is filled.
+- **In match:**
+  - the existing battle UI;
+  - a connection indicator (Live / Waiting for <name> / Reconnecting… / Offline, actions queued);
+  - the turn timer ring in live mode;
+  - when it's not your turn, controls are disabled with "Waiting for <name>";
+  - shared-phone seats use the M6 banner hand-over.
+- **Quick messages:** a small button opens 8 presets ("Nice shot!", "Oops!", "So close!", "GG", "Your turn!", 😂, 😮,
+  👏). They appear as a bubble over the sender's tank for 3 s. Muting a player hides their bubbles.
+- **Player menu** (tap a name): Add friend / Block / Report name.
+- **Settings:** Online name, Sign in with Google (link), Delete my online data (with confirmation).
+- **Disputed / desync message**, and a "Please update the game" protocol message.
+
+## 49. Android integration (release-eng)
+- **FCM plugin:** a small Godot Android plugin (Kotlin, Gradle) that returns the FCM token and delivers taps on
+  notifications (matchId) to GDScript. `google-services.json` is supplied by CI from a secret, never committed.
+  Without it the plugin degrades to "push unavailable".
+- **Google sign-in:** a Credential Manager plugin returns a Google ID token. GDScript calls Identity Toolkit
+  `signInWithIdp` to link it.
+- **Share and invite links:** the Android share sheet for "Join my Craterline match: CODE". Deep links use the
+  `craterline://join/CODE` scheme now; https App Links on the Firebase Hosting domain come once the real project
+  exists.
+- All of it degrades gracefully on desktop and headless (tests).
+
+## 50. Testing
+- Rules tests cover every allow and deny path in §44–§46, including blocked pairs, non-host hosting, free hosting,
+  out-of-turn and out-of-range writes, overwrites and message spam.
+- Functions tests cover friend codes, accepting requests, blocks, the 3-report auto-hide, name re-checks, delete-my-data,
+  timeouts and the FCM mocks.
+- Godot net tests run two or more headless clients against the emulator: create, join, play to the end in live and
+  async modes, a disconnect mid-turn, catch-up, a concurrent shop, CPU and timeout markers, a shared-phone seat, teams,
+  Love, and a tampered entry → "disputed". Fingerprints must match on every client.

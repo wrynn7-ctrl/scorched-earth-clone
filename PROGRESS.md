@@ -8,10 +8,14 @@
 | M4 — AI opponents | ✅ Done 2026-10-03 (owner: very good; Easy too sharp → retune; angle buttons → screen-relative) |
 | M5 — Polish, sound, effects | ✅ Done 2026-10-04 (owner: sound redesign "much better"; audio delay fix "works great") |
 | M6 — Local pass-and-play | 🟡 Built + QA green; waiting for owner phone test |
-| M7 — Online multiplayer | ⬜ Not started |
+| M7 — Online multiplayer | 🟡 In progress (emulator-first) |
 | M8 — Play Store release prep | ⬜ Not started |
 
 ## Log
+
+### 2026-10-06
+- M7 decisions (owner): emulator first, real Firebase project later; friends list + codes; quick messages only; online supports CPUs, teams, Love Edition, shared-phone seats.
+- M6 build published; owner moved on to M7 (M6 phone feedback still welcome).
 
 ### 2026-10-05
 - M6 decisions (owner): banner only between human turns; names remembered; teams yes (team per tank in setup, friendly fire chosen per match, own wallet + team win bonus); sudden death after 10 × tank-count total turns.
@@ -101,6 +105,16 @@
 | M6-U2 Team chips + friendly-fire toggle in setup, team badges, team results, sudden-death banner | show-ui-dev | ✅ reviewed (1,014 show+ui+qa tests) |
 | M6-Q QA pass | qa-tester | ✅ reviewed (1,895 tests; 0 critical/high; 1 medium + 4 low) |
 | M6-QF QA fixes: dead-tank shield visuals/mismatch, safe meta reads, staggered name tags at 8 players, summary fit, name-filter look-alikes | show-ui-dev | ✅ reviewed (show 353, ui 373, qa 371 green; 0 pending bugs) |
+
+## M7 tasks
+| Task | Agent | Status |
+|---|---|---|
+| M7 contract (ARCHITECTURE §43–§50) | lead | ✅ written |
+| M7-B Firebase backend: emulator project, data model, rules, functions (friend codes, requests, blocks, reports, names, invites, matches, timeouts, FCM mock, delete data, purchase stub) + tests + CI job | backend-dev | 🟡 in progress |
+| M7-N Godot net client: auth, RTDB REST + streaming, NetReplay (auto/timeout markers), optimistic append, presence, friends/invites API; multi-client tests vs emulator | backend-dev | ⬜ after M7-B |
+| M7-U Online UI: name setup, Your matches, Friends, Join/Host, lobby, in-match status/timers, quick messages, player menu, settings | show-ui-dev | ⬜ after M7-N API |
+| M7-R Android: FCM plugin, Google sign-in plugin, share sheet + deep links, FIREBASE_SETUP.md | release-eng | ⬜ |
+| M7-Q QA: multi-client emulator scenarios, disconnects, tampering | qa-tester | ⬜ end |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
