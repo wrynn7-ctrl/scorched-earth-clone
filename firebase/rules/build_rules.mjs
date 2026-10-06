@@ -316,6 +316,8 @@ const rules = {
     },
     reports: { '.read': false, '.write': false, '.indexOn': ['targetUid', 'at'] },
     nameReports: { '.read': false, '.write': false },
+    // Emulator test data written by the mocked push sender; closed to clients, indexed so tests can query it.
+    _test: { fcm: { '.read': false, '.write': false, '.indexOn': ['uid'] } },
 
     // ---- matches ------------------------------------------------------------------------------------------
     matchCodes: { '.read': false, '.write': false },

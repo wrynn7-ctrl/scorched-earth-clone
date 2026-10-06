@@ -57,8 +57,8 @@ export async function sendFriendRequest(deps: Deps, uid: string, raw: unknown): 
     });
     return { status: 'friends', friendUid: target, name: displayName(targetUser) };
   }
-  const pending = await deps.db.ref(`friendRequests/${target}`).orderByKey().limitToFirst(MAX_PENDING_REQUESTS + 1).get();
-  if (pending.numChildren() > MAX_PENDING_REQUESTS && !pending.hasChild(uid)) return fail('resource-exhausted', 'too_many_requests');
+  const pending = await deps.db.ref(`friendRequests/${target}`).orderByKey().limitToFirst(MAX_PENDING_REQUESTS).get();
+  if (pending.numChildren() >= MAX_PENDING_REQUESTS && !pending.hasChild(uid)) return fail('resource-exhausted', 'too_many_requests');
   await deps.db.ref().update({
     [`friendRequests/${target}/${uid}`]: { name: displayName(me), at },
     [`sentRequests/${uid}/${target}`]: true,

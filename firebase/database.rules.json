@@ -71,6 +71,15 @@
       ".read": false,
       ".write": false
     },
+    "_test": {
+      "fcm": {
+        ".read": false,
+        ".write": false,
+        ".indexOn": [
+          "uid"
+        ]
+      }
+    },
     "matchCodes": {
       ".read": false,
       ".write": false

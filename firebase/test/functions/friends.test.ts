@@ -1,15 +1,10 @@
 // Friend requests, friendships, blocks and name reports (ARCHITECTURE section 44), including blocks in both directions.
 import assert from 'node:assert/strict';
-import { CallError, db, eventually, fcmFor, hostLobby, newUser, settle, value, type TestUser } from './harness';
+import { befriend, CallError, db, eventually, fcmFor, hostLobby, newUser, settle, signUp, value, type TestUser } from './harness';
 
 const code = async (user: TestUser): Promise<string> => (await user.profile()).friendCode as string;
 const status = (s: string) => (e: CallError) => e.status === s;
 const reason = (s: string, r: string) => (e: CallError) => e.status === s && e.reason === r;
-
-async function befriend(a: TestUser, b: TestUser): Promise<void> {
-  await a.call('sendFriendRequest', { code: await code(b) });
-  await b.call('respondFriendRequest', { fromUid: a.uid, accept: true });
-}
 
 describe('functions: friend requests', () => {
   it('sends a request by code (any case, extra spaces), which the other player can accept', async () => {
@@ -67,7 +62,6 @@ describe('functions: friend requests', () => {
     await assert.rejects(ben.call('respondFriendRequest', { fromUid: ann.uid, accept: true }), reason('NOT_FOUND', 'no_request'));
     await assert.rejects(ben.call('respondFriendRequest', { fromUid: ann.uid }), status('INVALID_ARGUMENT'));
     await assert.rejects(ben.call('respondFriendRequest', { fromUid: '../x', accept: true }), status('INVALID_ARGUMENT'));
-    const { signUp } = await import('./harness');
     const bare = await signUp();
     await assert.rejects(bare.call('sendFriendRequest', { code: await code(ann) }), reason('FAILED_PRECONDITION', 'no_profile'));
   });

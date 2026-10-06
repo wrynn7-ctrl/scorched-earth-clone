@@ -117,12 +117,16 @@ export function yourTurnFor(uid: string, status: MatchStatus, turn: Turn | undef
   return turn.tank === TURN_SHOP || turn.uid === uid;
 }
 
-/** Updates every human member's "Your matches" entry and the sweep queue. */
-export async function syncMatch(deps: Deps, matchId: string, meta: Meta): Promise<void> {
+/**
+ * Updates the "Your matches" entry of every human member and the sweep queue. A member who has no entry yet is skipped
+ * unless listed in `newMembers` (a player who left must not be put back on the list by a late update).
+ */
+export async function syncMatch(deps: Deps, matchId: string, meta: Meta, newMembers: readonly string[] = []): Promise<void> {
   const now = deps.now();
   const updates: Updates = {};
   const hostName = hostNameOf(meta);
   for (const uid of humanUids(meta.seats)) {
+    if (!newMembers.includes(uid) && !(await exists(deps.db, `userMatches/${uid}/${matchId}`))) continue;
     const entry: UserMatchEntry = {
       updated: now,
       yourTurn: yourTurnFor(uid, meta.status, meta.turn),
@@ -193,7 +197,7 @@ export async function createMatch(deps: Deps, uid: string, raw: unknown): Promis
   };
   try {
     await deps.db.ref().update(plain({ [`matches/${matchId}/meta`]: meta }));
-    await syncMatch(deps, matchId, meta);
+    await syncMatch(deps, matchId, meta, [uid]);
   } catch (error) {
     await deps.db.ref(`matchCodes/${code}`).remove();
     throw error;
@@ -298,7 +302,7 @@ export async function joinMatch(deps: Deps, uid: string, raw: unknown): Promise<
     return { meta: { ...meta, seats }, result: taken };
   });
   const after = await requireMeta(deps, matchId);
-  await syncMatch(deps, matchId, after);
+  await syncMatch(deps, matchId, after, [uid]);
   return { matchId, seats: claimed, alreadyJoined: false };
 }
 

@@ -28,13 +28,13 @@ interface CallBody {
   error?: { status?: string; message?: string; details?: unknown };
 }
 
-async function post(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: CallBody }> {
+async function post(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: CallBody | null; text: string }> {
   const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
   const text = await response.text();
   try {
-    return { status: response.status, json: JSON.parse(text) as CallBody };
+    return { status: response.status, json: JSON.parse(text) as CallBody, text };
   } catch {
-    throw new Error(`non-JSON answer from ${url} (${response.status}): ${text.slice(0, 200)}`);
+    return { status: response.status, json: null, text };
   }
 }
 
@@ -44,12 +44,16 @@ export async function callWith<T = Record<string, unknown>>(name: string, data: 
   const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
   let attempt = 0;
   for (;;) {
-    const { status, json } = await post(url, { data }, headers);
-    // The functions emulator can still be loading code the first time a function is used.
-    if (status === 404 && attempt < 40) {
-      attempt += 1;
-      await sleep(250);
-      continue;
+    const { status, json, text } = await post(url, { data }, headers);
+    // The functions emulator can still be loading code the first time a function is used: it answers 404 with plain text,
+    // unlike a function that ran and returned NOT_FOUND (JSON with an error).
+    if (json === null) {
+      if (status === 404 && attempt < 40) {
+        attempt += 1;
+        await sleep(250);
+        continue;
+      }
+      throw new Error(`non-JSON answer from ${url} (${status}): ${text.slice(0, 200)}`);
     }
     if (json.error) throw new CallError(json.error.status ?? String(status), json.error.message ?? '', json.error.details);
     return json.result as T;
@@ -87,7 +91,7 @@ export class TestUser {
 export async function signUp(): Promise<TestUser> {
   const url = `http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`;
   const { json } = await post(url, { returnSecureToken: true });
-  const body = json as unknown as { idToken?: string; localId?: string };
+  const body = (json ?? {}) as unknown as { idToken?: string; localId?: string };
   if (!body.idToken || !body.localId) throw new Error('auth emulator did not sign the user up');
   return new TestUser(body.localId, body.idToken);
 }
@@ -177,4 +181,10 @@ export async function hostLobby(
   extra: Record<string, unknown> = {},
 ): Promise<{ matchId: string; code: string }> {
   return host.call<{ matchId: string; code: string }>('createMatch', { settings: { rounds: 2 }, seats, ...extra });
+}
+
+/** Makes two users friends the way players do: a request by code, then an accept. */
+export async function befriend(a: TestUser, b: TestUser): Promise<void> {
+  await a.call('sendFriendRequest', { code: (await b.profile()).friendCode });
+  await b.call('respondFriendRequest', { fromUid: a.uid, accept: true });
 }
