@@ -77,6 +77,8 @@ var fingerprints: Dictionary = {}
 ## How many writes the database refused because somebody else wrote first (each was followed by a refetch and a retry).
 var write_retries: int = 0
 
+## How often the presence heartbeat is written (NetProtocol.HEARTBEAT_SEC; tests shorten it).
+var heartbeat_interval_ms: int = int(NetProtocol.HEARTBEAT_SEC * 1000.0)
 ## Tests only: when not null, new turns get `deadline = now + this` (negative = already due) and `liveDeadline = now + that`.
 var debug_deadline_offset_ms: Variant = null
 var debug_live_offset_ms: Variant = null
@@ -744,7 +746,7 @@ func _run_loop() -> void:
 
 func _tick() -> void:
 	var now: int = now_ms()
-	if now - _last_beat_ms >= int(NetProtocol.HEARTBEAT_SEC * 1000.0):
+	if now - _last_beat_ms >= heartbeat_interval_ms:
 		_send_heartbeat()
 	_refresh_presence(now)
 	if connection == Connection.RECONNECTING and _offline_since > 0 and now - _offline_since > OFFLINE_AFTER_MS:

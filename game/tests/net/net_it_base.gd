@@ -24,6 +24,11 @@ func _need_emulator() -> bool:
 	return false
 
 
+## The match loops notice `close()` on their next half-second tick; let them finish so nothing is left hanging at exit.
+func after_all() -> void:
+	await get_tree().create_timer(0.8).timeout
+
+
 func after_each() -> void:
 	for m: OnlineMatch in _matches:
 		m.close()

@@ -292,3 +292,22 @@ func test_a_sweep_style_timeout_marker_is_resolved_by_a_client() -> void:
 	assert_ne(mh.turn_info()["tank"], tank)
 	assert_eq(mh.replay.fingerprint(), mf.replay.fingerprint())
 	assert_false(mh.is_disputed() or mf.is_disputed())
+
+
+func test_presence_heartbeat_repeats_while_open() -> void:
+	if not _need_emulator():
+		return
+	var c: Dictionary = await _pair(NetLobby.settings({"rounds": 1}), [NetLobby.seat_human(true), NetLobby.seat_human(), NetLobby.seat_cpu(1)], NetLobby.timers(60, 72, "auto"))
+	var mh: OnlineMatch = c["mh"]
+	var host: NetSession = c["host"]
+	assert_eq(mh.heartbeat_interval_ms, 30000, "the real interval is 30 s")
+	mh.heartbeat_interval_ms = 1000
+	var path: String = "matches/%s/presence/%s" % [c["id"], host.uid()]
+	var first: int = (await host.db.get_value(path)).value
+	await get_tree().create_timer(2.6).timeout
+	var later: int = (await host.db.get_value(path)).value
+	assert_gt(later, first + 900, "a newer server timestamp was written")
+	mh.close()
+	var frozen: int = (await host.db.get_value(path)).value
+	await get_tree().create_timer(1.6).timeout
+	assert_eq((await host.db.get_value(path)).value, frozen, "no heartbeat after close")
