@@ -1,5 +1,6 @@
 // Mirrors game/tests/ui/test_name_filter.gd case by case, so the server filter and the game filter stay in step.
-// (The two GDScript tests that ask the game font which glyphs exist have no server counterpart: see name_filter.ts.)
+// The characters the game font can draw come from name_glyphs.json (generated from the game by tools/firebase/gen_name_glyphs.sh);
+// game/tests/net/test_name_glyph_table.gd checks that table against the game, game/tests/qa/test_name_filter_parity.gd the 2,000-string corpus.
 import assert from 'node:assert/strict';
 import { checkName, clean, FALLBACK_NAME, isAllowed, MAX_LENGTH } from '../../functions/src/name_filter';
 
@@ -141,5 +142,24 @@ describe('name filter: what the server stores', () => {
 
   it('accepts the fallback name itself', () => {
     assert.deepEqual(checkName('PLAYER'), { name: 'PLAYER', accepted: true });
+  });
+});
+
+describe('name filter: the characters the game font cannot draw (exported from the game into name_glyphs.json)', () => {
+  it('deletes them, as the game does, so a word cannot hide behind one', () => {
+    assert.equal(clean(`sh${chr(0xac)}it`), 'shit');
+    assert.equal(clean(`fu${chr(0xa7)}k`), 'fuk');
+    assert.equal(clean(`pis${chr(0xae)}s`), 'piss');
+    for (const word of [`sh${chr(0xac)}it`, `fu${chr(0xa7)}ck`, `arseh${chr(0xac)}ole`, `bit${chr(0xa5)}ch`, `c${chr(0x2122)}unt`, `pedo${chr(0xf8)}`]) {
+      assert.equal(isAllowed(word), false, `${JSON.stringify(word)} is blocked`);
+    }
+    assert.equal(checkName(`sh${chr(0xac)}it`).name, FALLBACK_NAME);
+  });
+
+  it('keeps what the font draws: Latin letters with accents, a few symbols and punctuation, and nothing above U+FFFF', () => {
+    assert.equal(clean(`${chr(0xc0)}${chr(0xe9)}${chr(0xf1)}${chr(0xfc)}${chr(0x152)}${chr(0x153)}`), `${chr(0xc0)}${chr(0xe9)}${chr(0xf1)}${chr(0xfc)}${chr(0x152)}${chr(0x153)}`);
+    assert.equal(clean(`a${chr(0x20ac)}b${chr(0x2013)}c`), `a${chr(0x20ac)}b${chr(0x2013)}c`);
+    assert.equal(clean(`a${chr(0x1f600)}b`), 'ab');
+    assert.equal(clean('a^b'), 'ab', 'the font has no circumflex accent character');
   });
 });

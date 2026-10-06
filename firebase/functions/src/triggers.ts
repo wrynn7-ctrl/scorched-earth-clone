@@ -1,7 +1,7 @@
 // Database triggers: name re-check, turn changes (bookkeeping + push), invites, accepted friend requests, match over
 // (ARCHITECTURE sections 44, 45 and 47). Each handler is a plain async function of (deps, ...) so it can be called directly.
 import { onValueCreated, onValueWritten } from 'firebase-functions/v2/database';
-import { MAX_INSTANCES, PRESENCE_FRESH_MS, TRIGGER_REGION } from './config';
+import { MAX_INSTANCES, MAX_PUSH_TOKENS, PRESENCE_FRESH_MS, TRIGGER_REGION } from './config';
 import { defaultDeps, type Deps } from './deps';
 import { cleanupFinished, syncMatch } from './matches';
 import { notifyUser } from './push';
@@ -84,6 +84,29 @@ export async function handleStatusChange(deps: Deps, matchId: string, before: st
   return sent;
 }
 
+/**
+ * A push token was stored (users/{uid}/fcm/{tokenHash}). A player keeps at most MAX_PUSH_TOKENS: when there are more, the
+ * oldest-looking ones go (the new token is always kept; among the others the order of their keys decides, because tokens carry
+ * no date). The database rules cannot count children, so this is where the cap is enforced; an update that writes many tokens
+ * at once is trimmed to the cap within moments. Returns how many were removed.
+ */
+export async function pruneTokens(deps: Deps, uid: string, keep: string): Promise<number> {
+  let removed = 0;
+  await deps.db.ref(`users/${uid}/fcm`).transaction((current: Record<string, string> | null) => {
+    removed = 0;
+    if (current === null) return null; // first pass has no data; the SDK retries with the real value
+    const keys = Object.keys(current);
+    if (keys.length <= MAX_PUSH_TOKENS) return current;
+    const others = keys.filter((key) => key !== keep).sort();
+    const drop = others.slice(0, keys.length - MAX_PUSH_TOKENS);
+    const next: Record<string, string> = { ...current };
+    for (const key of drop) delete next[key];
+    removed = drop.length;
+    return next;
+  });
+  return removed;
+}
+
 export const onNameWrite = onValueWritten({ ...options, ref: '/users/{uid}/name' }, async (event) => {
   await recheckName(defaultDeps(), event.params.uid, event.data.after.val());
 });
@@ -109,4 +132,8 @@ export const onMatchOver = onValueWritten({ ...options, ref: '/matches/{matchId}
     event.data.before.val() as string | null,
     event.data.after.val() as string | null,
   );
+});
+
+export const onPushTokenAdded = onValueCreated({ ...options, ref: '/users/{uid}/fcm/{tokenHash}' }, async (event) => {
+  await pruneTokens(defaultDeps(), event.params.uid, event.params.tokenHash);
 });

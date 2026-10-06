@@ -1,7 +1,6 @@
 // M7-Q functions abuse, part 1: wrong types, missing fields, huge and odd strings, path-injection ids and non-standard
 // request bodies against EVERY callable. A callable must answer with a clean client-class error (or work); an INTERNAL,
 // UNKNOWN or non-JSON answer means unvalidated input reached code that threw.
-import { bug } from '../bug';
 import assert from 'node:assert/strict';
 import { befriend, hostLobby } from '../../functions/harness';
 import { callWith } from '../../functions/harness';
@@ -66,9 +65,9 @@ describe('QA functions: wrong types and odd strings on every callable', function
     ['sendFriendRequest', { code: 'ABCDEFGH' }],
     ['sendFriendRequestToUid', { targetUid: friend.uid, matchId: lobby.matchId }],
     ['respondFriendRequest', { fromUid: friend.uid, accept: true }],
-    ['removeFriend', { friendUid: 'nobody' }],
-    ['block', { targetUid: 'nobody' }],
-    ['unblock', { targetUid: 'nobody' }],
+    ['removeFriend', { friendUid: 'nobody123' }],
+    ['block', { targetUid: 'nobody123' }],
+    ['unblock', { targetUid: 'nobody123' }],
     ['reportName', { targetUid: friend.uid, reason: 'offensive_name' }],
     ['createMatch', { settings: { rounds: 1 }, seats: [{ kind: 'human' }, { kind: 'cpu' }], timers: { liveSec: 60 } }],
     ['updateLobby', { matchId: lobby.matchId, settings: { rounds: 2 }, seats: [{ kind: 'human', uid: me.uid }, { kind: 'human' }, { kind: 'cpu' }], timers: { liveSec: 30 } }],
@@ -167,7 +166,7 @@ describe('QA functions: wrong types and odd strings on every callable', function
     assert.notEqual(probe.status, 200); // the database stays closed to anonymous reads
   });
 
-  // BUG (medium): the id "__proto__" hangs updateLobby and startMatch for the whole function timeout (60 s).
+  // FIXED (was a medium bug): the id "__proto__" hung updateLobby and startMatch for the whole function timeout (60 s).
   //   input:    any signed-in account with a profile: startMatch {matchId: "__proto__"} (same for updateLobby)
   //   expected: INVALID_ARGUMENT / NOT_FOUND `unknown_match` within a second or two, like any other unknown id
   //             ("constructor" or "nonexistent" answer NOT_FOUND at once).
@@ -178,7 +177,7 @@ describe('QA functions: wrong types and odd strings on every callable', function
   //             `ref("matches/__proto__/meta").transaction(...)`; the Admin SDK's path tree is a plain object and "__proto__" is
   //             not a normal key there (matches.ts:~85 mutateMeta, called from startMatch:~330 and updateLobby:~215).
   //   fix idea: check `exists(matches/{id}/meta)` before the transaction, and/or reject ids starting with "__" in reqId().
-  bug('BUG (medium): answers the id __proto__ quickly instead of hanging until the function timeout', async () => {
+  it('answers the id __proto__ quickly instead of hanging until the function timeout', async () => {
     for (const name of ['startMatch', 'updateLobby']) {
       const started = Date.now();
       const got = await Promise.race([reasonOf(me.call(name, { matchId: '__proto__' })), new Promise<string>((resolve) => setTimeout(() => resolve('HUNG'), 8000))]);

@@ -12,6 +12,7 @@ firebase/
   rules/build_rules.mjs    the rules, written as readable named pieces (run: npm run rules:build)
   functions/               Cloud Functions, TypeScript strict, firebase-functions v2, Node 22
     src/name_blocklist.json  GENERATED from game/ui/names/name_blocklist.gd (npm run blocklist:build)
+    src/name_glyphs.json     GENERATED from the game's NameFilter and font (tools/firebase/gen_name_glyphs.sh, needs Godot)
   test/rules/              rules tests (every allow and deny path)
   test/functions/          functions tests against the emulators
   test/unit/               pure unit tests (name filter, match logic, codes, deployment manifest)
@@ -77,20 +78,21 @@ Identity Toolkit, so only the base URLs change (they live in `game/net/net_confi
 
 | Path | Read | Write |
 |---|---|---|
-| `users/{uid}`: `name, nameHidden, friendCode, created, protocol, full, purchase, fcm/{tokenHash}` | owner reads all; anyone signed in reads `name`, `nameHidden`, `protocol` unless a block exists between them | client: `name` (1..12 chars), `protocol` (int), `fcm/{tokenHash}` (push token). Server: everything else. A function re-checks every name with the shared blocklist (blocked becomes `PLAYER`) |
+| `users/{uid}`: `name, nameHidden, friendCode, created, protocol, full, purchase, fcm/{tokenHash}` | owner reads all; anyone signed in reads `name`, `nameHidden`, `protocol` unless a block exists between them | client: `name` (1..12 chars), `protocol` (int), `fcm/{tokenHash}` (push token, **at most 5 kept**: the `onPushTokenAdded` trigger trims extras, because rules cannot count children). Server: everything else. A function re-checks every name with the shared blocklist (blocked becomes `PLAYER`), and every server copy of a name (seat, invite, friend request) is filtered again when it is made (`displayName`), so a name written a moment ago never reaches another player unfiltered |
 | `friendCodes/{CODE}` = uid | nobody | server |
 | `friendRequests/{to}/{from}` = `{name, at}`, `sentRequests/{from}/{to}` | `friendRequests/{me}` by its owner; `sentRequests` nobody | server (`sendFriendRequest`, `respondFriendRequest`) |
 | `friends/{uid}/{friend}` = `{since, by}` | owner | server |
 | `blocks/{uid}/{blocked}` = true | owner | server (`block`, `unblock`) |
 | `invites/{to}/{matchId}` = `{fromUid, fromName, at, code, mode}`, `invitesSent/...` | `invites/{me}` by its owner | server (`invite`); the recipient may delete (dismiss) |
-| `reports/{id}`, `nameReports/{target}/{reporter}` | nobody (owner reviews in the console) | server (`reportName`); 3 distinct reporters set `users/{target}/nameHidden` |
+| `reports/{id}`, `nameReports/{target}/{reporter}` | nobody (owner reviews in the console) | server (`reportName`, only from a friend of the target or a player who shares a match with them); 3 distinct reporters set `users/{target}/nameHidden` |
+| `friendCooldowns/{sender}/{decliner}` = ms, `friendCooldownsBy/{decliner}/{sender}` | nobody | server: set when a request is declined (the sender may not ask the same player again for 24 h), cleared when the two become friends or an account is deleted |
 | `matchCodes/{CODE}` = matchId, `sweepQueue/{matchId}` = ms, `purchaseTokens/{sha256}` = uid, `_test/fcm/*` | nobody | server |
 | `userMatches/{uid}/{matchId}` = `{updated, yourTurn, status, hostName}` | owner | server; the owner may delete a finished one. It is also the **membership list the rules use** |
 | `matches/{id}/meta`: `hostUid, code, protocol, created, started, status, settings, seed, seats, timers, turn, actionCount` | members | server, except `turn`, `actionCount` and `status` (below) |
 | `matches/{id}/actions/{i}` | members | members, append-only (below) |
 | `matches/{id}/fp/{i}/{uid}` = 16 hex chars | members | the member himself, once per entry |
 | `matches/{id}/presence/{uid}` = server timestamp | members, unless a block exists between them | the member himself, as `{".sv": "timestamp"}` |
-| `matches/{id}/msgs/{pushId}` = `{uid, seat, msg, at}`, `matches/{id}/lastMsg/{uid}` | members | the member: `msg` 0..7, `seat` held by him, `at` = now, and `lastMsg/{me}` = now in the same update, at most one per 3 s |
+| `matches/{id}/msgs/{pushId}` = `{uid, seat, msg, at}`, `matches/{id}/lastMsg/{uid}`, `matches/{id}/lastMsgKey/{uid}` | members | the member: `msg` 0..7, `seat` held by him, `at` = now, `lastMsg/{me}` = now and `lastMsgKey/{me}` = the push key of this one message, all in the same update; at most one message per update and one per 3 s |
 
 There is no read permission on `matches/{id}` itself: read `meta`, `actions`, `fp`, `msgs`, `lastMsg` and `presence/{uid}`
 separately (that is how a blocked pair can be refused presence while everyone still gets the log).
@@ -107,7 +109,7 @@ PATCH /matches/{id}.json   (or a root update with full paths)
   "actions/n+1": { ...entry... },        // up to 16 entries per update
   "meta/actionCount": n + k,
   "meta/turn":   { "tank": 1, "uid": "<holder>", "deadline": <ms>, "liveDeadline": <ms>, "index": <old index + 1> },   // only when the turn changes
-  "meta/status": "over"                  // only for the entry that ends the match
+  "meta/status": "over"                  // only for the entry that ends the match (the rules cannot check that: see below)
 }
 ```
 
@@ -115,19 +117,26 @@ PATCH /matches/{id}.json   (or a root update with full paths)
   wins, the other gets PERMISSION_DENIED and must refetch, replay and retry (no ETag needed).
 * Entry shapes (exactly these fields, integers only): `fire {tank, angle 0..1800, power 1..1000, weapon}`,
   `move {tank, dx -200..200 != 0}`, `use_item {tank, item}`, `pass {tank}`, `buy`/`sell {tank, item, qty 1..99}`, `ready {tank}`,
-  `auto`/`auto_shop {tank, level 1..4}`, `timeout {tank}`. `weapon` and `item` are ids matching `^[a-z][a-z0-9_]{0,31}$`.
+  `auto`/`auto_shop {tank, level 1..4}`, `timeout {tank, async?: 1}`. `weapon` and `item` are ids matching `^[a-z][a-z0-9_]{0,31}$`.
 * The **first** entry of an update is judged against `meta/turn` as it is now:
   aim kinds (`fire`, `move`, `use_item`, `pass`) need `tank == turn.tank` and a seat held by the writer;
   shop kinds (`buy`, `sell`, `ready`) need `turn.tank == -2` and a seat held by the writer;
   `auto` needs a CPU seat and `turn.tank == -1` (or `turn.uid == "cpu"` for that tank);
   `auto_shop` needs a CPU seat and `turn.tank` of -1 or -2;
+  **an `auto` / `auto_shop` entry's `level` must equal `meta/seats/{tank}/level`**, in every position of a batch (the level decides how well the AI plays, so the writer must not choose it);
   `timeout` needs a human seat, `tank == turn.tank` (or the shop), and `now > turn.deadline`, or `now > turn.liveDeadline`
   while the turn holder's heartbeat is fresh (< 75 s).
-* **Later** entries of the same update may only be `auto`/`auto_shop` for CPU seats, or more shop entries of the writer's own seats.
+* **Later** entries of the same update may only be `auto`/`auto_shop` for CPU seats (at the seat's own level), or more shop entries of the writer's own seats.
 * `meta/turn` may be written only with an `actionCount` bump, or by any member to replace a `tank: -1` ("needs resolve") marker.
-  Its `index` must be the old index + 1; `deadline` must lie within `asyncHours` of now (clock slack 2 min); `liveDeadline`
-  (optional) within `liveSec`; `uid` must be the seat's holder (or `cpu`), `any` for tank -1 and -2.
-* `meta/status` may go `playing` -> `over` (a member, together with the last entry) and `lobby`/`playing` -> `abandoned` (the host).
+  Its `index` must be the old index + 1; `deadline` must lie between **now - 5 s** and `asyncHours` from now (2 min of clock slack towards the future only); `liveDeadline`
+  (optional) likewise between now - 5 s and `liveSec` from now. A new turn is never handed over already due, because a member could otherwise skip the next player at
+  once with a `timeout` entry; clients write deadlines from the server clock (`NetClock`), so 5 s only has to cover latency. What remains: a deadline up to 5 s old is accepted; `uid` must be the seat's holder (or `cpu`), `any` for tank -1 and -2.
+* `meta/status` may go `playing` -> `over` (a member, in the same update as a log append) and `lobby`/`playing` -> `abandoned` (the host).
+  **Limit:** whether the entry really ended the game is simulation knowledge the rules do not have, so a holder who is losing can append a
+  legal action together with `status: over`. Every client therefore treats `over` as a claim: `OnlineMatch` shows the match as finished only once its own replay
+  has ended, and calls it disputed (`status_over_early`) if the log is complete and the game is not over.
+* Quick messages: the update names the one message it carries in `lastMsgKey/{me}` (a key of 1..30 letters, digits, `-`, `_`) next to `lastMsg/{me}` = now,
+  and a message is accepted only under that key, so an update can carry exactly one new message (rules cannot count children; a key holds one value).
 
 Turn markers: `tank >= 0` a seat's turn; **-1** "needs resolve" (a client must replay, append CPU entries and set the real turn);
 **-2** the shop phase.
@@ -139,14 +148,14 @@ short reason as the message (see the end of this section).
 
 | Function | Arguments | Result |
 |---|---|---|
-| `ensureProfile` | `{protocol?: int}` | `{friendCode, name, nameHidden, full, protocol, serverTime}`. Call it on every start: creates the profile and friend code on first use, stores the protocol |
+| `ensureProfile` | `{protocol?: int}` | `{friendCode, name, nameHidden, full, protocol, serverTime}`. Call it on every start: creates the profile and friend code on first use, stores the protocol. A profile is only created for an account that still exists in Auth: after "delete my data" an old ID token gets UNAUTHENTICATED `sign_in_required` and nothing is recreated |
 | `sendFriendRequest` | `{code}` (8 chars, any case) | `{status: "sent"\|"friends", name, friendUid?}`. A request that crosses an existing one becomes a friendship |
 | `sendFriendRequestToUid` | `{targetUid, matchId}` (both players must be members of that match) | same as `sendFriendRequest`: `{status: "sent"\|"friends", name, friendUid?}`. Used by "Add friend" on a name in a lobby or battle |
 | `respondFriendRequest` | `{fromUid, accept: bool}` | `{status: "accepted"\|"declined"}` |
 | `removeFriend` | `{friendUid}` | `{removed: true}` |
-| `block` | `{targetUid}` | `{blocked: true}`. Removes friendship, requests and invites both ways |
+| `block` | `{targetUid}` (must be a real account: NOT_FOUND `unknown_user`) | `{blocked: true}`. Removes friendship, requests and invites both ways |
 | `unblock` | `{targetUid}` | `{unblocked: true}` |
-| `reportName` | `{targetUid, reason?}` (`reason` `^[a-z_]{1,32}$`, default `offensive_name`) | `{hidden, duplicate}` |
+| `reportName` | `{targetUid, reason?}` (`reason` `^[a-z_]{1,32}$`, default `offensive_name`). The reporter must be a friend of the target or share a match with them, otherwise NOT_FOUND `unknown_user` (the answer for a made-up uid too) | `{hidden, duplicate}` |
 | `createMatch` | `{settings, seats, timers?}` (below). **Full owners only** | `{matchId, code}` |
 | `updateLobby` | `{matchId, settings?, seats?, timers?}` (host, lobby only) | `{seats}` |
 | `joinMatch` | `{code, seatCount?: 1..4, names?: string[]}` | `{matchId, seats: [index], alreadyJoined}` |
@@ -170,6 +179,10 @@ short reason as the message (see the end of this section).
   not stored (the database does not store empty lists): treat a missing `teams` as "no teams".
 * `timers`: `{liveSec: 0 | 10..600 (default 60), asyncHours: 1..168 (default 72), asyncTimeout: "auto" | "end"}`.
 
+**Ids** (`matchId`, `targetUid`, `friendUid`, `fromUid`, a seat's `uid`) are checked strictly before they go near a database path: letters, digits, `-` and `_`, 8 to 128 characters (1..128 for a seat uid), no leading `__`.
+Otherwise INVALID_ARGUMENT `bad_<field>`. (The Admin SDK keeps its path tree in a plain object: a transaction on `matches/__proto__/meta` never finished and held an instance for 60 s.)
+`startMatch`, `updateLobby` and every other transaction check that `matches/{id}/meta` exists first (NOT_FOUND `unknown_match`).
+
 Error reasons a client can show or act on (`status`: reason): INVALID_ARGUMENT: `bad_code`, `bad_seats`, `bad_rounds`,
 `bad_wind_max`, `bad_start_money`, `bad_mode`, `bad_teams`, `bad_timers` (`bad_liveSec`, `bad_asyncHours`, `bad_asyncTimeout`),
 `love_needs_two_humans`, `love_has_no_teams`, `num_tanks_mismatch`, `no_human_seat`, `bad_reason` and similar `bad_<field>`.
@@ -177,7 +190,7 @@ NOT_FOUND: `unknown_code` (also for a blocked pair, so a block never shows), `un
 `not_a_member`. (`sendFriendRequestToUid`: a blocked pair, or a target who is not in the match, gets `unknown_code`; a caller who is not in the match gets PERMISSION_DENIED `not_a_member`.) PERMISSION_DENIED: `full_required`, `not_host`, `not_friends`, `not_a_member`. FAILED_PRECONDITION: `no_profile`,
 `protocol_mismatch` (details `{hostProtocol, yourProtocol}`: ask the player to update), `not_joinable`, `not_in_lobby`,
 `seats_not_filled`, `seat_taken`, `own_code`, `self`. ALREADY_EXISTS: `already_friends`, `already_in_match`, `token_used`.
-RESOURCE_EXHAUSTED: `match_full`, `not_enough_seats`, `too_many_matches` (40), `too_many_requests` (50 waiting).
+RESOURCE_EXHAUSTED: `match_full`, `not_enough_seats`, `too_many_matches` (a player who is in 40 matches cannot join or host another), `too_many_requests` (50 waiting), `request_cooldown` (a declined sender asked the same player again within 24 h).
 UNAUTHENTICATED: `sign_in_required`.
 
 ## Triggers and the schedule
@@ -189,6 +202,7 @@ UNAUTHENTICATED: `sign_in_required`.
 | `onInvite` | `invites/{to}/{matchId}` created | pushes "<name> invited you to a match" |
 | `onFriendAccepted` | `friends/{uid}/{friend}` created | pushes "<name> accepted your friend request" to the requester (the one who is not `by`) |
 | `onMatchOver` | `matches/{id}/meta/status` | on `over`/`abandoned`: expires the match code, updates the lists, schedules deletion; on `over` pushes to members who are away |
+| `onPushTokenAdded` | `users/{uid}/fcm/{tokenHash}` created | keeps at most 5 push tokens per player (the new one is always kept), because the rules cannot count children |
 | `timeoutSweep` | every 15 minutes | see below |
 
 Push: `PushSender` interface (`functions/src/push.ts`). In the emulator every send is recorded at
@@ -198,10 +212,11 @@ in production it is FCM (`sendEachForMulticast`, dead tokens removed). Messages 
 
 **Sweep** (`runTimeoutSweep(deps, options)` in `functions/src/sweep.ts`, a plain function with an injectable clock):
 `sweepQueue/{matchId}` holds the time a match next needs a look, so the sweep reads only the entries that are due.
-* a human turn past `turn.deadline`: writes `{kind: "timeout", tank}` at `actions/{actionCount}`, bumps `actionCount`,
+* a human turn past `turn.deadline`: writes `{kind: "timeout", tank, async: 1}` at `actions/{actionCount}`, bumps `actionCount`,
   and sets `meta/turn = {tank: -1, uid: "any", deadline: 0, index+1}` ("needs resolve": the first client that opens the match
   appends the following CPU entries and sets the real turn). With `asyncTimeout: "end"` it also sets `status: "over"`.
-  It is safe against a player acting at the same moment (see the comment in `sweep.ts`);
+  It is safe against a player acting at the same moment (see the comment in `sweep.ts`). A **CPU** turn past its deadline (nobody drove it, for instance a
+  batch that stopped at the 16-entry cap with every client away) gets `{kind: "auto", tank, level}` at the seat's own level instead, never a `timeout`, and never ends the match;
 * a lobby older than 24 h: `abandoned`; a running match stuck in "needs resolve" or the shop for 14 days: `abandoned`;
 * a finished match 30 days after it ended: deleted, with every pointer to it.
 
@@ -239,6 +254,10 @@ in production it is FCM (`sendEachForMulticast`, dead tokens removed). Messages 
 * Changed `rules/build_rules.mjs`? Run `npm run rules:build` and commit `database.rules.json`. `rules:check` (part of
   `tools/firebase/test.sh static`) fails CI when they differ.
 * Changed `game/ui/names/name_blocklist.gd`? Run `npm run blocklist:build` and commit `functions/src/name_blocklist.json`.
+* Changed `NameFilter`'s character rules, its font (`game/assets/fonts`) or the font's import? Run `tools/firebase/gen_name_glyphs.sh` (needs Godot) and commit
+  `functions/src/name_glyphs.json`: it is the exact set of characters the game keeps in a name, so the server deletes the same ones. `game/tests/net/test_name_glyph_table.gd`
+  fails when the file is stale, `game/tests/qa/test_name_filter_parity.gd` replays a 2,000-string corpus through both filters (0 differences; regenerate the corpus with
+  `tools/qa/gen_name_corpus.sh` after a filter change).
   `functions/src/name_filter.ts` is a port of `game/ui/names/name_filter.gd` and `test/unit/name_filter.test.ts` mirrors its
   GDScript test; change them together.
 * Added a function? Add it to the lists in `test/unit/manifest.test.ts` so CI knows it is expected.

@@ -93,6 +93,7 @@ describe('REST client flow (what M7-N will do)', () => {
       await rest(host, 'PATCH', `matches/${matchId}`, {
         'msgs/-Nrest0000000000001': { uid: host.uid, seat: 0, msg: 3, at: { '.sv': 'timestamp' } },
         [`lastMsg/${host.uid}`]: { '.sv': 'timestamp' },
+        [`lastMsgKey/${host.uid}`]: '-Nrest0000000000001',
       }),
       'quick message',
     );
@@ -100,6 +101,7 @@ describe('REST client flow (what M7-N will do)', () => {
       await rest(host, 'PATCH', `matches/${matchId}`, {
         'msgs/-Nrest0000000000002': { uid: host.uid, seat: 0, msg: 4, at: { '.sv': 'timestamp' } },
         [`lastMsg/${host.uid}`]: { '.sv': 'timestamp' },
+        [`lastMsgKey/${host.uid}`]: '-Nrest0000000000002',
       }),
       'a second message within 3 s',
     );

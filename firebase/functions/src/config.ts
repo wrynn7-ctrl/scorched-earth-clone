@@ -28,6 +28,10 @@ export const MATCH_CODE_LENGTH = 6;
 export const REPORTS_TO_HIDE_NAME = 3;
 export const MAX_PENDING_REQUESTS = 50;
 export const MAX_USER_MATCHES = 40;
+/** Push tokens kept per player (a phone has one; a few more cover a second phone or a reinstall). */
+export const MAX_PUSH_TOKENS = 5;
+/** After a player declines a friend request, the sender may not ask the same player again for this long. */
+export const REQUEST_COOLDOWN_MS = 24 * 3600 * 1000;
 
 export const SECOND = 1000;
 export const HOUR = 3600 * SECOND;

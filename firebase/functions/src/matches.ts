@@ -13,7 +13,7 @@ import {
   TURN_SHOP,
 } from './config';
 import type { Deps } from './deps';
-import { asObject, fail, reqId } from './errors';
+import { asObject, fail, isSafeId, reqId } from './errors';
 import {
   buildNewSeats,
   buildSettings,
@@ -63,8 +63,9 @@ function hostNameOf(meta: Pick<Meta, 'hostUid' | 'seats'>): string {
 }
 
 async function assertRoomForMatch(deps: Deps, uid: string): Promise<void> {
-  const mine = await deps.db.ref(`userMatches/${uid}`).orderByKey().limitToFirst(MAX_USER_MATCHES + 1).get();
-  if (mine.numChildren() > MAX_USER_MATCHES) fail('resource-exhausted', 'too_many_matches');
+  // A player may be in at most MAX_USER_MATCHES matches, so one that already has that many cannot join or host another.
+  const mine = await deps.db.ref(`userMatches/${uid}`).orderByKey().limitToFirst(MAX_USER_MATCHES).get();
+  if (mine.numChildren() >= MAX_USER_MATCHES) fail('resource-exhausted', 'too_many_matches');
 }
 
 /**
@@ -72,6 +73,10 @@ async function assertRoomForMatch(deps: Deps, uid: string): Promise<void> {
  * It may run more than once (the SDK retries on a conflict), so it must not have side effects.
  */
 export async function mutateMeta<T>(deps: Deps, matchId: string, change: (meta: Meta) => { meta: Meta; result: T } | HttpsError): Promise<T> {
+  // A transaction on a path that holds nothing is wasted work, and on a prototype-like key (`__proto__`) it never finishes at all:
+  // refuse bad ids and missing matches before starting one.
+  if (!isSafeId(matchId, 1)) return fail('invalid-argument', 'bad_matchId');
+  if (!(await exists(deps.db, `matches/${matchId}/meta/hostUid`))) return fail('not-found', 'unknown_match');
   let outcome: { result: T } | undefined;
   let failure: HttpsError | undefined;
   const done = await deps.db.ref(`matches/${matchId}/meta`).transaction((raw: Meta | null) => {
@@ -283,7 +288,12 @@ export async function joinMatch(deps: Deps, uid: string, raw: unknown): Promise<
   }
   await assertRoomForMatch(deps, uid);
   const myName = displayName(user);
-  const claimed = await mutateMeta(deps, matchId, (meta): { meta: Meta; result: number[] } | HttpsError => {
+  // The "already in the match" check is repeated inside the transaction: two calls at the same moment (a double tap) both pass
+  // the read above, and only the first to commit may take seats.
+  const claimed = await mutateMeta(deps, matchId, (meta): { meta: Meta; result: { seats: number[]; already: boolean } } | HttpsError => {
+    if (meta.seats.some((s) => s.uid === uid)) {
+      return { meta, result: { seats: meta.seats.flatMap((s, i) => (s.uid === uid ? [i] : [])), already: true } };
+    }
     if (meta.status !== 'lobby') return err('failed-precondition', 'not_joinable');
     const free = freeSeatIndexes(meta.seats);
     if (free.length === 0) return err('resource-exhausted', 'match_full');
@@ -295,11 +305,11 @@ export async function joinMatch(deps: Deps, uid: string, raw: unknown): Promise<
       const fallback = slot === 0 ? myName : numberedSeatName(myName, slot + 1);
       return { kind: 'human', uid, name: seatName(names[slot], fallback) };
     });
-    return { meta: { ...meta, seats }, result: taken };
+    return { meta: { ...meta, seats }, result: { seats: taken, already: false } };
   });
   const after = await requireMeta(deps, matchId);
   await syncMatch(deps, matchId, after, [uid]);
-  return { matchId, seats: claimed, alreadyJoined: false };
+  return { matchId, seats: claimed.seats, alreadyJoined: claimed.already };
 }
 
 export interface LeaveResult {

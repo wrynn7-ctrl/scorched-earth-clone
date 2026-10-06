@@ -4,7 +4,7 @@
 // How it finds work cheaply: sweepQueue/{matchId} holds the time a match next needs a look (see nextDue in matches.ts),
 // kept up to date by createMatch/startMatch/onTurnChange. The sweep reads only the entries that are due.
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { LOBBY_TTL_MS, MAX_INSTANCES, REGION, TURN_NEEDS_RESOLVE } from './config';
+import { CPU_LEVEL_NORMAL, LOBBY_TTL_MS, MAX_INSTANCES, REGION, TURN_NEEDS_RESOLVE } from './config';
 import { defaultDeps, type Deps } from './deps';
 import { cleanupFinished, err, finishMatch, mutateMeta, nextDue, syncMatch } from './matches';
 import { humanUids, read, readMeta, type Meta } from './rtdb';
@@ -17,7 +17,7 @@ export interface SweepOptions {
 }
 
 export interface SweepResult {
-  /** Matches that got a `timeout` entry, and now wait for a client to resolve the turn. */
+  /** Matches that got a `timeout` entry (or an `auto` entry for a stuck CPU turn), and now wait for a client to resolve the turn. */
   timeouts: string[];
   /** Async matches that ended because the host chose "end the match on timeout". */
   ended: string[];
@@ -95,8 +95,8 @@ async function examine(deps: Deps, matchId: string, dueAt: number | null, result
 }
 
 /**
- * Writes the `timeout` entry for the turn that ran out of time, then bumps actionCount and marks the turn "needs resolve"
- * (or ends the match, when the host chose that). Safe against a player acting at the same moment:
+ * Writes the `timeout` entry for the turn that ran out of time (an `auto` entry when the turn is a CPU's), then bumps
+ * actionCount and marks the turn "needs resolve" (or ends the match, when the host chose that). Safe against a player acting at the same moment:
  *  1. the entry is written only if actions/{count} is still free (a transaction), so a player's own write wins or loses cleanly;
  *  2. the count and turn change only if they still are what we saw.
  * If we die between the two steps the entry exists but the count did not move; the next run finds that entry and completes step 2.
@@ -106,14 +106,20 @@ async function timeoutTurn(deps: Deps, matchId: string, meta: Meta, result: Swee
   if (!turn) return false;
   const count = meta.actionCount;
   // `async: 1` marks a hard-deadline timeout: the AI plays the turn (or the match ends), unlike a live skip (ARCHITECTURE 52).
-  const entry = { kind: 'timeout', tank: turn.tank, async: 1 };
+  // A CPU seat never "times out" (the rules refuse that entry and NetReplay calls it a dispute). A CPU turn that nobody drove
+  // for the whole deadline, for instance a batch that stopped at the 16-entry cap with every client away, gets the entry a
+  // client would have written for it: `auto` at the seat's own level.
+  const seat = meta.seats[turn.tank];
+  const cpu = seat?.kind === 'cpu';
+  const level = Number.isInteger(seat?.level) ? (seat?.level as number) : CPU_LEVEL_NORMAL;
+  const entry = cpu ? { kind: 'auto', tank: turn.tank, level } : { kind: 'timeout', tank: turn.tank, async: 1 };
   const written = await deps.db.ref(`matches/${matchId}/actions/${count}`).transaction((current: unknown) => (current === null ? entry : undefined));
   if (!written.committed) {
     const there = written.snapshot.val() as { kind?: string; tank?: number } | null;
     // Someone else's entry at this index means a player acted just before us: leave the match alone.
-    if (!there || there.kind !== 'timeout' || there.tank !== turn.tank) return false;
+    if (!there || there.kind !== entry.kind || there.tank !== turn.tank) return false;
   }
-  const end = meta.timers.asyncTimeout === 'end';
+  const end = !cpu && meta.timers.asyncTimeout === 'end'; // a stuck CPU never ends the match
   const next = await mutateMeta(deps, matchId, (current): { meta: Meta; result: Meta } | ReturnType<typeof err> => {
     if (current.status !== 'playing' || current.actionCount !== count || current.turn?.index !== turn.index) {
       return err('aborted', 'moved_on');

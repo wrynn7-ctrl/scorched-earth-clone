@@ -1,6 +1,6 @@
 // Friend requests, friendships, blocks and name reports (ARCHITECTURE section 44). Clients never write these paths:
 // every change goes through a callable, which checks blocks in both directions.
-import { FRIEND_CODE_LENGTH, MAX_PENDING_REQUESTS, REPORTS_TO_HIDE_NAME } from './config';
+import { FRIEND_CODE_LENGTH, MAX_PENDING_REQUESTS, REPORTS_TO_HIDE_NAME, REQUEST_COOLDOWN_MS } from './config';
 import { normalizeCode } from './codes';
 import type { Deps } from './deps';
 import { asObject, fail, reqBool, reqId, optString } from './errors';
@@ -25,6 +25,16 @@ function friendUpdates(a: string, b: string, by: string, at: number): Updates {
 /** Removes a request and its reverse index entry. */
 function requestRemovals(from: string, to: string): Updates {
   return { [`friendRequests/${to}/${from}`]: null, [`sentRequests/${from}/${to}`]: null };
+}
+
+/** Clears the decline cooldowns between two players, both ways (they are friends now). */
+function cooldownRemovals(a: string, b: string): Updates {
+  return {
+    [`friendCooldowns/${a}/${b}`]: null,
+    [`friendCooldownsBy/${b}/${a}`]: null,
+    [`friendCooldowns/${b}/${a}`]: null,
+    [`friendCooldownsBy/${a}/${b}`]: null,
+  };
 }
 
 export interface SendRequestResult {
@@ -69,6 +79,8 @@ async function requestBetween(deps: Deps, uid: string, me: UserRecord, target: s
   const targetUser = await read<UserRecord>(deps.db, `users/${target}`);
   if (!targetUser) return fail('not-found', 'unknown_code');
   const at = deps.now();
+  // Declined once: wait a day before asking the same player again (checked after the "they asked us first" case below).
+  const declinedAt = await read<number>(deps.db, `friendCooldowns/${uid}/${target}`);
 
   // They already asked us: asking back means yes.
   if (await exists(deps.db, `friendRequests/${uid}/${target}`)) {
@@ -76,9 +88,11 @@ async function requestBetween(deps: Deps, uid: string, me: UserRecord, target: s
       ...friendUpdates(uid, target, uid, at),
       ...requestRemovals(target, uid),
       ...requestRemovals(uid, target),
+      ...cooldownRemovals(uid, target),
     });
     return { status: 'friends', friendUid: target, name: displayName(targetUser) };
   }
+  if (declinedAt !== null && at - declinedAt < REQUEST_COOLDOWN_MS) return fail('resource-exhausted', 'request_cooldown');
   const pending = await deps.db.ref(`friendRequests/${target}`).orderByKey().limitToFirst(MAX_PENDING_REQUESTS).get();
   if (pending.numChildren() >= MAX_PENDING_REQUESTS && !pending.hasChild(uid)) return fail('resource-exhausted', 'too_many_requests');
   await deps.db.ref().update({
@@ -96,14 +110,17 @@ export async function respondFriendRequest(deps: Deps, uid: string, raw: unknown
   if (!(await exists(deps.db, `friendRequests/${uid}/${fromUid}`))) return fail('not-found', 'no_request');
   const cleanup: Updates = { ...requestRemovals(fromUid, uid), ...requestRemovals(uid, fromUid) };
   if (!accept) {
-    await deps.db.ref().update(cleanup);
+    // The decline starts a cooldown for this sender and this player only (`friendCooldowns/{sender}/{decliner}`, with the
+    // reverse index `friendCooldownsBy/{decliner}/{sender}` so deleting an account can find them).
+    const at = deps.now();
+    await deps.db.ref().update({ ...cleanup, [`friendCooldowns/${fromUid}/${uid}`]: at, [`friendCooldownsBy/${uid}/${fromUid}`]: at });
     return { status: 'declined' };
   }
   if (await isBlockedEither(deps.db, uid, fromUid)) {
     await deps.db.ref().update(cleanup);
     return fail('not-found', 'no_request');
   }
-  await deps.db.ref().update({ ...cleanup, ...friendUpdates(uid, fromUid, uid, deps.now()) });
+  await deps.db.ref().update({ ...cleanup, ...cooldownRemovals(fromUid, uid), ...friendUpdates(uid, fromUid, uid, deps.now()) });
   return { status: 'accepted' };
 }
 
@@ -134,6 +151,8 @@ export async function blockUser(deps: Deps, uid: string, raw: unknown): Promise<
   const target = reqId(asObject(raw), 'targetUid');
   if (target === uid) return fail('failed-precondition', 'self');
   await requireProfile(deps, uid);
+  // Only a real account can be blocked, so the block list cannot be filled with made-up ids.
+  if (!(await exists(deps.db, `users/${target}`))) return fail('not-found', 'unknown_user');
   const updates: Updates = {
     [`blocks/${uid}/${target}`]: true,
     [`friends/${uid}/${target}`]: null,
@@ -155,6 +174,17 @@ export async function unblockUser(deps: Deps, uid: string, raw: unknown): Promis
 
 const REASONS = /^[a-z][a-z_]{0,31}$/;
 
+/** True when the two players are friends, or both have (or had, until deleted) the same match in their list. */
+async function knowsPlayer(deps: Deps, uid: string, other: string): Promise<boolean> {
+  if (await exists(deps.db, `friends/${uid}/${other}`)) return true;
+  const [mine, theirs] = await Promise.all([
+    read<Record<string, unknown>>(deps.db, `userMatches/${uid}`),
+    read<Record<string, unknown>>(deps.db, `userMatches/${other}`),
+  ]);
+  if (!mine || !theirs) return false;
+  return Object.keys(mine).some((matchId) => Object.prototype.hasOwnProperty.call(theirs, matchId));
+}
+
 export interface ReportResult {
   /** True once this name is hidden (3 distinct reporters). */
   hidden: boolean;
@@ -171,7 +201,9 @@ export async function reportName(deps: Deps, uid: string, raw: unknown): Promise
   if (target === uid) return fail('failed-precondition', 'self');
   await requireProfile(deps, uid);
   const user = await read<UserRecord>(deps.db, `users/${target}`);
-  if (!user) return fail('not-found', 'unknown_user');
+  // Only people who know the player can report the name: friends, or players who share (or shared) a match. The answer is the
+  // same as for a made-up uid, so this cannot be used to probe which uids exist.
+  if (!user || !(await knowsPlayer(deps, uid, target))) return fail('not-found', 'unknown_user');
   if (await exists(deps.db, `nameReports/${target}/${uid}`)) return { hidden: user.nameHidden === true, duplicate: true };
   const reportId = deps.db.ref('reports').push().key;
   if (!reportId) return fail('internal', 'no_report_id');

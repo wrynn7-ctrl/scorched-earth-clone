@@ -49,20 +49,82 @@ var state: MatchState:
 
 # --- construction -----------------------------------------------------------------------------------------------------
 
-## "" when `meta` has what a replay needs, else a short reason (missing_settings, bad_seats, seed_missing...).
+## "" when `meta` has what a replay needs, else a short reason (missing_settings, bad_seats, bad_settings, bad_timers,
+## seed_missing...). Everything comes from the database, so every value is type-checked here: malformed means unusable
+## (the caller calls the match disputed or refuses to open it), never an engine error.
 static func meta_error(m: Dictionary) -> String:
 	if typeof(m.get("settings", null)) != TYPE_DICTIONARY:
 		return "missing_settings"
 	var seat_list: Array = NetJson.as_list(m.get("seats", null))
 	var s: Dictionary = m["settings"] as Dictionary
-	if seat_list.size() < SimConstants.MIN_TANKS or seat_list.size() > SimConstants.MAX_TANKS:
-		return "bad_seats"
-	if s.has("num_tanks") and (s["num_tanks"] as int) != seat_list.size():
-		return "bad_seats"
+	var seats_why: String = seats_error(seat_list)
+	if seats_why != "":
+		return seats_why
+	var settings_why: String = _settings_error(s, seat_list.size())
+	if settings_why != "":
+		return settings_why
+	if m.has("seed") and typeof(m["seed"]) != TYPE_INT:
+		return "bad_settings"
 	if not m.has("seed") and not s.has("seed"):
 		return "seed_missing"
 	if (m.get("seed", s.get("seed", 0)) as int) == 0:
 		return "seed_missing"  # 0 is the lobby placeholder: the match has not started
+	if m.has("timers") and _timers_error(m["timers"]) != "":
+		return "bad_timers"
+	return ""
+
+
+## "" when `list` is a usable seat list (also checked for every later seats update from the database), else "bad_seats".
+static func seats_error(list: Array) -> String:
+	if list.size() < SimConstants.MIN_TANKS or list.size() > SimConstants.MAX_TANKS:
+		return "bad_seats"
+	for item: Variant in list:
+		if typeof(item) != TYPE_DICTIONARY:
+			return "bad_seats"
+		var seat: Dictionary = item as Dictionary
+		var kind: Variant = seat.get("kind", "human")
+		if typeof(kind) != TYPE_STRING or (kind != "human" and kind != "cpu"):
+			return "bad_seats"
+		for key: String in ["uid", "name"]:
+			if seat.has(key) and typeof(seat[key]) != TYPE_STRING:
+				return "bad_seats"
+		if seat.has("level"):
+			if typeof(seat["level"]) != TYPE_INT:
+				return "bad_seats"
+			if kind == "cpu" and ((seat["level"] as int) < SimConstants.CTRL_EASY or (seat["level"] as int) > SimConstants.CTRL_EXPERT):
+				return "bad_seats"
+	return ""
+
+
+static func _settings_error(s: Dictionary, seat_count: int) -> String:
+	for key: String in ["seed", "num_tanks", "rounds", "wind_max", "start_money", "mode"]:
+		if s.has(key) and typeof(s[key]) != TYPE_INT:
+			return "bad_settings"
+	for key2: String in ["full_unlocked", "friendly_fire"]:
+		if s.has(key2) and typeof(s[key2]) != TYPE_BOOL:
+			return "bad_settings"
+	for key3: String in ["controllers", "teams"]:
+		if not s.has(key3):
+			continue
+		if typeof(s[key3]) != TYPE_ARRAY and typeof(s[key3]) != TYPE_DICTIONARY:
+			return "bad_settings"
+		for v: Variant in NetJson.as_list(s[key3]):
+			if typeof(v) != TYPE_INT:
+				return "bad_settings"
+	if s.has("num_tanks") and (s["num_tanks"] as int) != seat_count:
+		return "bad_seats"
+	return ""
+
+
+static func _timers_error(t: Variant) -> String:
+	if typeof(t) != TYPE_DICTIONARY:
+		return "bad_timers"
+	var d: Dictionary = t as Dictionary
+	for key: String in ["liveSec", "asyncHours"]:
+		if d.has(key) and typeof(d[key]) != TYPE_INT:
+			return "bad_timers"
+	if d.has("asyncTimeout") and typeof(d["asyncTimeout"]) != TYPE_STRING:
+		return "bad_timers"
 	return ""
 
 
@@ -131,9 +193,11 @@ func fork() -> NetReplay:
 	return f
 
 
-## The seats changed (a player left: their seat is now a CPU). History is unaffected.
+## The seats changed (a player left: their seat is now a CPU). History is unaffected. A list that is not a usable seat list
+## (see seats_error) is ignored, and the caller decides what that means.
 func set_seats(list: Array) -> void:
-	seats = list
+	if seats_error(list) == "":
+		seats = list
 
 
 func fingerprint() -> String:
@@ -320,8 +384,8 @@ func _int_field(entry: Dictionary, key: String) -> int:
 func _apply_auto(entry: Dictionary, result: Dictionary) -> String:
 	var tank: int = _int_field(entry, "tank")
 	var level: int = _int_field(entry, "level")
-	if level < SimConstants.CTRL_EASY or level > SimConstants.CTRL_EXPERT:
-		return "bad_auto_level"
+	if level < SimConstants.CTRL_EASY or level > SimConstants.CTRL_EXPERT or (seat_is_cpu(tank) and level != seat_level(tank)):
+		return "bad_auto_level"  # the entry's level decides how well the AI plays, so it must be the seat's own
 	if state.phase != SimConstants.PHASE_AIM or tank != state.current_tank or not seat_is_cpu(tank):
 		return "bad_auto"
 	return _play_ai_turn(tank, level, result)
@@ -330,7 +394,7 @@ func _apply_auto(entry: Dictionary, result: Dictionary) -> String:
 func _apply_auto_shop(entry: Dictionary, result: Dictionary) -> String:
 	var tank: int = _int_field(entry, "tank")
 	var level: int = _int_field(entry, "level")
-	if level < SimConstants.CTRL_EASY or level > SimConstants.CTRL_EXPERT:
+	if level < SimConstants.CTRL_EASY or level > SimConstants.CTRL_EXPERT or (seat_is_cpu(tank) and level != seat_level(tank)):
 		return "bad_auto_level"
 	if state.phase != SimConstants.PHASE_SHOP or tank < 0 or tank >= state.tanks.size() \
 			or state.tanks[tank].ready or not seat_is_cpu(tank):
@@ -342,12 +406,31 @@ func _apply_auto_shop(entry: Dictionary, result: Dictionary) -> String:
 ##   async: 1   written after the hard deadline: the AI plays the turn at level TIMEOUT_AI_LEVEL (in the shop it buys and
 ##              readies), or the match ends when the timers say asyncTimeout "end"
 ##   otherwise  a live skip: the player passes (in the shop: is marked ready)
+##   `async` is exactly the integer 1 or absent; anything else is malformed (see timeout_error).
 static func timeout_mode(entry: Dictionary) -> String:
-	return TIMEOUT_AUTO if entry.get("async", 0) == 1 else TIMEOUT_PASS
+	var flag: Variant = entry.get("async", 0)
+	return TIMEOUT_AUTO if typeof(flag) == TYPE_INT and (flag as int) == 1 else TIMEOUT_PASS
+
+
+## "" or why a timeout entry is malformed: `async` present but not the integer 1.
+static func timeout_error(entry: Dictionary) -> String:
+	if not entry.has("async"):
+		return ""
+	var flag: Variant = entry["async"]
+	return "" if typeof(flag) == TYPE_INT and (flag as int) == 1 else "bad_timeout"
+
+
+## True when the seat was a CPU from the first turn (the settings' controllers say so). Such a seat never times out: its turns
+## are `auto` entries. A seat that became a CPU later (its player left) still has its human history, timeouts included.
+func _was_cpu_from_start(tank: int) -> bool:
+	var c: PackedInt32Array = state.settings.controllers
+	return tank >= 0 and tank < c.size() and c[tank] != SimConstants.CTRL_HUMAN
 
 
 func _apply_timeout(entry: Dictionary, result: Dictionary) -> String:
 	var tank: int = _int_field(entry, "tank")
+	if timeout_error(entry) != "" or _was_cpu_from_start(tank):
+		return "bad_timeout"
 	var mode: String = timeout_mode(entry)
 	var ends: bool = mode == TIMEOUT_AUTO and str(timers.get("asyncTimeout", "auto")) == "end"
 	if state.phase == SimConstants.PHASE_AIM:

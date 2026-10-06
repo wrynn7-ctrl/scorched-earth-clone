@@ -1,5 +1,4 @@
 // M7-Q functions abuse, part 2: friend floods, uid probing, report spam, purchase replay and delete-my-data in a running match.
-import { bug } from '../bug';
 import assert from 'node:assert/strict';
 import { befriend, db, hostLobby, settle, signUp, value } from '../../functions/harness';
 import { inParallel, newUser, outcome, reasonOf, releaseTestToken, rest, TEST_TOKEN_HASH, type TestUser } from './qa_harness';
@@ -76,13 +75,14 @@ describe('QA functions: friend request floods and uid probing', function () {
     assert.equal(await reasonOf(outsider.call('sendFriendRequestToUid', { targetUid: member.uid, matchId: 'madeUpMatchId' })), a1);
   });
 
-  // BUG (low): friend-request spam has no per-sender limit and no cooldown after a decline or a block.
+  // FIXED (was a low bug): friend-request spam had no cooldown after a decline. A declined sender may not ask the same player
+  // again for 24 hours (request_cooldown); the "cause" below is the old behaviour.
   //   input:    A sends a request to B, B declines; A sends again, 20 times in a row.
   //   expected: a cooldown or a cap on declined/outgoing requests (B has no "stop this person" except a block, and a block needs
   //             the sender's uid, which the request shows as a name only).
   //   actual:   every request after a decline is accepted and shows up again.
   //   cause:    functions/src/friends.ts requestBetween() only caps the TARGET's pending requests (50), not the sender's.
-  bug('BUG (low): refuses a sender who keeps re-sending after a decline', async () => {
+  it('refuses a sender who keeps re-sending after a decline', async () => {
     const a = await newUser();
     const b = await newUser();
     const code = (await b.profile()).friendCode as string;
@@ -96,12 +96,12 @@ describe('QA functions: friend request floods and uid probing', function () {
     assert.ok(outcomes.includes('RESOURCE_EXHAUSTED') || outcomes.includes('FAILED_PRECONDITION'), outcomes.join(','));
   });
 
-  // BUG (low): block (and removeFriend/unblock) accept any id: the list grows without bound with uids that do not exist.
+  // FIXED (was a low bug): block (and removeFriend/unblock) accepted any id: the list grows without bound with uids that do not exist.
   //   input:    block {targetUid: "ghost0001"} .. "ghost0040" from one account
   //   expected: unknown_user for a uid with no profile (and some cap on the list)
   //   actual:   {blocked: true} every time, each a new `blocks/{me}/{ghost}` key.
   //   cause:    functions/src/friends.ts blockUser() never reads users/{target}; storage-only impact.
-  bug('BUG (low): refuses to block a uid that does not exist', async () => {
+  it('refuses to block a uid that does not exist', async () => {
     const a = await newUser();
     assert.equal(await reasonOf(a.call('block', { targetUid: 'ghost0001' })), 'NOT_FOUND:unknown_user');
   });
@@ -113,6 +113,7 @@ describe('QA functions: reports', function () {
   it('counts one reporter once however often they report, and keeps one report document', async () => {
     const victim = await newUser({ name: 'Victim' });
     const reporter = await newUser();
+    await befriend(reporter, victim); // only players who know the target can report
     const results = await Promise.all(Array.from({ length: 6 }, () => reporter.call<{ hidden: boolean; duplicate: boolean }>('reportName', { targetUid: victim.uid })));
     assert.equal(results.filter((r) => !r.duplicate).length >= 1, true);
     const stored = (await value<Record<string, unknown>>(`nameReports/${victim.uid}`)) ?? {};
@@ -126,19 +127,20 @@ describe('QA functions: reports', function () {
   it('does not hide a name for 2 reporters, and hides it for the third', async () => {
     const victim = await newUser({ name: 'Victim' });
     const [a, b, c] = await inParallel(3, () => newUser());
+    for (const r of [a, b, c] as TestUser[]) await befriend(r, victim);
     for (const r of [a, b] as TestUser[]) await r.call('reportName', { targetUid: victim.uid });
     assert.equal((await value<boolean>(`users/${victim.uid}/nameHidden`)) ?? false, false);
     assert.equal((await (c).call<{ hidden: boolean }>('reportName', { targetUid: victim.uid })).hidden, true);
   });
 
-  // BUG (low): three throw-away accounts can hide ANY player's name; no shared match or account age is required.
+  // FIXED (was a low bug): three throw-away accounts could hide ANY player's name; no shared match or account age is required.
   //   input:    three fresh anonymous accounts call reportName {targetUid: <victim uid>}; they never met the victim.
   //             (a uid is easy to get: it is in the `seats` of every match the attacker joins.)
   //   expected: reports only from players who shared a match with the target (as sendFriendRequestToUid requires), or some
   //             weighting for brand-new accounts.
   //   actual:   the name is hidden after the third report and stays hidden (only the owner can review, in the console).
   //   cause:    functions/src/friends.ts reportName() checks only that the target exists.
-  bug('BUG (low): refuses name reports from accounts that never shared a match with the target', async () => {
+  it('refuses name reports from accounts that never shared a match with the target', async () => {
     const victim = await newUser({ name: 'Victim' });
     const sock = await inParallel(3, () => newUser());
     const results: string[] = [];
@@ -283,14 +285,14 @@ describe('QA functions: deleteMyData in the middle of a running match', function
     assert.equal(await value(`matches/${m2.matchId}/meta/status`), 'abandoned');
   });
 
-  // BUG (low): a deleted account comes back to life with its old ID token.
+  // FIXED (was a low bug): a deleted account came back to life with its old ID token.
   //   input:    deleteMyData, then (within the token's ~1 h life, no sign-out) ensureProfile with the old token.
   //   expected: UNAUTHENTICATED / no profile: the Auth user is gone.
   //   actual:   ensureProfile creates a fresh profile and friend code for the deleted uid (callables only verify the token, not
   //             that the Auth user still exists; production would behave the same: ID tokens stay valid until they expire).
   //   cause:    functions/src/index.ts authed() trusts request.auth without a revocation / existence check.
   //   impact:   a stray client call after "delete my data" recreates data the player was told was gone; the real client signs out.
-  bug('BUG (low): does not recreate a profile for a deleted account', async () => {
+  it('does not recreate a profile for a deleted account', async () => {
     const u = await newUser({ name: 'Gone' });
     await u.call('deleteMyData');
     await assert.rejects(u.call('ensureProfile', { protocol: 1 }));
@@ -312,7 +314,7 @@ describe('QA functions: misc call shapes', function () {
   this.timeout(60000);
   it('answers 16 concurrent calls with 3 different payloads without errors from the server', async () => {
     const u = await newUser();
-    const results = await inParallel(12, (i) => outcome(u.call(['ensureProfile', 'unblock', 'removeFriend'][i % 3], { protocol: 1, targetUid: 'x', friendUid: 'x' })));
+    const results = await inParallel(12, (i) => outcome(u.call(['ensureProfile', 'unblock', 'removeFriend'][i % 3], { protocol: 1, targetUid: 'someuid123', friendUid: 'someuid123' })));
     assert.ok(results.every((r) => r === 'OK'), results.join(','));
   });
 });

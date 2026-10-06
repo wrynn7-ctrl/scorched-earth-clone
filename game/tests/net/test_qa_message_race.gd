@@ -1,8 +1,9 @@
 extends "res://tests/net/net_it_base.gd"
 ## M7-Q diagnosis of the flaky "the guest sees the host's bubble" (test_it_ui_flow): a quick message that is written before the
-## receiver's `msgs` stream has connected is dropped by the receiver as "history" (OnlineMatch._on_msgs_event: the whole first
-## `put` is treated as what was said before we opened, `_msgs_baseline` is only set after that loop). The test sends the message one
-## frame after the guest opened the match, so it races the SSE connect.
+## receiver's `msgs` stream has connected used to be dropped by the receiver as "history" (the whole first snapshot was treated as
+## what was said before we opened). Fixed in M7-QF-B: OnlineMatch._handle_message keeps a snapshot message whose `at` is newer than
+## the server time of opening (minus a 2 s margin). The test sends the message one frame after the guest opened the match, so it
+## races the SSE connect.
 
 
 func _pair() -> Dictionary:
@@ -56,7 +57,4 @@ func test_a_message_sent_right_after_the_receiver_opened_the_match_is_not_lost()
 		mh.close()
 		mg.close()
 		await get_tree().create_timer(3.2).timeout  # the 3 s limiter belongs to the match, a new match starts fresh anyway
-	if lost > 0:
-		pending("BUG (low): %d of %d quick messages sent right after the receiver opened the match were never delivered: OnlineMatch._on_msgs_event treats the first snapshot as history, including a message that was written a moment before the stream connected (online_match.gd _handle_message: from_snapshot and not _msgs_baseline). This is also the cause of the flaky test_it_ui_flow 'the guest sees the host's bubble' (11 failures in 15 isolated runs). Fix: only skip snapshot messages older than the time of opening (compare `at` with now_ms() at open) instead of skipping the whole first snapshot." % [lost, tries])
-		return
-	assert_eq(lost, 0)
+	assert_eq(lost, 0, "%d of %d quick messages sent right after the receiver opened the match were lost" % [lost, tries])

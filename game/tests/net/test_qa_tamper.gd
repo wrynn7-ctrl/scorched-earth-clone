@@ -26,7 +26,7 @@ func _holder(c: Dictionary) -> Array:
 	return [c["mf"], c["friend"]]
 
 
-func test_a_holder_can_end_the_match_early_with_status_over_and_the_other_client_notices() -> void:
+func test_a_holder_who_ends_the_match_early_with_status_over_gets_it_disputed_and_it_never_shows_as_finished() -> void:
 	if not _need_emulator():
 		return
 	var c: Dictionary = await _pair([NetLobby.seat_human(true), NetLobby.seat_human()])
@@ -35,15 +35,20 @@ func test_a_holder_can_end_the_match_early_with_status_over_and_the_other_client
 	var session: NetSession = pair[1]
 	var other: OnlineMatch = c["mf"] if holder == c["mh"] else c["mh"]
 	var n: int = holder.replay.count
+	var statuses: Array = []
+	other.status_changed.connect(func(s: String) -> void: statuses.append(s))
 	var action: Dictionary = Simulation.normalize_action(AiPlayer.next_action(holder.state, holder.state.current_tank))
-	# a legal shot plus "over": the rules accept it (a legal first entry and a count bump are all they can check)
+	# a legal shot plus "over": the rules accept it (a legal first entry and a count bump are all they can check), so the
+	# clients have to notice that the simulation is not over
 	var res: NetResult = await session.db.patch("matches/%s" % c["id"], {"actions/%d" % n: action, "meta/actionCount": n + 1, "meta/status": "over"})
 	assert_true(res.ok, "documented: the rules accept it (%s)" % str(res))
-	assert_true(await _until(func() -> bool: return other.replay.count == n + 1 and (other.status == "over" or other.is_disputed()), 10.0))
-	if other.status == "over" and not other.is_disputed() and not other.replay.ended:
-		pending("BUG (medium): the match is 'over' for the other client although the simulation is not (phase %s, %d tanks alive, no dispute). A holder who is losing can end the match with any legal action plus meta/status = over. Cause: build_rules.mjs statusRule only needs a count bump; OnlineMatch._set_status trusts it and _check_turn returns early when status != playing. Fix: a client that sees status over while replay.ended is false should dispute (reason 'status_over_early')." % [other.state.phase, other.state.tanks.size()])
-		return
-	assert_true(other.is_disputed() or other.replay.ended)
+	assert_true(await _until(func() -> bool: return other.is_disputed(), 12.0), "the other client calls the early end a dispute")
+	assert_eq(other.replay.dispute_reason, "status_over_early")
+	assert_false(other.replay.ended, "the simulation is not over")
+	assert_ne(other.status, "over", "the match is not shown as finished")
+	assert_false(statuses.has("over"), "no status_changed(over) was announced")
+	assert_true(await _until(func() -> bool: return holder.is_disputed(), 12.0), "the writer's own client sees it too")
+	assert_false((await other.submit({"kind": "pass", "tank": other.my_seats[0]})).ok, "no play after the dispute")
 
 
 func test_a_holder_who_writes_the_turn_for_himself_again_gets_the_match_disputed() -> void:
@@ -68,10 +73,10 @@ func test_a_holder_who_writes_the_turn_for_himself_again_gets_the_match_disputed
 	assert_true(other.replay.dispute_reason.begins_with("turn_"), "dispute reason: %s" % other.replay.dispute_reason)
 
 
-func test_the_writer_of_an_auto_entry_picks_the_ai_level_of_a_cpu() -> void:
+func test_the_writer_of_an_auto_entry_cannot_pick_the_ai_level_of_a_cpu() -> void:
 	if not _need_emulator():
 		return
-	# seat 2 is CPU level 1; a member writes the CPU's turn with level 4
+	# seat 2 is CPU level 1; a member writes the CPU's turn with level 4: the rules refuse it (the entry's level must be the seat's)
 	var c: Dictionary = await _pair([NetLobby.seat_human(true), NetLobby.seat_human(), NetLobby.seat_cpu(1)])
 	var tampered: bool = false
 	var guard: int = 0
@@ -97,20 +102,20 @@ func test_the_writer_of_an_auto_entry_picks_the_ai_level_of_a_cpu() -> void:
 			assert_true(r.ok, str(r))
 			await get_tree().create_timer(0.3).timeout
 			continue
-		var honest_fp: String = plan["fingerprint"]
 		for i: int in range(entries.size()):
 			if (entries[i] as Dictionary)["kind"] == "auto":
 				entries[i] = {"kind": "auto", "tank": (entries[i] as Dictionary)["tank"], "level": 4}
 		var base: int = holder.replay.count
 		var update: Dictionary = holder._build_update(plan, base)
 		var res: NetResult = await session.db.patch("matches/%s" % c["id"], update)
-		assert_true(res.ok, "the rules accept any level 1..4 for a CPU seat (%s)" % str(res))
+		assert_false(res.ok, "the rules refuse an auto level the CPU seat does not have")
+		assert_true(res.is_code(NetError.Code.PERMISSION), str(res))
 		var other: OnlineMatch = c["mf"] if holder == c["mh"] else c["mh"]
-		assert_true(await _until(func() -> bool: return other.replay.count == base + entries.size() or other.is_disputed(), 10.0))
 		await get_tree().create_timer(0.5).timeout
+		assert_eq(other.replay.count, base, "nothing was written")
+		assert_false(other.is_disputed())
+		# and the honest write goes through
+		var honest: NetResult = await holder.submit(action)
+		assert_true(honest.ok, "the honest turn is accepted: %s" % str(honest))
 		tampered = true
-		if not other.is_disputed() and other.replay.fingerprint() != honest_fp:
-			pending("BUG (medium): a member wrote {kind: auto, level: 4} for a level-1 CPU seat: the rules and every client accepted it, no dispute, and the state differs from the honest turn (fingerprint %s vs %s). The writer chooses how well each CPU plays. Cause: rules never compare the entry level with seats/N/level and NetReplay._apply_auto only range-checks it." % [other.replay.fingerprint(), honest_fp])
-			return
-		assert_true(other.is_disputed(), "a tampered AI level must be refused")
 	assert_true(tampered, "reached a CPU turn")

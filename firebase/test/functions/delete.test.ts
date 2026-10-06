@@ -51,7 +51,7 @@ describe('functions: deleteMyData', () => {
     await dee.call('invite', { friendUid: ann.uid, matchId: m5.matchId });
     // Reports: Ann was reported, and reported someone.
     await ben.call('reportName', { targetUid: ann.uid });
-    await ann.call('reportName', { targetUid: cy.uid });
+    await ann.call('reportName', { targetUid: ben.uid }); // Ben shares a match with Ann
     await ann.call('block', { targetUid: eve.uid });
     await settle(1500);
 
@@ -116,5 +116,19 @@ describe('functions: deleteMyData', () => {
     assert.equal(await value(`users/${user.uid}`), null);
     assert.equal(await value(`friendCodes/${code}`), null);
     await eventually(async () => getAuthAdmin().getUser(user.uid).then(() => false, () => true), 'auth user gone');
+  });
+
+  it('removes the friend-request cooldowns it is part of, as the sender and as the decliner', async () => {
+    const [ann, ben, cy] = [await newUser(), await newUser(), await newUser()];
+    await ann.call('sendFriendRequest', { code: (await ben.profile()).friendCode });
+    await ben.call('respondFriendRequest', { fromUid: ann.uid, accept: false });
+    await cy.call('sendFriendRequest', { code: (await ann.profile()).friendCode });
+    await ann.call('respondFriendRequest', { fromUid: cy.uid, accept: false });
+    assert.ok(await value(`friendCooldowns/${ann.uid}/${ben.uid}`));
+    assert.ok(await value(`friendCooldowns/${cy.uid}/${ann.uid}`));
+    await ann.call('deleteMyData');
+    for (const path of [`friendCooldowns/${ann.uid}`, `friendCooldownsBy/${ann.uid}`, `friendCooldownsBy/${ben.uid}`, `friendCooldowns/${cy.uid}`]) {
+      assert.equal(await value(path), null, path);
+    }
   });
 });

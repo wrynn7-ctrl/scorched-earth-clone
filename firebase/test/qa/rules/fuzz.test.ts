@@ -3,8 +3,9 @@
 // (firebase/README.md "The action log in the rules", ARCHITECTURE sections 44-46): the model looks only at what changed in
 // the database (before / after snapshots taken with the rules off), never at the rules text.
 //
-// Known holes (each has an `it.skip` in attacks.test.ts) are recognised and COUNTED, not failed, so the fuzz keeps
-// pointing at anything new:  stale_turn, multi_msg, auto_level, fcm_flood.
+// The holes the first QA pass found (stale turns, message batches, a CPU level chosen by the writer) are fixed and are now
+// violations. What the rules cannot enforce is still recognised and COUNTED, not failed, so the fuzz keeps pointing at anything
+// new:  fcm_flood (the rules cannot count tokens; the onPushTokenAdded function trims them to 5).
 //
 // Environment: QA_FUZZ_SEED (default 20261006), QA_FUZZ_N (default 700).
 import assert from 'node:assert/strict';
@@ -226,8 +227,7 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
         if (AIM.includes(kind) || kind === 'timeout') bad(`later entry of kind ${kind}`);
       }
       if (kind === 'auto' || kind === 'auto_shop') {
-        const seatLevel = seat?.level;
-        if (seat?.kind === 'cpu' && seatLevel !== e.level) v.tags.push('auto_level');
+        if (seat?.kind === 'cpu' && seat.level !== e.level) bad(`${kind} for tank ${tank} at level ${String(e.level)}, the seat's is ${String(seat.level)}`);
       }
     });
   }
@@ -253,13 +253,11 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
         if (t.deadline !== 0) bad('needs-resolve turn with a deadline');
       } else {
         const deadline = t.deadline as number;
-        if (!(typeof deadline === 'number' && deadline >= win.t0 - 120000 - 2000 && deadline <= win.t1 + timers.asyncHours * 3600000 + 120000 + 2000)) bad(`deadline ${String(t.deadline)} out of range`);
-        else if (deadline < win.t0 - 5000) v.tags.push('stale_turn');
+        if (!(typeof deadline === 'number' && deadline >= win.t0 - 5000 - 2000 && deadline <= win.t1 + timers.asyncHours * 3600000 + 120000 + 2000)) bad(`deadline ${String(t.deadline)} out of range`);
       }
       if ('liveDeadline' in t) {
         const live = t.liveDeadline as number;
-        if (!((t.tank as number) >= 0 && typeof live === 'number' && live >= win.t0 - 122000 && live <= win.t1 + timers.liveSec * 1000 + 122000)) bad('liveDeadline out of range or on a non-aim turn');
-        else if (live < win.t0 - 5000) v.tags.push('stale_turn');
+        if (!((t.tank as number) >= 0 && typeof live === 'number' && live >= win.t0 - 5000 - 2000 && live <= win.t1 + timers.liveSec * 1000 + 122000)) bad('liveDeadline out of range or on a non-aim turn');
       }
     }
   }
@@ -294,6 +292,12 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
       if (old !== undefined && !(value >= old + 3000 - 5)) bad('lastMsg moved inside 3 s');
       continue;
     }
+    if (rest === `lastMsgKey/${actor}`) {
+      if (!member) bad('lastMsgKey by a non-member');
+      if (d.removed.includes(p)) bad('lastMsgKey deleted');
+      if (!d.added.includes(`/${base}/lastMsg/${actor}`) && !d.changed.includes(`/${base}/lastMsg/${actor}`)) bad('lastMsgKey without a limiter bump');
+      continue;
+    }
     if (rest.startsWith('msgs/')) {
       if (d.removed.includes(p) || d.changed.includes(p)) bad('message edited or removed');
       continue;
@@ -312,7 +316,8 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
   const newMsgs = [...new Set(d.added.filter((p) => p.startsWith(`/${base}/msgs/`)).map((p) => p.split('/')[4]))];
   if (newMsgs.length > 0) {
     if (!member || bStatus !== 'playing') bad('message by a non-member or outside a running match');
-    if (newMsgs.length > 1) v.tags.push('multi_msg');
+    if (newMsgs.length > 1) bad(`${newMsgs.length} messages in one update`);
+    if (at(after, `${base}/lastMsgKey/${actor}`) !== newMsgs[0]) bad('the message is not under the key lastMsgKey names');
     const limiterMoved = d.added.includes(`/${base}/lastMsg/${actor}`) || d.changed.includes(`/${base}/lastMsg/${actor}`);
     if (!limiterMoved) bad('message without a limiter bump');
     for (const id of newMsgs) {
@@ -543,7 +548,10 @@ function validMisc(r: Rand, scene: Scene, actor: string | null): Obj {
   const who = actor ?? 'host';
   switch (r.int(0, 6)) {
     case 0: return { [M(`presence/${who}`)]: serverTimestamp() };
-    case 1: return { [M(`lastMsg/${who}`)]: serverTimestamp(), [M(`msgs/m${r.int(0, 99999)}`)]: { uid: who, seat: scene.seats.findIndex((s) => s.uid === who), msg: r.int(0, 7), at: serverTimestamp() } };
+    case 1: {
+      const key = `m${r.int(0, 99999)}`;
+      return { [M(`lastMsg/${who}`)]: serverTimestamp(), [M(`lastMsgKey/${who}`)]: key, [M(`msgs/${key}`)]: { uid: who, seat: scene.seats.findIndex((s) => s.uid === who), msg: r.int(0, 7), at: serverTimestamp() } };
+    }
     case 2: return { [M(`fp/${r.int(0, Math.max(0, scene.count - 1))}/${who}`)]: '0123456789abcdef' };
     case 3: return { [`users/${who}/name`]: r.pick(['Anna', 'Bo', 'X'.repeat(12), '😀😀😀😀😀😀', 'a b c']) };
     case 4: return { [`users/${who}/protocol`]: r.int(0, 5) };
@@ -589,10 +597,14 @@ function genUpdate(r: Rand, scene: Scene, actor: string | null): Obj {
       out[M(`fp/${r.int(0, scene.count + 2)}/${r.pick(['host', 'bob', 'cat'])}`)] = r.chance(0.7) ? r.pick(['0123456789abcdef', 'deadbeefdeadbeef', 'XYZ', '0123456789abcdeF']) : genValue(r);
     } else if (which === 11) {
       const n = r.chance(0.1) ? r.int(2, 4) : 1;
+      const keys: string[] = [];
       for (let i = 0; i < n; i += 1) {
-        out[M(`msgs/m${r.int(0, 9999)}`)] = r.chance(0.8) ? { uid: r.chance(0.9) ? actor : 'bob', seat: r.pick([0, 0, 1, 3, 9]), msg: r.pick([0, 3, 7, 8, -1, 1.5]), at: serverTimestamp() } : genValue(r);
+        const key = `m${r.int(0, 9999)}`;
+        keys.push(key);
+        out[M(`msgs/${key}`)] = r.chance(0.8) ? { uid: r.chance(0.9) ? actor : 'bob', seat: r.pick([0, 0, 1, 3, 9]), msg: r.pick([0, 3, 7, 8, -1, 1.5]), at: serverTimestamp() } : genValue(r);
       }
       if (r.chance(0.85)) out[M(`lastMsg/${actor ?? 'host'}`)] = serverTimestamp();
+      if (r.chance(0.85)) out[M(`lastMsgKey/${actor ?? 'host'}`)] = r.chance(0.9) ? keys[0] : `m${r.int(0, 9999)}`;
     } else if (which === 12) {
       out[`users/${r.pick(['host', 'bob', 'cat', actor ?? 'bob'])}/${r.pick(['name', 'protocol', 'full', 'nameHidden', 'friendCode', 'created', 'purchase'])}`] = r.pick(['NEW', 'X'.repeat(13), 3, true, 'AAAAAAAA', 99999999]);
     } else if (which === 13) {
@@ -723,23 +735,25 @@ describe('QA rules fuzz: the contract model catches what it should (self-check, 
     assert.ok(judge(b, stolen, 'bob', w).violations.some((x) => x.includes('full')));
   });
 
-  it('tags (but does not fail) the known holes: stale turn, auto level, message batches', () => {
+  it('flags the holes that are now closed: a stale turn, a CPU level the seat does not have, a batch of messages', () => {
     const b = world();
     const stale = withMeta(withActions(b, { 1: { kind: 'pass', tank: 0 } }), (m) => {
       m.actionCount = 2;
       m.turn = { tank: 1, uid: 'bob', deadline: now - 100000, index: 2 };
     });
-    const sv = judge(b, stale, 'host', w);
-    assert.deepEqual(sv.violations, []);
-    assert.deepEqual(sv.tags, ['stale_turn']);
+    assert.ok(judge(b, stale, 'host', w).violations.some((x) => x.includes('deadline')));
+    const recent = withMeta(withActions(b, { 1: { kind: 'pass', tank: 0 } }), (m) => {
+      m.actionCount = 2;
+      m.turn = { tank: 1, uid: 'bob', deadline: now - 1000, index: 2 };
+    });
+    assert.deepEqual(judge(b, recent, 'host', w).violations, []); // inside the 5 s of latency slack
     const lvl = withMeta(withActions(b, { 1: { kind: 'pass', tank: 0 }, 2: { kind: 'auto', tank: 2, level: 4 } }), (m) => { m.actionCount = 3; });
-    assert.deepEqual(judge(b, lvl, 'host', w).tags, ['auto_level']);
+    assert.ok(judge(b, lvl, 'host', w).violations.some((x) => x.includes('level')));
     const flood = JSON.parse(JSON.stringify(b)) as Obj;
     const mm = (flood.matches as Obj)[MID] as Obj;
     mm.lastMsg = { host: now };
+    mm.lastMsgKey = { host: 'a' };
     mm.msgs = { a: { uid: 'host', seat: 0, msg: 1, at: now }, b: { uid: 'host', seat: 0, msg: 1, at: now } };
-    const fv = judge(b, flood, 'host', w);
-    assert.deepEqual(fv.violations, []);
-    assert.deepEqual(fv.tags, ['multi_msg']);
+    assert.ok(judge(b, flood, 'host', w).violations.some((x) => x.includes('2 messages')));
   });
 });

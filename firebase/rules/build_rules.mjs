@@ -22,7 +22,11 @@ const MAX_BATCH = 16; // most log entries one update may append (1 human action 
 const PRESET_COUNT = 8; // quick messages in the client preset table (section 48)
 const MSG_INTERVAL_MS = 3000; // one quick message per 3 s per player
 const PRESENCE_FRESH_MS = 75000; // "online" means a heartbeat younger than this (section 45)
-const DEADLINE_SLACK_MS = 120000; // allowed client clock error when a deadline is written
+const DEADLINE_SLACK_MS = 120000; // allowed client clock error towards the future when a deadline is written
+// A new turn must not be due already: a deadline may lie at most this far in the past. Clients compute deadlines from the
+// server clock (NetClock), so this only has to cover latency. A longer slack would let a member hand the next player a turn
+// that is already expired and then skip it at once with a `timeout` entry.
+const DEADLINE_PAST_MS = 5000;
 const NAME_MAX = 12; // NameFilter.MAX_LENGTH
 const PROTOCOL_MAX = 1000000;
 const MAX_ANGLE = 1800; // SimConstants.MAX_ANGLE
@@ -73,6 +77,9 @@ const eKind = entry('kind');
 const eTank = entry('tank');
 const eSeatUid = seatField(eTank, 'uid');
 const eSeatKind = seatField(eTank, 'kind');
+const eSeatLevel = seatField(eTank, 'level');
+/** An `auto` / `auto_shop` entry must carry the CPU seat's own level: the entry's level decides how well the AI plays. */
+const eLevelIsSeats = `${entry('level')} == ${eSeatLevel}`;
 const AIM_KINDS = ['fire', 'move', 'use_item', 'pass'];
 const SHOP_KINDS = ['buy', 'sell', 'ready'];
 const kindIn = (kinds) => or(...kinds.map((k) => `${eKind} == '${k}'`));
@@ -104,9 +111,10 @@ const firstEntryOk = or(
   and(
     `${eKind} == 'auto'`,
     `${eSeatKind} == 'cpu'`,
+    eLevelIsSeats,
     or(`${turnTank} == ${TURN_NEEDS_RESOLVE}`, and(`${eTank} == ${turnTank}`, `${turnOf('uid')} == 'cpu'`)),
   ),
-  and(`${eKind} == 'auto_shop'`, `${eSeatKind} == 'cpu'`, or(`${turnTank} == ${TURN_NEEDS_RESOLVE}`, `${turnTank} == ${TURN_SHOP}`)),
+  and(`${eKind} == 'auto_shop'`, `${eSeatKind} == 'cpu'`, eLevelIsSeats, or(`${turnTank} == ${TURN_NEEDS_RESOLVE}`, `${turnTank} == ${TURN_SHOP}`)),
   and(
     `${eKind} == 'timeout'`,
     `${eSeatKind} == 'human'`, // a CPU seat never times out: its turns are `auto` entries
@@ -117,7 +125,7 @@ const firstEntryOk = or(
 /** Entries after the first one in the same update: the CPU turns that follow, or more shop entries by the same player. */
 const followingEntryOk = or(
   and(kindIn(SHOP_KINDS), `${turnTank} == ${TURN_SHOP}`, `${eSeatUid} == auth.uid`),
-  and(kindIn(['auto', 'auto_shop']), `${eSeatKind} == 'cpu'`),
+  and(kindIn(['auto', 'auto_shop']), `${eSeatKind} == 'cpu'`, eLevelIsSeats),
 );
 
 // Where the new actionCount sits relative to the current one, seen from actions/$i.
@@ -216,7 +224,7 @@ const turnRule = {
       and(`${nTank} == ${TURN_NEEDS_RESOLVE}`, `${nDeadline} == 0`),
       and(
         `${nTank} != ${TURN_NEEDS_RESOLVE}`,
-        `${nDeadline} >= now - ${DEADLINE_SLACK_MS}`,
+        `${nDeadline} >= now - ${DEADLINE_PAST_MS}`,
         `${nDeadline} <= now + ${META}.child('timers').child('asyncHours').val() * 3600000 + ${DEADLINE_SLACK_MS}`,
       ),
     )}
@@ -224,7 +232,7 @@ const turnRule = {
       `!newData.hasChild('liveDeadline')`,
       and(
         `${nTank} >= 0`,
-        `${nLive} >= now - ${DEADLINE_SLACK_MS}`,
+        `${nLive} >= now - ${DEADLINE_PAST_MS}`,
         `${nLive} <= now + ${META}.child('timers').child('liveSec').val() * 1000 + ${DEADLINE_SLACK_MS}`,
       ),
     )}
@@ -248,13 +256,17 @@ const statusRule = {
   '.validate': "newData.isString() && newData.val().matches(/^(over|abandoned)$/)",
 };
 
-// Quick messages: one per MSG_INTERVAL_MS per player, kept in matches/$mid/lastMsg/$uid.
+// Quick messages: one per MSG_INTERVAL_MS per player, kept in matches/$mid/lastMsg/$uid. The same update must also name the
+// message's key in lastMsgKey/$uid, and a message is only accepted under that key: a key holds one value, so one update can
+// carry exactly one new message (rules cannot count children, and without this a single update could flood the match).
 const msgSeatUid = seatField("newData.child('seat').val()", 'uid');
 const lastMsgOf = (base, uidExpr) => `${base}.child('lastMsg').child(${uidExpr})`;
+const lastMsgKeyOf = (base, uidExpr) => `${base}.child('lastMsgKey').child(${uidExpr})`;
 const msgRule = {
   '.write': oneLine(`
     ${signedIn} && !data.exists() && newData.exists() && ${isPlaying} && ${isMember} && $pid.length <= 30
     && ${lastMsgOf("newData.parent().parent()", 'auth.uid')}.val() == now
+    && ${lastMsgKeyOf("newData.parent().parent()", 'auth.uid')}.val() == $pid
     && (!${lastMsgOf("root.child('matches').child($mid)", 'auth.uid')}.exists()
         || now >= ${lastMsgOf("root.child('matches').child($mid)", 'auth.uid')}.val() + ${MSG_INTERVAL_MS})
   `),
@@ -364,6 +376,14 @@ const rules = {
           },
         },
         msgs: { '.read': isMember, $pid: msgRule },
+        lastMsgKey: {
+          '.read': isMember,
+          $uid: {
+            // Only together with a limiter bump, so it cannot be rewritten more often than a message can be sent.
+            '.write': and(isOwner('$uid'), isMember, 'newData.exists()', `${lastMsgOf('newData.parent().parent()', '$uid')}.val() == now`),
+            '.validate': 'newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{1,30}$/)',
+          },
+        },
         lastMsg: {
           '.read': isMember,
           $uid: {

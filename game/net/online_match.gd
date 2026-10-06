@@ -59,6 +59,11 @@ const TURN_MISMATCH_MS: int = 2500
 ## Gap between the first writer and the next one, so members do not all race for the same job.
 const STAGGER_MS: int = 250
 const HOLDER_EXTRA_MS: int = 1500
+## A quick message counts as "new" when it was written at most this long before we opened the match (server clock, so a little
+## slack for the clock estimate and for a message that is in flight while the match opens).
+const MSG_OPEN_MARGIN_MS: int = 2000
+## How long a stored status "over" may wait for the log to catch up with it before the match is called disputed.
+const OVER_GRACE_MS: int = 2500
 const ACTION_KINDS_AIM: Array[String] = ["fire", "move", "use_item", "pass"]
 const ACTION_KINDS_SHOP: Array[String] = ["buy", "sell", "ready"]
 
@@ -97,7 +102,10 @@ var _online_flags: Dictionary = {}
 var _fp_remote: Dictionary = {}
 var _fp_sent: Dictionary = {}
 var _msgs_seen: Dictionary = {}
-var _msgs_baseline: bool = false
+## Server time (ms) when the match was opened: quick messages written before it (minus a margin) are history.
+var _open_at_ms: int = 0
+## The database says "over" but the replay has not reached the end (yet): when since, 0 = not the case.
+var _over_claimed_since: int = 0
 var _last_msg_ms: int = -1000000
 var _last_beat_ms: int = -1000000
 var _offline_since: int = 0
@@ -137,17 +145,23 @@ func open(net: NetSession, id: String) -> NetResult:
 		return NetResult.failure(NetError.Code.BAD_RESPONSE, NetReplay.meta_error(m))
 	replay = r
 	meta = m
-	status = st
+	status = NetProtocol.STATUS_PLAYING if st == NetProtocol.STATUS_OVER else st  # "over" is believed once the log shows the end
 	_turn_raw = m.get("turn", {}) as Dictionary if typeof(m.get("turn", null)) == TYPE_DICTIONARY else {}
 	_server_count = m.get("actionCount", 0)
 	_refresh_my_seats()
 	_open = true
 	await _send_heartbeat()  # also tells us the server's clock before we write any deadline
+	_open_at_ms = now_ms()
 	var actions_res: NetResult = await net.db.get_value("matches/%s/actions" % id, NetDb.from_index(0))
 	if not actions_res.ok:
 		_open = false
 		return actions_res
 	_ingest_snapshot(actions_res.value)
+	if st == NetProtocol.STATUS_OVER:
+		if replay.ended:
+			status = st  # a finished match opened from the list: nothing to announce
+		else:
+			_claim_over()
 	_start_streams()
 	_run_loop()
 	opened.emit()
@@ -269,7 +283,7 @@ func submit_many(actions: Array, wait_online_sec: float = 0.0) -> NetResult:
 		return NetResult.failure(NetError.Code.CLOSED, "closed")
 	if replay.disputed:
 		return NetResult.failure(NetError.Code.DISPUTED, replay.dispute_reason)
-	if status != NetProtocol.STATUS_PLAYING:
+	if status != NetProtocol.STATUS_PLAYING or _over_claimed_since != 0:
 		return NetResult.failure(NetError.Code.PRECONDITION, "match_over")
 	var first: Array[Dictionary] = []
 	var shape: String = _check_shape(actions, first)
@@ -315,7 +329,7 @@ func _submit_locked(first: Array[Dictionary], wait_online_sec: float) -> NetResu
 			return NetResult.failure(NetError.Code.CLOSED, "closed")
 		if replay.disputed:
 			return NetResult.failure(NetError.Code.DISPUTED, replay.dispute_reason)
-		if status != NetProtocol.STATUS_PLAYING:
+		if status != NetProtocol.STATUS_PLAYING or _over_claimed_since != 0:
 			return NetResult.failure(NetError.Code.PRECONDITION, "match_over")
 		if _needs_resolve() or replay.count < _server_count:
 			await _catch_up_and_resolve()
@@ -459,9 +473,11 @@ func send_message(msg: int, seat: int = -1) -> NetResult:
 		return NetResult.failure(NetError.Code.RATE_LIMITED, "rate_limited")
 	_last_msg_ms = now
 	var key: String = "m%013d_%04x" % [now, randi() & 0xffff]
+	# `lastMsgKey` names the one message this update carries: the rules accept a message only under that key.
 	var update: Dictionary = {
 		"msgs/" + key: {"uid": uid, "seat": use_seat, "msg": msg, "at": NetDb.server_timestamp()},
 		"lastMsg/" + uid: NetDb.server_timestamp(),
+		"lastMsgKey/" + uid: key,
 	}
 	var res: NetResult = await _net.db.patch("matches/%s" % match_id, update)
 	if not res.ok and res.code == NetError.Code.PERMISSION:
@@ -529,6 +545,7 @@ func _apply_one(index: int, entry: Dictionary, catch_up: bool, report_fp: bool) 
 		_report_fingerprint(index, fp)
 		_compare_fingerprints(index)
 	entry_applied.emit(index, result)
+	_confirm_over()
 
 
 func _dispute(reason: String, index: int) -> void:
@@ -583,7 +600,9 @@ func _on_meta(v: Variant) -> void:
 	if m.has("actionCount"):
 		_server_count = maxi(_server_count, m["actionCount"] as int)
 	var seat_list: Array = m.get("seats", []) as Array
-	if not seat_list.is_empty() and seat_list != replay.seats:
+	if not seat_list.is_empty() and NetReplay.seats_error(seat_list) != "":
+		_dispute("bad_seats", replay.count)
+	elif not seat_list.is_empty() and seat_list != replay.seats:
 		replay.set_seats(seat_list)
 		_refresh_my_seats()
 		seats_changed.emit(seat_list)
@@ -604,9 +623,41 @@ func _set_turn(t: Dictionary) -> void:
 
 
 func _set_status(s: String) -> void:
+	if s == NetProtocol.STATUS_OVER:
+		_claim_over()
+		return
 	if s != "" and s != status:
 		status = s
 		status_changed.emit(s)
+
+
+## The database says the match is over. A holder could write "over" next to any legal action to end a match he is losing, and
+## the rules cannot tell, so "over" is only believed once our own replay has reached the end of the game (the entry that ends
+## it arrives with the status, or a moment before). If the log is complete and the game is not over, the match is disputed.
+func _claim_over() -> void:
+	if replay.ended:
+		_over_claimed_since = 0
+		if status != NetProtocol.STATUS_OVER:
+			status = NetProtocol.STATUS_OVER
+			status_changed.emit(status)
+		return
+	if _over_claimed_since == 0:
+		_over_claimed_since = maxi(now_ms(), 1)
+
+
+## Called after every entry: a claimed "over" that the replay now confirms takes effect.
+func _confirm_over() -> void:
+	if _over_claimed_since != 0 and replay.ended:
+		_claim_over()
+
+
+func _check_over(now: int) -> void:
+	if _over_claimed_since == 0 or replay.disputed:
+		return
+	if replay.ended:
+		_claim_over()
+	elif replay.count == _server_count and now - _over_claimed_since > OVER_GRACE_MS:
+		_dispute("status_over_early", replay.count)
 
 
 func _refresh_my_seats() -> void:
@@ -660,24 +711,27 @@ func _on_msgs_event(kind: String, path: String, data: Variant) -> void:
 		if typeof(data) == TYPE_DICTIONARY:
 			for key: Variant in (data as Dictionary).keys():
 				_handle_message(str(key), (data as Dictionary)[key], kind == "put")
-		if kind == "put":
-			_msgs_baseline = true
 		return
 	var parts: PackedStringArray = path.split("/", false)
 	if parts.size() == 1:
 		_handle_message(parts[0], data, false)
 
 
+## Shows a quick message once. The first snapshot of the stream is history, except for what was written since we opened the
+## match (minus a margin): a message sent while the stream was still connecting arrives in that snapshot and must not be lost.
 func _handle_message(key: String, entry: Variant, from_snapshot: bool) -> void:
 	if _msgs_seen.has(key) or typeof(entry) != TYPE_DICTIONARY:
 		return
 	_msgs_seen[key] = true
 	var d: Dictionary = entry as Dictionary
-	if from_snapshot and not _msgs_baseline:
+	var at: Variant = d.get("at", 0)
+	if from_snapshot and (typeof(at) != TYPE_INT or (at as int) < _open_at_ms - MSG_OPEN_MARGIN_MS):
 		return  # what was said before we opened is history
-	if from_snapshot and now_ms() - (d.get("at", 0) as int) > 10000:
+	var seat: Variant = d.get("seat", 0)
+	var msg: Variant = d.get("msg", 0)
+	if typeof(seat) != TYPE_INT or typeof(msg) != TYPE_INT:
 		return
-	message_received.emit(d.get("seat", 0) as int, d.get("msg", 0) as int, str(d.get("uid", "")))
+	message_received.emit(seat as int, msg as int, str(d.get("uid", "")))
 
 
 ## One presence stream per other human player.
@@ -752,6 +806,7 @@ func _tick() -> void:
 	if connection == Connection.RECONNECTING and _offline_since > 0 and now - _offline_since > OFFLINE_AFTER_MS:
 		_set_connection(Connection.OFFLINE)
 	_check_turn(now)
+	_check_over(now)
 	_maybe_drive(now)
 	_maybe_timeout(now)
 
@@ -780,7 +835,7 @@ func _check_turn(now: int) -> void:
 
 func _can_write() -> bool:
 	return _open and not _writing and not replay.disputed and status == NetProtocol.STATUS_PLAYING \
-			and replay.count == _server_count and not my_seats.is_empty()
+			and _over_claimed_since == 0 and replay.count == _server_count and not my_seats.is_empty()
 
 
 func _rank() -> int:
@@ -824,7 +879,8 @@ func _drive() -> void:
 
 
 func _can_write_locked() -> bool:
-	return _open and not replay.disputed and status == NetProtocol.STATUS_PLAYING and replay.count == _server_count
+	return _open and not replay.disputed and status == NetProtocol.STATUS_PLAYING and _over_claimed_since == 0 \
+			and replay.count == _server_count
 
 
 ## After a deadline any member writes the `timeout` entry (section 52): `async: 1` after the hard deadline (the AI plays, or

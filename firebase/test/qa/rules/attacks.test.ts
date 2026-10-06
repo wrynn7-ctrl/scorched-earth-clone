@@ -1,9 +1,8 @@
 // M7-Q adversarial rules tests: a malicious signed-in client against database.rules.json (ARCHITECTURE sections 44-46,
 // firebase/README.md "The action log in the rules"). Everything here must be DENIED unless a test says otherwise.
 //
-// Tests that found a hole are marked `bug('BUG (severity): ...')` with the exact input, expected and actual in a
-// comment, so they can be switched on again when the rules are fixed.
-import { bug } from '../bug';
+// Tests that found a hole were marked `bug('BUG (severity): ...')` with the exact input, expected and actual in a comment. The
+// rules are fixed now and those tests are plain `it`s again (M7-QF-B); the comments say what was wrong and how it was closed.
 import assert from 'node:assert/strict';
 import { get, query, orderByChild, equalTo } from 'firebase/database';
 import {
@@ -144,14 +143,10 @@ describe('QA rules: CPU entries written by a member', () => {
     count = await seedAll(); // seat 2 is a CPU of level 2
   });
 
-  // BUG (medium): a member can pick the AI strength of any CPU turn.
-  //   input:    host appends [fire(0), {kind:'auto', tank:2, level:4}] (seat 2 is CPU level 2), or
-  //             {kind:'auto_shop', tank:2, level:1} during the shop.
-  //   expected: denied: the entry's level must equal seats/2/level (an entry's `level` is authoritative in NetReplay, so the
-  //             writer decides how well the opponent's (or his own team's) CPU plays; see game/tests/qa/test_net_replay_robustness.gd).
-  //   actual:   accepted by the rules (only 1..4 is checked) and by NetReplay (net_replay.gd:_apply_auto only range-checks).
-  //   cause:    build_rules.mjs firstEntryOk / followingEntryOk never compare `newData.child('level')` with the seat's level.
-  bug('BUG (medium): refuses an auto entry whose level differs from the CPU seat\'s level', async () => {
+  // FIXED (was a medium bug): a member could pick the AI strength of any CPU turn, because an entry's `level` is authoritative in
+  // NetReplay and the rules only checked 1..4. firstEntryOk / followingEntryOk now compare it with meta/seats/{tank}/level
+  // (NetReplay refuses a mismatch too: game/tests/qa/test_net_replay_robustness.gd).
+  it('refuses an auto entry whose level differs from the CPU seat\'s level', async () => {
     await assertFails(update(ref(as('host')), append(count, [fire(0), { kind: 'auto', tank: 2, level: 4 }], NEXT(1, 'bob'))));
     await assertFails(update(ref(as('host')), append(count, [fire(0), { kind: 'auto', tank: 2, level: 1 }], NEXT(1, 'bob'))));
     await seed({ [M('meta/turn')]: { tank: -2, uid: 'any', deadline: Date.now() + HOUR, index: 3 } });
@@ -199,31 +194,35 @@ describe('QA rules: the turn marker and who may move it', () => {
   });
 
   // ---------------------------------------------------------------------------------------------------------------
-  // BUG (medium): a turn can be handed over already expired, which lets a member skip the next player's turn at once.
-  //   input:    host (holder of tank 0) appends `fire` and sets meta/turn = {tank 1, uid bob, deadline: now - 100 s, index 4}
-  //             (and/or liveDeadline: now - 100 s); then, in a second update, host appends {kind:'timeout', tank:1, async:1}.
-  //   expected: denied: a freshly written turn must not be due, the AI must not play bob's turn before he can see it.
-  //   actual:   both writes succeed. `deadline >= now - DEADLINE_SLACK_MS` (2 minutes of clock slack) accepts a past deadline,
-  //             and `timeoutDue` then accepts `now > turn.deadline` at once. With `liveDeadline` the same works as a live skip
-  //             while bob is online (a plain `pass` is written for him).
-  //   cause:    firebase/rules/build_rules.mjs turnRule `.validate`: `${nDeadline} >= now - ${DEADLINE_SLACK_MS}` and the
-  //             same slack on liveDeadline. The existing test only checks a deadline 10 minutes in the past.
-  //   fix idea: lower bound `now - 5000` (the client uses the server clock), or `now` exactly, and reject a liveDeadline < now.
+  // FIXED (was a medium bug): a turn could be handed over already expired, which let a member skip the next player's turn at once
+  // (append `fire` with meta/turn.deadline = now - 100 s, then a `timeout` entry for the next tank). The lower bound of a new
+  // `deadline` / `liveDeadline` is now `now - 5 s` (DEADLINE_PAST_MS in build_rules.mjs; clients write server time).
+  // The two follow-up tests below were written as "the first write succeeds, the second is refused"; the first write is refused
+  // now, and so is the skip, because the turn never changed.
   // ---------------------------------------------------------------------------------------------------------------
-  bug('BUG (medium): refuses a turn that is already past its hard deadline (within the 2 minute slack)', async () => {
+  it('refuses a turn that is already past its hard deadline (beyond the 5 s of latency slack)', async () => {
     await assertFails(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 100000 }))));
+    await assertFails(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 20000 }))));
+    await assertSucceeds(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 1000 }))));
   });
 
-  bug('BUG (medium): the next player cannot be skipped instantly with an async timeout written right after a stale turn', async () => {
-    await assertSucceeds(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 100000 }))));
-    // the attacker's second write: the AI plays bob's turn
-    await assertFails(update(ref(as('host')), append(count + 1, [{ kind: 'timeout', tank: 1, async: 1 }])));
+  it('the next player cannot be skipped instantly with an async timeout written right after a stale turn', async () => {
+    await assertFails(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 100000 }))));
+    // the attacker's second write: the AI plays bob's turn. The turn is still host's, so there is nothing to time out.
+    await assertFails(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 1, async: 1 }])));
+    await assertFails(update(ref(as('host')), append(count, [fire(0), { kind: 'timeout', tank: 1, async: 1 }], NEXT(1, 'bob'))));
   });
 
-  bug('BUG (medium): a live deadline in the past lets the next player be passed at once while they are online', async () => {
+  it('a live deadline in the past cannot be used to pass the next player at once while they are online', async () => {
     await seed({ [M('presence/bob')]: Date.now() });
-    await assertSucceeds(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { liveDeadline: Date.now() - 100000 }))));
-    await assertFails(update(ref(as('host')), append(count + 1, [{ kind: 'timeout', tank: 1 }])));
+    await assertFails(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { liveDeadline: Date.now() - 100000 }))));
+    await assertFails(update(ref(as('host')), append(count, [{ kind: 'timeout', tank: 1 }])));
+  });
+
+  it('documents the 5 s that remain: a deadline a second old is accepted and due at once (clients cannot tell it from a late turn)', async () => {
+    await seed({ [M('presence/bob')]: Date.now() });
+    await assertSucceeds(update(ref(as('host')), append(count, [fire(0)], NEXT(1, 'bob', { deadline: Date.now() - 2000, liveDeadline: Date.now() - 2000 }))));
+    await assertSucceeds(update(ref(as('host')), append(count + 1, [{ kind: 'timeout', tank: 1, async: 1 }])));
   });
 
   it('documents what the rules cannot know: the holder may re-write the turn for himself (clients dispute it)', async () => {
@@ -468,22 +467,21 @@ describe('QA rules: quick messages, abuse of the rate limit', () => {
     await seedAll();
   });
   const msg = (seat = 0, n = 1): Record<string, unknown> => ({ uid: 'host', seat, msg: n, at: serverTimestamp() });
-  const withLimiter = (extra: Record<string, unknown>): Record<string, unknown> => ({ [M('lastMsg/host')]: serverTimestamp(), ...extra });
+  // The limiter bump also names the key of the one message the update may carry (the first `msgs/<key>` path in `extra`, or p0).
+  const withLimiter = (extra: Record<string, unknown>): Record<string, unknown> => {
+    const first = Object.keys(extra).find((path) => path.includes('/msgs/'));
+    const key = first ? (first.split('/msgs/')[1] ?? 'p0') : 'p0';
+    return { [M('lastMsg/host')]: serverTimestamp(), [M('lastMsgKey/host')]: key.slice(0, 30), ...extra };
+  };
 
   it('accepts exactly one message per update, then refuses the next inside 3 seconds', async () => {
     await assertSucceeds(update(ref(as('host')), withLimiter({ [M('msgs/m1')]: msg() })));
     await assertFails(update(ref(as('host')), withLimiter({ [M('msgs/m2')]: msg() })));
   });
 
-  // BUG (low): the 3 s limit counts updates, not messages. One update may carry any number of messages.
-  //   input:    update(matches/M1, {lastMsg/host: now, msgs/p0..p49: {uid, seat 0, msg 1, at: now}})
-  //   expected: denied (or at most one message), like two separate updates inside 3 s.
-  //   actual:   all 50 messages are written; each message's rule only compares lastMsg with its previous value.
-  //   cause:    build_rules.mjs msgRule `.write`: the limiter clause is evaluated per message, not per update.
-  //   impact:   chat flood: every member's bubble queue (message_received) fills; no cost or integrity risk. Use
-  //             `newData.parent().val()` child counting is impossible; fix by validating that lastMsg/{uid} == $pid-derived key
-  //             (for example require the push key to be exactly `m<lastMsg value>`), so only one key can match.
-  bug('BUG (low): refuses a batch of messages in one update (rate limit bypass)', async () => {
+  // FIXED (was a low bug): the 3 s limit counted updates, not messages, so one update could carry 50 messages. The update must now
+  // name the one message it carries in lastMsgKey/{uid}, and a message is only accepted under that key (see msgRule).
+  it('refuses a batch of messages in one update (rate limit bypass)', async () => {
     const batch: Record<string, unknown> = withLimiter({});
     for (let i = 0; i < 50; i += 1) batch[M(`msgs/p${i}`)] = msg();
     await assertFails(update(ref(as('host')), batch));
@@ -627,15 +625,12 @@ describe('QA rules: push token storage', () => {
     }
   });
 
-  // BUG (low): there is no cap on the number of stored push tokens.
-  //   input:    one update writing users/bob/fcm/<64 distinct valid keys>, each a 4096-char token
-  //   expected: denied past a small number (a phone has one token, a handful at most)
-  //   actual:   every key is accepted, so one account can grow its node without bound (storage cost); the push sender also
-  //             sends to every stored token (sendEachForMulticast has a 500 limit).
-  //   cause:    build_rules.mjs users/$uid/fcm/$tokenHash has no per-node count limit.
-  bug('BUG (low): caps the number of push tokens per user', async () => {
+  // The number of stored push tokens was unbounded (one update could write 64 tokens of 4096 characters). Realtime Database rules
+  // cannot count children, so the cap (5 per player, MAX_PUSH_TOKENS) is enforced by the `onPushTokenAdded` trigger, which trims
+  // the node moments after the write (test/functions/push_tokens.test.ts). Pinned here: the rules themselves still accept the burst.
+  it('documents: the rules accept a burst of tokens; the onPushTokenAdded function trims it to the cap', async () => {
     const batch: Record<string, unknown> = {};
     for (let i = 0; i < 64; i += 1) batch[`users/bob/fcm/${String(i).padStart(8, '0')}${'k'.repeat(8)}`] = 'x'.repeat(4096);
-    await assertFails(update(ref(as('bob')), batch));
+    await assertSucceeds(update(ref(as('bob')), batch));
   });
 });

@@ -3,10 +3,14 @@
 // accents and look-alike symbols, the same blocklist (generated into name_blocklist.json by
 // tools/firebase/gen_name_blocklist.mjs). The test file mirrors test_name_filter.gd case by case.
 //
-// One deliberate difference: the game also drops characters its font cannot draw (it asks the font). A server has no
-// font, so it keeps the structural rules exactly and then allows only Latin-script ranges (the range the game font
-// covers). A glyph the font lacks would draw as an empty box, which is cosmetic, never a safety problem.
+// The game also deletes characters its font cannot draw (it asks the font). A server has no font, so the set of characters the
+// font can draw is exported once into name_glyphs.json by tools/firebase/gen_name_glyphs.sh (it runs the game's own check for
+// every code point of the Basic Multilingual Plane) and used here as it is. That keeps the two filters in step: a character the
+// game deletes ("sh\u00ACit" becomes "shit") is deleted here too, so a word cannot be hidden from the server by a symbol the game
+// would have dropped. Regenerate the table when NameFilter or its font changes (game/tests/net/test_name_glyph_table.gd fails
+// when it is stale).
 import blocklist from './name_blocklist.json';
+import glyphs from './name_glyphs.json';
 
 export const MAX_LENGTH = 12;
 export const FALLBACK_NAME = 'PLAYER';
@@ -37,24 +41,8 @@ const ACCENTS: Readonly<Record<string, string>> = {
   u: 'ùúûü',
   y: 'ýÿ',
 };
-/** Latin-script code point ranges (inclusive) a name may use, besides the structural exclusions below. */
-const LATIN_RANGES: readonly (readonly [number, number])[] = [
-  [0x20, 0x7e],
-  [0xa1, 0xff],
-  [0x131, 0x131],
-  [0x152, 0x153],
-  [0x2bb, 0x2bc],
-  [0x2c6, 0x2c6],
-  [0x2da, 0x2da],
-  [0x2dc, 0x2dc],
-  [0x2000, 0x206f],
-  [0x20ac, 0x20ac],
-  [0x2122, 0x2122],
-  [0x2191, 0x2191],
-  [0x2193, 0x2193],
-  [0x2212, 0x2212],
-  [0x2215, 0x2215],
-];
+/** Code point ranges (inclusive, sorted) the game font can draw, generated from the game (see the top of this file). */
+const DRAWABLE = glyphs.ranges as unknown as readonly (readonly [number, number])[];
 
 const LISTS: { SUBSTRINGS: string[]; WORDS: string[]; PREFIXES: string[]; SUFFIXES: string[] } = blocklist;
 
@@ -80,25 +68,18 @@ function isSpace(code: number): boolean {
   );
 }
 
-/** A character the name may contain: printable, Latin script, and not an invisible or direction-changing format character. */
+/** A character the name may contain: exactly what `NameFilter._drawable` accepts (printable, in the font, not invisible). */
 function isDrawable(code: number): boolean {
-  if (code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0xad) return false;
-  // Combining marks would pile onto the neighbouring letter.
-  if ((code >= 0x0300 && code <= 0x036f) || (code >= 0x1ab0 && code <= 0x1aff) || (code >= 0x20d0 && code <= 0x20ff)) {
-    return false;
+  let lo = 0;
+  let hi = DRAWABLE.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const [from, to] = DRAWABLE[mid];
+    if (code < from) hi = mid - 1;
+    else if (code > to) lo = mid + 1;
+    else return true;
   }
-  if (
-    (code >= 0x200b && code <= 0x200f) ||
-    (code >= 0x2028 && code <= 0x202e) ||
-    (code >= 0x2060 && code <= 0x206f) ||
-    code === 0xfeff ||
-    code >= 0xfff0 ||
-    (code >= 0xd800 && code <= 0xdfff) ||
-    code > 0xffff
-  ) {
-    return false;
-  }
-  return LATIN_RANGES.some(([lo, hi]) => code >= lo && code <= hi);
+  return false;
 }
 
 /**

@@ -34,6 +34,31 @@ describe('functions: friend requests', () => {
     assert.equal(await value(`sentRequests/${ann.uid}/${ben.uid}`), null);
   });
 
+  it('after a decline the sender may not ask the same player again for 24 hours, but may ask anyone else', async () => {
+    const [ann, ben, cy] = [await newUser(), await newUser(), await newUser()];
+    await ann.call('sendFriendRequest', { code: await code(ben) });
+    await ben.call('respondFriendRequest', { fromUid: ann.uid, accept: false });
+    await assert.rejects(ann.call('sendFriendRequest', { code: await code(ben) }), reason('RESOURCE_EXHAUSTED', 'request_cooldown'));
+    assert.equal(await value(`friendRequests/${ben.uid}/${ann.uid}`), null, 'nothing was written');
+    await ann.call('sendFriendRequest', { code: await code(cy) }); // per pair
+    // a day later it works again
+    await db.ref(`friendCooldowns/${ann.uid}/${ben.uid}`).set(Date.now() - 25 * 3600 * 1000);
+    assert.equal((await ann.call<{ status: string }>('sendFriendRequest', { code: await code(ben) })).status, 'sent');
+  });
+
+  it('a request the decliner sends back becomes a friendship once accepted, which ends the cooldown', async () => {
+    const [ann, ben] = [await newUser(), await newUser()];
+    await ann.call('sendFriendRequest', { code: await code(ben) });
+    await ben.call('respondFriendRequest', { fromUid: ann.uid, accept: false });
+    assert.ok(await value(`friendCooldowns/${ann.uid}/${ben.uid}`));
+    assert.ok(await value(`friendCooldownsBy/${ben.uid}/${ann.uid}`));
+    await ben.call('sendFriendRequest', { code: await code(ann) });
+    await ann.call('respondFriendRequest', { fromUid: ben.uid, accept: true });
+    assert.equal(await value(`friends/${ann.uid}/${ben.uid}`) !== null, true);
+    assert.equal(await value(`friendCooldowns/${ann.uid}/${ben.uid}`), null, 'being friends ends the cooldown');
+    assert.equal(await value(`friendCooldownsBy/${ben.uid}/${ann.uid}`), null);
+  });
+
   it('turns two requests that cross into a friendship', async () => {
     const [ann, ben] = [await newUser({ name: 'Ann' }), await newUser({ name: 'Ben' })];
     await ann.call('sendFriendRequest', { code: await code(ben) });
@@ -141,8 +166,8 @@ describe('functions: friend request by uid (shared match)', () => {
     const matchId = await sharedMatch(ann, ben);
     await assert.rejects(cy.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('PERMISSION_DENIED', 'not_a_member'));
     await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: cy.uid, matchId }), reason('NOT_FOUND', 'unknown_code'));
-    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: 'nobody', matchId }), reason('NOT_FOUND', 'unknown_code'));
-    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId: 'nomatch' }), reason('PERMISSION_DENIED', 'not_a_member'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: 'nobody123', matchId }), reason('NOT_FOUND', 'unknown_code'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId: 'nomatch123' }), reason('PERMISSION_DENIED', 'not_a_member'));
     assert.equal(await value(`friendRequests/${cy.uid}/${ben.uid}`), null);
   });
 
@@ -260,9 +285,16 @@ describe('functions: blocks', () => {
 });
 
 describe('functions: reportName', () => {
+  /** A fresh player who knows `target` (a friend), as a reporter must. */
+  const friendOf = async (target: Awaited<ReturnType<typeof newUser>>): Promise<Awaited<ReturnType<typeof newUser>>> => {
+    const reporter = await newUser();
+    await befriend(reporter, target);
+    return reporter;
+  };
+
   it('hides a name after reports from 3 different players, and not before', async () => {
     const target = await newUser({ name: 'Rude' });
-    const [r1, r2, r3] = [await newUser(), await newUser(), await newUser()];
+    const [r1, r2, r3] = [await friendOf(target), await friendOf(target), await friendOf(target)];
     assert.deepEqual(await r1.call('reportName', { targetUid: target.uid, reason: 'offensive_name' }), { hidden: false, duplicate: false });
     assert.deepEqual(await r2.call('reportName', { targetUid: target.uid }), { hidden: false, duplicate: false });
     assert.equal((await target.profile()).nameHidden, false);
@@ -273,7 +305,7 @@ describe('functions: reportName', () => {
 
   it('counts one player once, however often they report', async () => {
     const target = await newUser();
-    const [r1, r2] = [await newUser(), await newUser()];
+    const [r1, r2] = [await friendOf(target), await friendOf(target)];
     await r1.call('reportName', { targetUid: target.uid });
     const again = await r1.call<{ duplicate: boolean; hidden: boolean }>('reportName', { targetUid: target.uid });
     assert.deepEqual(again, { hidden: false, duplicate: true });
@@ -286,7 +318,7 @@ describe('functions: reportName', () => {
 
   it('stores what the reviewer needs: reporter, target, reason, the reported name, time', async () => {
     const target = await newUser({ name: 'Rudeman' });
-    const reporter = await newUser();
+    const reporter = await friendOf(target);
     await reporter.call('reportName', { targetUid: target.uid, reason: 'offensive_name' });
     const reports = await db.ref('reports').orderByChild('targetUid').equalTo(target.uid).get();
     const [report] = Object.values(reports.val() as Record<string, Record<string, unknown>>);
@@ -299,15 +331,32 @@ describe('functions: reportName', () => {
 
   it('refuses self-reports, unknown players and a bad reason', async () => {
     const [ann, ben] = [await newUser(), await newUser()];
+    await befriend(ann, ben);
     await assert.rejects(ann.call('reportName', { targetUid: ann.uid }), reason('FAILED_PRECONDITION', 'self'));
     await assert.rejects(ann.call('reportName', { targetUid: 'nobody123' }), reason('NOT_FOUND', 'unknown_user'));
     await assert.rejects(ann.call('reportName', { targetUid: ben.uid, reason: 'Bad Reason!' }), reason('INVALID_ARGUMENT', 'bad_reason'));
     await assert.rejects(ann.call('reportName', {}), status('INVALID_ARGUMENT'));
   });
 
+  it('accepts a report from a friend or from a player who shares a match with the target, and refuses a stranger', async () => {
+    const [host, target] = [await newUser({ full: true, name: 'Hostess' }), await newUser({ name: 'Rude' })];
+    const stranger = await newUser();
+    const mate = await newUser();
+    const lobby = await hostLobby(host, [{ kind: 'human', mine: true }, { kind: 'human' }, { kind: 'human' }]);
+    await target.call('joinMatch', { code: lobby.code });
+    await mate.call('joinMatch', { code: lobby.code });
+    await assert.rejects(stranger.call('reportName', { targetUid: target.uid }), reason('NOT_FOUND', 'unknown_user'));
+    assert.deepEqual(await mate.call('reportName', { targetUid: target.uid }), { hidden: false, duplicate: false }); // same match
+    const friend = await friendOf(target);
+    assert.deepEqual(await friend.call('reportName', { targetUid: target.uid }), { hidden: false, duplicate: false });
+    // the stranger learns nothing: the answer is the one a made-up uid gets
+    await assert.rejects(stranger.call('reportName', { targetUid: 'nobody12345' }), reason('NOT_FOUND', 'unknown_user'));
+    assert.equal(Object.keys((await value<Record<string, boolean>>(`nameReports/${target.uid}`)) ?? {}).length, 2);
+  });
+
   it('shows a hidden name as PLAYER plus a short id to the players who join their matches', async () => {
     const [host, target] = [await newUser({ full: true }), await newUser({ name: 'Rude' })];
-    const reporters = [await newUser(), await newUser(), await newUser()];
+    const reporters = [await friendOf(target), await friendOf(target), await friendOf(target)];
     for (const r of reporters) await r.call('reportName', { targetUid: target.uid });
     const { code: matchCode, matchId } = await hostLobby(host);
     await target.call('joinMatch', { code: matchCode });

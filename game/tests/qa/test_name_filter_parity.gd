@@ -7,19 +7,20 @@ extends GutTest
 ##   clean    the text that is kept
 ##   allowed  whether the cleaned text is free of blocked words
 ##
-## What the corpus showed (numbers are pinned in BASELINE so any change is noticed):
+## What the corpus showed, and what was done (numbers are pinned in BASELINE so any change is noticed):
 ##  * Where both sides keep the same text, the matchers agree on every string: no disagreement in the blocklist logic itself.
-##  * The server keeps characters the game font cannot draw (the game deletes them). That is the whole difference: the game's
-##    clean() output is always a subsequence of the server's.
-##  * Because of it, 263 strings such as "sh¬it", "fu§k", "pis®s", "arseh¬ole" are BLOCKED by the game and ALLOWED by the server:
-##    the server turns the undrawable character into a word separator ("sh it"), the game deletes it ("shit"). The server is
-##    the safety net for a modified client, so it must not be the weaker side. See test_server_is_not_more_permissive.
-##  * 5 strings go the other way ("pedø": the server folds ø to o and blocks, the game deletes ø and allows). Harmless: an
-##    honest client has already deleted the ø.
+##  * Before M7-QF-B the server kept characters the game font cannot draw (the game deletes them), so 263 strings such as
+##    "sh¬it", "fu§k", "pis®s", "arseh¬ole" were BLOCKED by the game and ALLOWED by the server (the server turned the undrawable
+##    character into a word separator, the game deleted it), and 5 went the other way ("pedø").
+##  * Now the server deletes exactly the characters the game deletes: the set of drawable characters is exported from the game
+##    (tools/firebase/gen_name_glyphs.sh -> firebase/functions/src/name_glyphs.json) and the server's clean() uses that table.
+##    On the 2,000-string corpus the two clean() outputs are identical for every string and so are the verdicts: 0 strings the
+##    server allows and the game blocks, 0 the other way round, 0 differences in the cleaned text.
+##    game/tests/net/test_name_glyph_table.gd keeps the table in step with the game's own check for every code point.
 
 const CORPUS: String = "res://tests/qa/fixtures/name_filter_corpus.json"
 ## Pinned results for the committed corpus: [strings, clean differs, game blocks but server allows, server blocks but game allows].
-const BASELINE: Array[int] = [2000, 486, 263, 5]
+const BASELINE: Array[int] = [2000, 0, 0, 0]
 
 static var _cache: Dictionary = {}
 
@@ -91,23 +92,27 @@ func test_the_game_never_keeps_a_character_the_server_drops() -> void:
 	assert_eq(r["not_subsequence"], [], "the server's clean() must keep at least everything the game keeps")
 
 
-func test_the_disagreements_are_the_known_ones() -> void:
+func test_there_are_no_disagreements() -> void:
 	var r: Dictionary = _run_parity()
 	var now: Array[int] = [r["n"], (r["clean"] as Array).size(), (r["permissive"] as Array).size(), (r["strict"] as Array).size()]
-	assert_eq(now, BASELINE, "a changed filter or corpus: update BASELINE deliberately and re-read the report")
+	assert_eq(now, BASELINE, "a changed filter or corpus: re-read the report, regenerate the glyph table, update BASELINE deliberately")
+
+
+func test_cleaned_text_is_identical() -> void:
+	var r: Dictionary = _run_parity()
+	assert_eq((r["clean"] as Array).slice(0, 8), [], "the server's clean() must keep exactly what the game keeps")
 
 
 func test_server_is_not_more_permissive() -> void:
 	var r: Dictionary = _run_parity()
 	var bad: Array = r["permissive"]
-	if bad.size() > 0:
-		var sample: Array = bad.slice(0, 6)
-		pending("BUG (medium): the server filter allows %d of 2000 strings that the game blocks, e.g. %s. The server turns a character " % [bad.size(), str(sample)]
-				+ "the game font cannot draw into a word separator; the game deletes it, so the word is whole for the game. "
-				+ "Cause: firebase/functions/src/name_filter.ts LATIN_RANGES/isDrawable keeps U+00A1..U+00FF, U+02BB, U+02BC, U+2122, U+2191, "
-				+ "U+2193, U+2212, U+2215 and '^' that game/ui/names/name_filter.gd (font) drops.")
-		return
-	assert_eq(bad.size(), 0)
+	assert_eq(bad.slice(0, 8), [], "the server allows %d of 2000 strings that the game blocks" % bad.size())
+
+
+func test_server_is_not_stricter_either() -> void:
+	# Not a safety problem, but a name the game accepted would then be rewritten by the server after the fact.
+	var r: Dictionary = _run_parity()
+	assert_eq((r["strict"] as Array).slice(0, 8), [], "the server blocks strings the game allows")
 
 
 func test_honest_client_output_is_unchanged_by_the_server() -> void:

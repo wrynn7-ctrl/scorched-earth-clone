@@ -1,6 +1,5 @@
 // M7-Q functions abuse, part 3: joining, starting, names through the real triggers, and the sweep racing a client write.
 import assert from 'node:assert/strict';
-import { bug } from '../bug';
 import { runTimeoutSweep } from '../../../functions/src/sweep';
 import { checkName } from '../../../functions/src/name_filter';
 import { db, directDeps, hostLobby, settle, value } from '../../functions/harness';
@@ -94,16 +93,19 @@ describe('QA functions: joining and starting', function () {
     }
   };
 
+  it('still lets a player with 39 matches join (the 40th), and then refuses hosting a 41st', async () => {
+    const out = await capProbe(39);
+    assert.equal(out.join, 'OK');
+    assert.equal(out.create, 'RESOURCE_EXHAUSTED:too_many_matches'); // the join made it 40
+  });
+
   it('refuses joining and hosting for a player who already has 41 matches', async () => {
     assert.deepEqual(await capProbe(41), { join: 'RESOURCE_EXHAUSTED:too_many_matches', create: 'RESOURCE_EXHAUSTED:too_many_matches' });
   });
 
-  // BUG (low): the per-player cap is 41 matches, not the documented 40.
-  //   input:    a player with exactly 40 entries in userMatches calls joinMatch (or createMatch).
-  //   expected: RESOURCE_EXHAUSTED too_many_matches (ARCHITECTURE 51: "Caps: 40 matches"; firebase/README: `too_many_matches (40)`).
-  //   actual:   allowed; the player ends with 41. The existing test seeds 41 entries, which hides the off-by-one.
-  //   cause:    functions/src/matches.ts assertRoomForMatch(): `numChildren() > MAX_USER_MATCHES` should be `>=`.
-  bug('BUG (low): refuses the 41st match (cap is 40)', async () => {
+  // FIXED (was a low bug): the per-player cap was 41 matches, not the documented 40 (assertRoomForMatch compared with `>`). A player
+  // with exactly 40 entries in userMatches is refused now. The test above used to seed 41, which hid the off-by-one.
+  it('refuses the 41st match (cap is 40)', async () => {
     assert.deepEqual(await capProbe(40), { join: 'RESOURCE_EXHAUSTED:too_many_matches', create: 'RESOURCE_EXHAUSTED:too_many_matches' });
   });
 
@@ -118,7 +120,7 @@ describe('QA functions: joining and starting', function () {
     assert.equal(await reasonOf(b.call('joinMatch', { code: lobby.code })), 'NOT_FOUND:unknown_code');
   });
 
-  // BUG (medium): the same account can take two seats by double-tapping JOIN (concurrent joinMatch).
+  // FIXED (was a medium bug): the same account could take two seats by double-tapping JOIN (concurrent joinMatch).
   //   input:    one guest sends joinMatch {code} twice at the same moment, lobby with 3 free seats (it happens on some runs
   //             only: the probe hit it 1 in 1, the test below needs a few attempts).
   //   expected: one seat; the second call returns alreadyJoined: true with the same seat.
@@ -127,7 +129,7 @@ describe('QA functions: joining and starting', function () {
   //   cause:    functions/src/matches.ts joinMatch(): the "already in the match" check reads meta BEFORE the transaction, and the
   //             transaction body only checks free seats, never whether `uid` already holds one.
   //   fix idea: repeat the `meta.seats.some(s => s.uid === uid)` check inside mutateMeta and return alreadyJoined there.
-  bug('BUG (medium): a simultaneous double join takes only one seat', async () => {
+  it('a simultaneous double join takes only one seat', async () => {
     const host = await newUser({ full: true, name: 'Host' });
     let doubled = 0;
     for (let i = 0; i < 8; i += 1) {
@@ -230,7 +232,7 @@ describe('QA functions: names through the real triggers', function () {
     }
   });
 
-  // BUG (medium): a profanity-filter bypass: an unfiltered name can reach every player through the seat of a match.
+  // FIXED (was a medium bug): a profanity-filter bypass: an unfiltered name could reach every player through the seat of a match.
   //   input:    a client writes users/{uid}/name = "f*ckyou" (allowed by the rules: only length is checked) and calls joinMatch /
   //             createMatch at once, before the onNameWrite trigger has replaced the name with PLAYER.
   //   expected: the seat (and invite fromName, friend request name, userMatches hostName) never carries a name that fails the
@@ -241,7 +243,7 @@ describe('QA functions: names through the real triggers', function () {
   //             (`seatName(undefined, fallback)` returns the fallback without checkName), and friends.ts / invite() use it for
   //             request names and invites. The name trigger is asynchronous.
   //   fix idea: run checkName() inside displayName() (cheap and pure), or write the name through a callable.
-  bug('BUG (medium): a freshly written bad name never reaches a seat before the trigger fixes it', async () => {
+  it('a freshly written bad name never reaches a seat before the trigger fixes it', async () => {
     const host = await newUser({ full: true, name: 'Host' });
     let leaks = 0;
     for (let i = 0; i < 12; i += 1) {
@@ -365,15 +367,20 @@ describe('QA functions: the sweep racing a client write at the same log index', 
     await checkConsistent(id, count);
   });
 
-  // Information (low): the sweep also times out a CPU turn that nobody drove for the whole deadline (e.g. a batch stopped at
-  // the 16-entry cap with every client away). The rules forbid a client timeout on a CPU seat; the sweep writes it as admin.
-  it('documents: a stuck CPU turn past its deadline gets a `timeout` entry from the sweep', async () => {
+  // The sweep also moves a CPU turn that nobody drove for the whole deadline (e.g. a batch stopped at the 16-entry cap with every
+  // client away). It used to write a `timeout` entry for the CPU seat, which the rules refuse a client and NetReplay now calls a
+  // dispute; it writes the `auto` entry a client would have written, at the seat's own level (M7-QF-B).
+  it('a stuck CPU turn past its deadline gets an `auto` entry at the seat\'s level from the sweep, never a `timeout`', async () => {
     const host = await newUser({ full: true, name: 'Host' });
     const guest = await newUser({ name: 'Guest' });
     const { id, count } = await dueMatch(host, guest);
     await db.ref(`matches/${id}/meta/turn`).set({ tank: 2, uid: 'cpu', deadline: Date.now() - 2000, index: 1 });
+    await db.ref(`matches/${id}/meta/timers/asyncTimeout`).set('end');
     const result = await runTimeoutSweep(directDeps({ now: Date.now() + 1000 }), { matchIds: [id] });
     assert.deepEqual(result.timeouts, [id]);
-    assert.deepEqual(await value(`matches/${id}/actions/${count}`), { kind: 'timeout', tank: 2, async: 1 });
+    assert.deepEqual(await value(`matches/${id}/actions/${count}`), { kind: 'auto', tank: 2, level: 2 });
+    const meta = (await value<Record<string, any>>(`matches/${id}/meta`)) as Record<string, any>;
+    assert.equal(meta.status, 'playing', 'a stuck CPU never ends the match, even with asyncTimeout end');
+    assert.equal(meta.turn.tank, -1);
   });
 });

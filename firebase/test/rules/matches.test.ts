@@ -283,6 +283,7 @@ describe('rules: quick messages', () => {
     update(ref(as(uid)), {
       [`matches/${MID}/msgs/${key}`]: { uid, seat: uid === 'host' ? 0 : 1, msg: 3, at: serverTimestamp(), ...overrides },
       [`matches/${MID}/lastMsg/${uid}`]: stamp,
+      [`matches/${MID}/lastMsgKey/${uid}`]: key, // names the one message this update may carry
     });
 
   it('lets a member send a preset message from one of their seats', async () => {
@@ -326,7 +327,10 @@ describe('rules: quick messages', () => {
 
   it('refuses a message that does not bump the limiter, and a limiter value that is not "now"', async () => {
     await assertFails(
-      update(ref(as('bob')), { [`matches/${MID}/msgs/-Nmsg0000000000000d`]: { uid: 'bob', seat: 1, msg: 1, at: serverTimestamp() } }),
+      update(ref(as('bob')), {
+        [`matches/${MID}/msgs/-Nmsg0000000000000d`]: { uid: 'bob', seat: 1, msg: 1, at: serverTimestamp() },
+        [`matches/${MID}/lastMsgKey/bob`]: '-Nmsg0000000000000d',
+      }),
     );
     await assertFails(send('bob', {}, '-Nmsg0000000000000e', 12345));
   });
@@ -339,6 +343,24 @@ describe('rules: quick messages', () => {
     await assertFails(set(ref(as('bob'), `matches/${MID}/msgs/-Nmsg0000000000000f`), null));
     await seed({ [`matches/${MID}/meta/status`]: 'over' });
     await assertFails(send('bob', {}, '-Nmsg00000000000010'));
+  });
+
+  it('accepts exactly one message per update: a second key in the same update is refused, whatever the limiter says', async () => {
+    const msg = { uid: 'bob', seat: 1, msg: 3, at: serverTimestamp() };
+    const base = { [`matches/${MID}/lastMsg/bob`]: serverTimestamp(), [`matches/${MID}/lastMsgKey/bob`]: 'm1' };
+    await assertFails(update(ref(as('bob')), { ...base, [`matches/${MID}/msgs/m1`]: msg, [`matches/${MID}/msgs/m2`]: msg }));
+    await assertFails(update(ref(as('bob')), { ...base, [`matches/${MID}/msgs/m2`]: msg })); // not the key the update names
+    await assertFails(update(ref(as('bob')), { [`matches/${MID}/msgs/m1`]: msg, [`matches/${MID}/lastMsg/bob`]: serverTimestamp() })); // no key named
+    await assertSucceeds(update(ref(as('bob')), { ...base, [`matches/${MID}/msgs/m1`]: msg }));
+  });
+
+  it('keeps the message key tied to a limiter bump, and to its owner', async () => {
+    await assertFails(set(ref(as('bob'), `matches/${MID}/lastMsgKey/bob`), 'm1')); // alone: no limiter bump
+    await assertFails(set(ref(as('bob'), `matches/${MID}/lastMsgKey/host`), 'm1'));
+    await assertFails(update(ref(as('bob')), { [`matches/${MID}/lastMsg/bob`]: serverTimestamp(), [`matches/${MID}/lastMsgKey/bob`]: 'bad key!' }));
+    await assertFails(update(ref(as('bob')), { [`matches/${MID}/lastMsg/bob`]: serverTimestamp(), [`matches/${MID}/lastMsgKey/bob`]: 'k'.repeat(31) }));
+    await assertFails(update(ref(as('cat')), { [`matches/${MID}/lastMsg/cat`]: serverTimestamp(), [`matches/${MID}/lastMsgKey/cat`]: 'm1' }));
+    await assertSucceeds(update(ref(as('bob')), { [`matches/${MID}/lastMsg/bob`]: serverTimestamp(), [`matches/${MID}/lastMsgKey/bob`]: 'm1' }));
   });
 
   it('lets only members read other players\' last-message times', async () => {

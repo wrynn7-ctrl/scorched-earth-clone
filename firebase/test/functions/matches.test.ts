@@ -356,7 +356,7 @@ describe('functions: updateLobby', () => {
   it('refuses settings that do not fit the seats, and unknown matches', async () => {
     await assert.rejects(host.call('updateLobby', { matchId, settings: { teams: [0, 1, 1] } }), status('INVALID_ARGUMENT'));
     await assert.rejects(host.call('updateLobby', { matchId, settings: { rounds: 99 } }), status('INVALID_ARGUMENT'));
-    await assert.rejects(host.call('updateLobby', { matchId: 'nope' }), status('NOT_FOUND'));
+    await assert.rejects(host.call('updateLobby', { matchId: 'nope12345' }), status('NOT_FOUND'));
     await assert.rejects(host.call('updateLobby', {}), status('INVALID_ARGUMENT'));
   });
 });
@@ -445,9 +445,9 @@ describe('functions: leaveMatch', () => {
 
   it('clears a list entry whose match no longer exists', async () => {
     const user = await newUser();
-    await db.ref(`userMatches/${user.uid}/gone`).set({ updated: 1, yourTurn: false, status: 'over' });
-    assert.deepEqual(await user.call('leaveMatch', { matchId: 'gone' }), { status: 'abandoned' });
-    assert.equal(await value(`userMatches/${user.uid}/gone`), null);
+    await db.ref(`userMatches/${user.uid}/gone12345`).set({ updated: 1, yourTurn: false, status: 'over' });
+    assert.deepEqual(await user.call('leaveMatch', { matchId: 'gone12345' }), { status: 'abandoned' });
+    assert.equal(await value(`userMatches/${user.uid}/gone12345`), null);
   });
 });
 
@@ -493,7 +493,7 @@ describe('functions: startMatch', () => {
     await assert.rejects((await newUser()).call('startMatch', { matchId }), reason('PERMISSION_DENIED', 'not_host'));
     await host.call('startMatch', { matchId });
     await assert.rejects(host.call('startMatch', { matchId }), reason('FAILED_PRECONDITION', 'not_in_lobby'));
-    await assert.rejects(host.call('startMatch', { matchId: 'nope' }), status('NOT_FOUND'));
+    await assert.rejects(host.call('startMatch', { matchId: 'nope12345' }), status('NOT_FOUND'));
   });
 });
 
@@ -560,7 +560,7 @@ describe('functions: invite', () => {
     await befriend(host, cy);
     await host.call('startMatch', { matchId });
     await assert.rejects(host.call('invite', { friendUid: cy.uid, matchId }), reason('FAILED_PRECONDITION', 'not_in_lobby'));
-    await assert.rejects(host.call('invite', { friendUid: cy.uid, matchId: 'nope' }), status('PERMISSION_DENIED'));
+    await assert.rejects(host.call('invite', { friendUid: cy.uid, matchId: 'nope12345' }), status('PERMISSION_DENIED'));
   });
 
   it('sends no push when the friend has no token', async () => {

@@ -88,5 +88,5 @@ export const testSetFull = isEmulator()
 
 // --- Triggers and the schedule ------------------------------------------------------------------------------------
 
-export { onFriendAccepted, onInvite, onMatchOver, onNameWrite, onTurnChange } from './triggers';
+export { onFriendAccepted, onInvite, onMatchOver, onNameWrite, onPushTokenAdded, onTurnChange } from './triggers';
 export { timeoutSweep } from './sweep';

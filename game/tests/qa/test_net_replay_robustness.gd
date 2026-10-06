@@ -2,17 +2,12 @@ extends GutTest
 ## M7-Q: NetReplay fed hostile and random logs (no emulator needed).
 ##  1. malformed entries (wrong types, unknown kinds, missing or huge tank, entries after the end or after a dispute): never a
 ##     crash, always rejected, and a rejected entry leaves the state untouched;
-##  2. a hostile `auto` level, and malformed values that DO crash (documented as pending BUGs, run with QA_RUN_BUGS=1);
+##  2. a hostile `auto` level, and malformed database values (both were bugs; fixed in M7-QF-B and tested for real now);
 ##  3. 50 random seeded mixed logs (humans with random legal actions, CPUs, live and async timeouts, teams, Love) replayed through
 ##     NetReplay give the same fingerprint as the offline path after every entry.
 
 const A: String = NetTestUtil.HUMAN_A
 const B: String = NetTestUtil.HUMAN_B
-const RUN_BUGS_ENV: String = "QA_RUN_BUGS"
-
-
-func _run_bugs() -> bool:
-	return OS.get_environment(RUN_BUGS_ENV) == "1"
 
 
 func _aim_replay(cpu_level: int = 1) -> NetReplay:
@@ -130,61 +125,127 @@ func test_entries_for_a_missing_seat_or_tank_in_every_phase() -> void:
 	assert_false(shop.disputed)
 
 
-func test_documents_that_a_timeout_for_a_cpu_seat_is_accepted_by_the_replay() -> void:
-	# The rules refuse a client timeout on a CPU seat, the sweep writes one for a CPU turn stuck past its deadline (see
-	# firebase/test/qa/functions/abuse_matches.test.ts), and NetReplay applies it (the AI plays at level 2, or in the shop the
-	# CPU is marked ready with no purchases) instead of calling it a dispute. Harmless, but it is a second way to "ready" a CPU.
+func test_a_timeout_for_a_cpu_seat_is_a_dispute() -> void:
+	# The rules refuse a client timeout on a CPU seat and the sweep writes an `auto` entry for a stuck CPU turn instead, so
+	# NetReplay calls a timeout for a seat that was a CPU from the start a dispute (it used to apply it: the AI played at level
+	# 2, or in the shop the CPU was marked ready with no purchases, a second way to "ready" a CPU).
 	var shop: NetReplay = NetReplay.create(NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B), NetTestUtil.cpu(2)], {"rounds": 1}, {}, 4242))
-	assert_true((shop.apply_entry({"kind": "timeout", "tank": 2}) as Dictionary)["ok"])
-	assert_true(shop.state.tanks[2].ready)
-
-
-# --- 2. known bugs -----------------------------------------------------------------------------------------------------------
-
-func test_auto_level_is_authoritative_so_a_writer_picks_the_ai_strength() -> void:
-	var honest: NetReplay = _aim_replay(1)
-	var t: int = honest.state.current_tank
-	# play both humans' turns until it is the CPU's, then compare the CPU's turn at its seat level (1) and at level 4
-	var a: NetReplay = _aim_replay(1)
-	var b: NetReplay = _aim_replay(1)
-	var guard: int = 0
-	while a.state.current_tank != 2 and guard < 6:
-		guard += 1
-		var action: Dictionary = AiPlayer.next_action(a.state, a.state.current_tank)
-		assert_true((a.apply_entry(action) as Dictionary)["ok"])
-		assert_true((b.apply_entry(action) as Dictionary)["ok"])
-	assert_eq(a.state.current_tank, 2, "reached the CPU's turn (first human %d)" % t)
-	var ra: Dictionary = a.apply_entry({"kind": "auto", "tank": 2, "level": 1})
-	var rb: Dictionary = b.apply_entry({"kind": "auto", "tank": 2, "level": 4})
-	assert_true(ra["ok"])
-	if (rb["ok"] as bool) and a.fingerprint() != b.fingerprint():
-		pending("BUG (medium): NetReplay accepts `auto` with level 4 for a CPU seat of level 1 and plays a different turn (fingerprints differ), "
-				+ "so the entry's writer chooses how well each CPU plays. Cause: net_replay.gd _apply_auto/_apply_auto_shop only range-check "
-				+ "the level (1..4) and never compare it with seat_level(tank); the rules (build_rules.mjs) do not either. "
-				+ "Fix: reject an auto/auto_shop entry whose level != seat_level(tank).")
-		return
-	assert_false(rb["ok"], "an auto entry with a level that is not the seat's must be refused")
-
-
-func test_malformed_values_that_crash_the_replay() -> void:
-	# BUG (low), not executed by default because the engine prints a engine error (which fails the whole run):
-	#   {kind: "timeout", tank: t, async: "1"}  -> net_replay.gd:346 timeout_mode `entry.get("async", 0) == 1` compares String with int:
-	#       "Invalid operands 'String' and 'int' in operator '=='", and the entry is then ACCEPTED as a live skip instead of disputed.
-	#   meta.seats = [1, 2, 3] -> net_replay.gd:146 seat_is_cpu `(seats[tank] as Dictionary)` Invalid cast, SCRIPT ERROR on first entry.
-	#   meta.settings.friendly_fire = "yes" -> net_replay.gd:82 assigns a String to a bool: SCRIPT ERROR, MatchSettings null, create() crashes.
-	# All three need a hand-written database value (the rules reject async != 1, the callables validate settings and seats), so they are
-	# only reachable through the Admin SDK or a hand-edited emulator, but "malformed log never crashes" is the contract.
-	if not _run_bugs():
-		pending("BUG (low): malformed `async` / seats / friendly_fire values raise engine errors in NetReplay (details in the test comment); run with QA_RUN_BUGS=1")
-		return
-	var r: NetReplay = _aim_replay()
-	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": r.state.current_tank, "async": "1"})
+	var res: Dictionary = shop.apply_entry({"kind": "timeout", "tank": 2})
 	assert_false(res["ok"])
-	var bad_seats: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)])
-	bad_seats["seats"] = [1, 2, 3]
-	assert_null(NetReplay.create(bad_seats))
-	var bad_ff: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)], {"friendly_fire": "yes"})
-	assert_null(NetReplay.create(bad_ff))
+	assert_eq(res["err"], "bad_timeout")
+	assert_false(shop.state.tanks[2].ready)
+	assert_true(shop.disputed)
+	var aim: NetReplay = _aim_replay()
+	var guard: int = 0
+	while aim.state.current_tank != 2 and guard < 6:
+		guard += 1
+		assert_true((aim.apply_entry(AiPlayer.next_action(aim.state, aim.state.current_tank)) as Dictionary)["ok"])
+	assert_eq(aim.state.current_tank, 2)
+	for e: Dictionary in [{"kind": "timeout", "tank": 2}, {"kind": "timeout", "tank": 2, "async": 1}]:
+		var fresh: NetReplay = _aim_replay()
+		var g: int = 0
+		while fresh.state.current_tank != 2 and g < 6:
+			g += 1
+			fresh.apply_entry(AiPlayer.next_action(fresh.state, fresh.state.current_tank))
+		assert_false((fresh.apply_entry(e) as Dictionary)["ok"], JSON.stringify(e))
+
+
+func test_a_seat_whose_player_left_keeps_its_human_timeouts_in_the_history() -> void:
+	# A player who timed out and then left is a CPU Normal seat in the stored meta. A client that opens the match later replays
+	# his old timeout against those seats, and must not call it a dispute.
+	var meta: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B), NetTestUtil.cpu(2)], {"rounds": 1}, {}, 4242)
+	var before: NetReplay = NetReplay.create(meta)
+	assert_true((before.apply_entry({"kind": "timeout", "tank": 1}) as Dictionary)["ok"], "live skip of a human in the shop")
+	var after_meta: Dictionary = meta.duplicate(true)
+	(after_meta["seats"] as Array)[1] = {"kind": "cpu", "level": 2, "name": "Bo"}
+	var later: NetReplay = NetReplay.create(after_meta)
+	assert_true((later.apply_entry({"kind": "timeout", "tank": 1}) as Dictionary)["ok"])
+	assert_eq(later.fingerprint(), before.fingerprint())
+
+
+# --- 2. hostile levels and malformed values -----------------------------------------------------------------------------------------------------------
+
+func test_auto_level_must_be_the_seats_own_so_a_writer_cannot_pick_the_ai_strength() -> void:
+	# play both humans' turns until it is the CPU's (seat level 1), then try the CPU's turn at level 4 and at its own level
+	var guard_runs: Array[NetReplay] = [_aim_replay(1), _aim_replay(1), _aim_replay(1)]
+	for r: NetReplay in guard_runs:
+		var guard: int = 0
+		while r.state.current_tank != 2 and guard < 6:
+			guard += 1
+			assert_true((r.apply_entry(AiPlayer.next_action(r.state, r.state.current_tank)) as Dictionary)["ok"])
+		assert_eq(r.state.current_tank, 2, "reached the CPU's turn")
+	var honest: Dictionary = guard_runs[0].apply_entry({"kind": "auto", "tank": 2, "level": 1})
+	assert_true(honest["ok"], "the seat's own level is accepted")
+	var before_fp: String = guard_runs[1].fingerprint()
+	var hostile: Dictionary = guard_runs[1].apply_entry({"kind": "auto", "tank": 2, "level": 4})
+	assert_false(hostile["ok"], "an auto entry with a level that is not the seat's is refused")
+	assert_eq(hostile["err"], "bad_auto_level")
+	assert_true(guard_runs[1].disputed)
+	assert_eq(guard_runs[1].fingerprint(), before_fp, "and changes nothing")
+	for level: int in [2, 3, 0, 5, -1]:
+		var other: NetReplay = _aim_replay(1)
+		var g2: int = 0
+		while other.state.current_tank != 2 and g2 < 6:
+			g2 += 1
+			other.apply_entry(AiPlayer.next_action(other.state, other.state.current_tank))
+		assert_false((other.apply_entry({"kind": "auto", "tank": 2, "level": level}) as Dictionary)["ok"], "level %d" % level)
+	# the shop visit too
+	var meta: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B), NetTestUtil.cpu(1)], {"rounds": 1}, {}, 4242)
+	var shop: NetReplay = NetReplay.create(meta)
+	assert_false((shop.apply_entry({"kind": "auto_shop", "tank": 2, "level": 4}) as Dictionary)["ok"])
+	var shop2: NetReplay = NetReplay.create(meta)
+	assert_true((shop2.apply_entry({"kind": "auto_shop", "tank": 2, "level": 1}) as Dictionary)["ok"])
+
+
+func test_malformed_values_from_the_database_never_raise_engine_errors() -> void:
+	# `async` as a string, seats that are not seats, a settings value of the wrong type: each used to raise an engine error
+	# (invalid operands, invalid cast, wrong assignment) and some were accepted. From the database nothing can be trusted, so
+	# malformed means disputed (an entry) or unusable (the meta), and never an error.
+	var r: NetReplay = _aim_replay()
+	var t: int = r.state.current_tank
+	for junk: Variant in ["1", "", null, true, false, 1.5, 0, 2, -1, [1], {"a": 1}]:
+		var fresh: NetReplay = _aim_replay()
+		var res: Dictionary = fresh.apply_entry({"kind": "timeout", "tank": t, "async": junk})
+		assert_false(res["ok"], "async %s is malformed" % JSON.stringify(junk))
+		assert_true(fresh.disputed)
+		assert_eq(fresh.dispute_reason, "bad_timeout")
+	assert_true((_aim_replay().apply_entry({"kind": "timeout", "tank": t, "async": 1}) as Dictionary)["ok"], "async 1 is the one valid value")
+	assert_true((_aim_replay().apply_entry({"kind": "timeout", "tank": t}) as Dictionary)["ok"], "and so is no async")
+	assert_eq(NetReplay.timeout_mode({"kind": "timeout", "tank": t, "async": "1"}), NetReplay.TIMEOUT_PASS)
+
+	var bad_seat_lists: Array = [
+		[1, 2, 3], ["a", "b"], [null, null], [[], []], [{"kind": 5}, {"kind": "human"}], [{"kind": "robot"}, {"kind": "human"}],
+		[{"kind": "human", "uid": 5}, {"kind": "human"}], [{"kind": "human", "name": []}, {"kind": "human"}],
+		[{"kind": "cpu", "level": "2"}, {"kind": "human"}], [{"kind": "cpu", "level": 9}, {"kind": "human"}], [{"kind": "cpu", "level": 2.5}, {"kind": "human"}],
+		[{"kind": "human"}], [{"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}, {"kind": "human"}],
+	]
+	for seats: Array in bad_seat_lists:
+		var m: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)])
+		m["seats"] = seats
+		assert_eq(NetReplay.meta_error(m), "bad_seats", JSON.stringify(seats))
+		assert_null(NetReplay.create(m), JSON.stringify(seats))
+	var bad_settings: Array = [
+		{"friendly_fire": "yes"}, {"full_unlocked": 1}, {"rounds": "3"}, {"rounds": 2.5}, {"wind_max": null}, {"start_money": []}, {"mode": "1"},
+		{"num_tanks": "2"}, {"seed": "7"}, {"teams": "a"}, {"teams": ["a", "b"]}, {"controllers": [0, "x"]}, {"controllers": 5},
+	]
+	for overrides: Dictionary in bad_settings:
+		var m2: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)], overrides)
+		assert_ne(NetReplay.meta_error(m2), "", JSON.stringify(overrides))
+		assert_null(NetReplay.create(m2), JSON.stringify(overrides))
+	for timers: Variant in ["x", [], {"liveSec": "60"}, {"asyncHours": 1.5}, {"asyncTimeout": 5}]:
+		var m3: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)])
+		m3["timers"] = timers
+		assert_eq(NetReplay.meta_error(m3), "bad_timers", JSON.stringify(timers))
+	var m4: Dictionary = NetTestUtil.meta([NetTestUtil.human(A), NetTestUtil.human(B)])
+	m4["seed"] = "7"
+	assert_ne(NetReplay.meta_error(m4), "")
+	# a later seats update that is not a seat list is ignored, so the replay keeps working on the seats it has
+	var live: NetReplay = _aim_replay()
+	var seats_before: Array = live.seats
+	live.set_seats([1, 2, 3])
+	assert_eq(live.seats, seats_before)
+	assert_eq(NetReplay.seats_error([1, 2, 3]), "bad_seats")
+	assert_eq(NetReplay.seats_error([{"kind": "human"}, {"kind": "cpu", "level": 2}]), "")
 
 
 func test_odd_but_harmless_values_replay_the_same_everywhere() -> void:

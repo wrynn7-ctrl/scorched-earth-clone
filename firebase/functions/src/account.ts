@@ -20,6 +20,7 @@ export async function deleteMyData(deps: Deps, uid: string): Promise<DeleteResul
   await collectFriendRemovals(deps, uid, updates);
   await collectRequestRemovals(deps, uid, updates);
   await collectInviteRemovals(deps, uid, updates);
+  await collectCooldownRemovals(deps, uid, updates);
   const user = await read<UserRecord>(deps.db, `users/${uid}`);
   if (user?.friendCode) updates[`friendCodes/${user.friendCode}`] = null;
   if (user?.purchase?.tokenHash) updates[`purchaseTokens/${user.purchase.tokenHash}`] = null;
@@ -91,4 +92,13 @@ async function collectInviteRemovals(deps: Deps, uid: string, out: Updates): Pro
   }
   out[`invites/${uid}`] = null;
   out[`invitesSent/${uid}`] = null;
+}
+
+async function collectCooldownRemovals(deps: Deps, uid: string, out: Updates): Promise<void> {
+  const asSender = (await read<Record<string, unknown>>(deps.db, `friendCooldowns/${uid}`)) ?? {};
+  for (const decliner of Object.keys(asSender)) out[`friendCooldownsBy/${decliner}/${uid}`] = null;
+  const asDecliner = (await read<Record<string, unknown>>(deps.db, `friendCooldownsBy/${uid}`)) ?? {};
+  for (const sender of Object.keys(asDecliner)) out[`friendCooldowns/${sender}/${uid}`] = null;
+  out[`friendCooldowns/${uid}`] = null;
+  out[`friendCooldownsBy/${uid}`] = null;
 }

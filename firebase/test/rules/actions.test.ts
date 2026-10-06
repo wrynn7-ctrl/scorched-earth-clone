@@ -9,6 +9,7 @@ import {
   HOUR,
   MID,
   ref,
+  resetDb,
   seedAll,
   seed,
   turnFor,
@@ -165,8 +166,8 @@ describe('rules: action log - shop phase', () => {
   });
 
   it('lets a CPU shop visit be appended during the shop phase', async () => {
-    await assertSucceeds(update(ref(as('bob')), append(count, [{ kind: 'auto_shop', tank: 2, level: 3 }])));
-    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'auto_shop', tank: 1, level: 3 }])));
+    await assertSucceeds(update(ref(as('bob')), append(count, [{ kind: 'auto_shop', tank: 2, level: 2 }]))); // the CPU seat's own level
+    await assertFails(update(ref(as('bob')), append(count, [{ kind: 'auto_shop', tank: 1, level: 2 }])));
   });
 });
 
@@ -327,9 +328,20 @@ describe('rules: action log - shop entry ranges and auto levels', () => {
     await assertFails(shop({ kind: 'buy', tank: 1, item: 'fuel_cell' }));
   });
 
-  it('limits CPU levels to 1..4', async () => {
+  it('limits CPU levels to 1..4, and to the level of the CPU seat', async () => {
     for (const level of [0, 5, 2.5, '2']) await assertFails(shop({ kind: 'auto_shop', tank: 2, level }));
-    await assertSucceeds(shop({ kind: 'auto_shop', tank: 2, level: 4 }));
+    for (const level of [1, 3, 4]) await assertFails(shop({ kind: 'auto_shop', tank: 2, level })); // seat 2 is level 2
+    await assertSucceeds(shop({ kind: 'auto_shop', tank: 2, level: 2 }));
+  });
+
+  it('accepts the level the seat has, whatever it is (1..4)', async () => {
+    for (const level of [1, 2, 3, 4]) {
+      await resetDb();
+      count = await seedAll({ turn: turnFor(-2, 'any') });
+      await seed({ [`matches/${MID}/meta/seats/2/level`]: level });
+      await assertFails(shop({ kind: 'auto_shop', tank: 2, level: level === 4 ? 1 : level + 1 }));
+      await assertSucceeds(shop({ kind: 'auto_shop', tank: 2, level }));
+    }
   });
 
   it('keeps seat data intact when a different seat layout is used', async () => {

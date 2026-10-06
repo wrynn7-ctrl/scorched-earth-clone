@@ -27,6 +27,15 @@ function toResult(user: UserRecord, serverTime: number): ProfileResult {
   };
 }
 
+async function requireAuthUser(deps: Deps, uid: string): Promise<void> {
+  try {
+    await deps.auth().getUser(uid);
+  } catch (error) {
+    if ((error as { code?: string }).code === 'auth/user-not-found') return fail('unauthenticated', 'sign_in_required');
+    throw error;
+  }
+}
+
 /**
  * Creates the profile on first call (friend code, name "PLAYER", full = false) and stores the client's protocol version.
  * Safe to call on every start: an existing profile keeps its code and name.
@@ -43,6 +52,9 @@ export async function ensureProfile(deps: Deps, uid: string, raw: unknown): Prom
     }
     return toResult(existing, deps.now());
   }
+  // An ID token stays valid for up to an hour after "delete my data" removed the account, and a stray call with it must not bring
+  // the profile back: a new profile is only made for an account that still exists in Auth.
+  await requireAuthUser(deps, uid);
   const code = await allocateCode(deps.db, 'friendCodes', FRIEND_CODE_LENGTH, uid, deps.rand);
   if (!code) return fail('resource-exhausted', 'no_free_code');
   const fresh: UserRecord = {

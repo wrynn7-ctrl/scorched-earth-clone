@@ -49,7 +49,7 @@ describe('deployment manifest', () => {
   });
 
   it('has the database triggers and the 15-minute sweep', () => {
-    for (const trigger of ['onFriendAccepted', 'onInvite', 'onMatchOver', 'onNameWrite', 'onTurnChange']) {
+    for (const trigger of ['onFriendAccepted', 'onInvite', 'onMatchOver', 'onNameWrite', 'onPushTokenAdded', 'onTurnChange']) {
       assert.match(manifest.endpoints[trigger]?.eventTrigger?.eventType ?? '', /google\.firebase\.database\.ref\.v1\./, trigger);
     }
     assert.equal(manifest.endpoints.timeoutSweep?.scheduleTrigger?.schedule, 'every 15 minutes');

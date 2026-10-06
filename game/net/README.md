@@ -104,13 +104,14 @@ Acting:
 - `await om.submit_many([...])`: several shop actions (buy, sell, ready) in one update; an aim action goes alone. Use it to
   send a whole shop visit on READY.
 - `wait_online_sec` (2nd argument, default 0) keeps retrying while offline for that long ("actions queued").
-- `await om.send_message(index, seat)` quick message 0..7 (3 s limit, `RATE_LIMITED`).
+- `await om.send_message(index, seat)` quick message 0..7 (3 s limit, `RATE_LIMITED`). The update carries `lastMsgKey/{uid}` = the message's key: the rules accept
+  exactly one message per update, under that key.
 - `await om.abandon()` host only.
 
 Signals: `entry_applied(index, result)` (every log entry in order; `result.steps = [{action, events}]` is the timeline,
 `result.events` all events, `result.catch_up` true while replaying history after open or reconnect (skip animations),
-`result.by_me`, `result.turn_ended`, `result.fingerprint`), `turn_changed(turn_info)`, `status_changed(status)`,
-`presence_changed(uid, online)`, `message_received(seat, msg, uid)`, `seats_changed(seats)` (a player left: their
+`result.by_me`, `result.turn_ended`, `result.fingerprint`), `turn_changed(turn_info)`, `status_changed(status)` (`over` is announced only once the replay has reached the end of the game, see Disputed below),
+`presence_changed(uid, online)`, `message_received(seat, msg, uid)` (history from before you opened is skipped: a message counts when its server time is newer than the time of opening minus 2 s, so one sent while the streams were still connecting is not lost), `seats_changed(seats)` (a player left: their
 seat is now CPU Normal), `connection_changed(c)`, `disputed(reason, index)` (stop; host may `abandon()`), `failed(code,
 reason)`, `opened`, `closed`.
 
@@ -129,8 +130,13 @@ input through `om.submit`, never call `Simulation.apply_action` on `om.state` yo
   live skip only after `liveDeadline` while the holder's heartbeat is fresh, and `async: 1` only after `deadline`.
 - Writers: any member resolves "needs resolve" turns and continues CPU turns left by a full batch (staggered by seat so
   they do not all race), and writes `timeout` entries after a deadline. Deadlines come from the server clock.
-- Disputed: an entry the simulation refuses, an `auto` for a human seat, history that changed, a stored turn that
-  disagrees with the simulation for more than 2.5 s, or a fingerprint reported by another player that differs.
+- Disputed: an entry the simulation refuses, an `auto` for a human seat, an `auto` / `auto_shop` whose level is not the CPU seat's own level (the writer must not choose how well
+  an AI plays), a `timeout` for a seat that was a CPU from the start (the sweep writes `auto` for a stuck CPU turn), history that changed, a stored turn that disagrees with the
+  simulation for more than 2.5 s, a fingerprint reported by another player that differs, **`meta/status` = `over` while the replay has not ended** (the rules cannot tell whether
+  the entry that came with `over` really ended the game, so `over` is a claim: `OnlineMatch.status` stays `playing` and nothing is announced until the replay confirms it; if the
+  log is complete and the game is not over for 2.5 s the match is disputed with `status_over_early`), or a malformed value from the database. Everything from the database is
+  type-checked (`NetReplay.meta_error`, `seats_error`, `timeout_error`): a meta with seats that are not seats, a `friendly_fire` that is not a bool, an `async` that is not the
+  integer 1 and the like mean "unusable" / disputed, never an engine error.
 - Streams (SSE over `HTTPClient`): meta, actions (from the next index), fp, msgs and one presence stream per other
   human. They reconnect with backoff, the database resends the current data, and replay applies it by index.
 

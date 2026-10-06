@@ -24,10 +24,32 @@ export function optString(data: Fields, key: string, maxLength = 128): string | 
   return data[key] === undefined ? undefined : reqString(data, key, maxLength);
 }
 
-/** A uid or id used inside a database path: no slashes or dots, so a client can never address another path. */
+/**
+ * Shortest and longest id (a uid or a match id) a callable accepts. Real ids are 20 (push ids) to 28 (Auth uids) characters,
+ * so these bounds only keep junk out.
+ */
+export const ID_MIN_LENGTH = 8;
+export const ID_MAX_LENGTH = 128;
+
+/**
+ * True for an id that is safe inside a database path: letters, digits, `-` and `_` only (no slashes or dots, so a client can
+ * never address another path), the right length, and no leading `__`. The Admin SDK keeps its path tree in a plain object, so
+ * `matches/__proto__/meta` is not an ordinary key there and a transaction on it never finishes (a 60 s hang per call).
+ */
+export function isSafeId(value: unknown, minLength = ID_MIN_LENGTH): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= minLength &&
+    value.length <= ID_MAX_LENGTH &&
+    !value.startsWith('__') &&
+    /^[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+/** A uid or id used inside a database path (see isSafeId). */
 export function reqId(data: Fields, key: string): string {
-  const value = reqString(data, key, 128);
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) fail('invalid-argument', `bad_${key}`);
+  const value = data[key];
+  if (!isSafeId(value)) fail('invalid-argument', `bad_${key}`);
   return value;
 }
 

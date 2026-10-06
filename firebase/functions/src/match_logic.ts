@@ -13,7 +13,7 @@ import {
   MIN_TANKS,
   MODE_LOVE,
 } from './config';
-import { asObject, fail, isInt, type Fields } from './errors';
+import { asObject, fail, isInt, isSafeId, type Fields } from './errors';
 import { checkName } from './name_filter';
 import type { Seat, Timers } from './rtdb';
 
@@ -49,7 +49,7 @@ export function parseSeatSpecs(raw: unknown): SeatSpec[] {
     const level = seat.level ?? CPU_LEVEL_NORMAL;
     if (seat.kind === 'cpu' && !isInt(level, CPU_LEVEL_MIN, CPU_LEVEL_MAX)) return fail('invalid-argument', 'bad_cpu_level');
     const name = typeof seat.name === 'string' && seat.name.length <= 64 ? seat.name : undefined;
-    const uid = typeof seat.uid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(seat.uid) ? seat.uid : undefined;
+    const uid = isSafeId(seat.uid, 1) ? seat.uid : undefined;
     return {
       kind: seat.kind,
       level: seat.kind === 'cpu' ? (level as number) : 0,

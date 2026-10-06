@@ -1,5 +1,6 @@
 // Typed helpers over the Realtime Database Admin SDK, and the shapes of the data model (ARCHITECTURE sections 44-46).
 import type { Database } from 'firebase-admin/database';
+import { checkName } from './name_filter';
 
 export interface UserRecord {
   name?: string;
@@ -97,9 +98,13 @@ export async function isBlockedEither(db: Database, a: string, b: string): Promi
   return ab || ba;
 }
 
-/** The name other players see: "PLAYER 1AB2" when a name was auto-hidden after reports. */
+/**
+ * The name other players see: "PLAYER 1AB2" when a name was auto-hidden after reports. Every server copy of a name (seat,
+ * invite, friend request) is made through here, and the stored name is run through the filter again: a client can write
+ * any name and the `onNameWrite` trigger only fixes it a moment later, so a copy made in between must not carry it.
+ */
 export function displayName(user: UserRecord | null): string {
   if (!user) return 'PLAYER';
   if (user.nameHidden) return `PLAYER ${(user.friendCode ?? '').slice(0, 4)}`.trim();
-  return user.name && user.name !== '' ? user.name : 'PLAYER';
+  return checkName(user.name).name;
 }
