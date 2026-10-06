@@ -1,0 +1,45 @@
+// Root build: shared pins and the optional Firebase config. No plugins are applied here.
+import groovy.json.JsonSlurper
+
+def pins = new Properties()
+file('../tools/plugins/pin.env').withInputStream { pins.load(it) }
+ext.pins = pins
+
+// google-services.json is NEVER committed (android_plugins/.gitignore). CI writes it from the GitHub secret
+// GOOGLE_SERVICES_JSON; locally you can drop the file here or point CRATERLINE_GOOGLE_SERVICES_JSON at it.
+def envPath = System.getenv('CRATERLINE_GOOGLE_SERVICES_JSON')
+ext.googleServicesFile = (envPath != null && !envPath.trim().isEmpty()) ? new File(envPath) : file('google-services.json')
+ext.fcmEnabled = ext.googleServicesFile.isFile()
+
+// The Android package id that google-services.json must contain a client for (passed in by build_plugins.sh).
+ext.appPackage = project.findProperty('craterline.appPackage') ?: ''
+
+// Fails the build when the pinned firebase-messaging version is not what the pinned BOM resolves to.
+// Runs in every build, with or without google-services.json, so a stale pin is caught in CI.
+configurations {
+    pinCheck {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+dependencies {
+    pinCheck "com.google.firebase:firebase-bom:${pins.getProperty('FIREBASE_BOM_VERSION')}@pom"
+}
+tasks.register('verifyPins') {
+    group = 'verification'
+    description = 'Checks that FIREBASE_MESSAGING_VERSION equals the version in the pinned Firebase BOM.'
+    doLast {
+        def bomPom = configurations.pinCheck.singleFile
+        def xml = new XmlSlurper().parse(bomPom)
+        def entry = xml.dependencyManagement.dependencies.dependency.find { it.artifactId.text() == 'firebase-messaging' }
+        if (entry.isEmpty()) {
+            throw new GradleException("firebase-messaging is not in firebase-bom ${pins.getProperty('FIREBASE_BOM_VERSION')}")
+        }
+        def want = pins.getProperty('FIREBASE_MESSAGING_VERSION')
+        if (entry.version.text() != want) {
+            throw new GradleException("tools/plugins/pin.env: FIREBASE_MESSAGING_VERSION=${want} but firebase-bom " +
+                "${pins.getProperty('FIREBASE_BOM_VERSION')} resolves firebase-messaging to ${entry.version.text()}. Update the pin.")
+        }
+        println "pins OK: firebase-bom ${pins.getProperty('FIREBASE_BOM_VERSION')} -> firebase-messaging ${want}"
+    }
+}

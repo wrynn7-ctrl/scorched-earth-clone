@@ -1,0 +1,11 @@
+# Never commit: Firebase client config comes from the GitHub secret GOOGLE_SERVICES_JSON (docs/FIREBASE_SETUP.md).
+google-services.json
+*.keystore
+*.jks
+service-account*.json
+# Gradle outputs
+.gradle/
+build/
+*/build/
+local.properties
+.kotlin

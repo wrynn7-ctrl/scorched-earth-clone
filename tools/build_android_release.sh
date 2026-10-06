@@ -70,6 +70,10 @@ grep -a -q 'Lcom/android/billingclient/api/BillingClient;' "${BASE_DEX_TMP}/all.
   || die "Play Billing library classes are missing from the AAB"
 log "billing plugin and Play Billing library classes present in the AAB"
 
+# Craterline's own plugins: the bundle's manifest and resources are protobuf, but their strings are plain UTF-8.
+unzip -p "${OUT_AAB}" base/manifest/AndroidManifest.xml | strings >"${BASE_DEX_TMP}/manifest.txt"
+verify_craterline_plugins "${BASE_DEX_TMP}/all.dex" "${BASE_DEX_TMP}/manifest.txt" "${OUT_AAB}" base/resources.pb
+
 if [[ "${SKIP_BUNDLETOOL:-0}" != "1" ]]; then
   if BUNDLETOOL_CP="$("${ROOT}/tools/android/fetch_bundletool.sh")"; then
     log "bundletool validate..."

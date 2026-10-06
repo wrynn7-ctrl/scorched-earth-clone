@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Built WITH google-services.json: real Firebase Cloud Messaging. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android 13+: asked at run time, on demand, from GDScript (PushService.request_permission). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.CraterlinePush"
+            android:value="com.wrynn7.craterline.plugin.push.CraterlinePush" />
+
+        <!-- Messages that name no channel (or arrive while the app is closed) use the "Turns" channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="turns" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/craterline_stat_turn" />
+
+        <service
+            android:name=".CraterlinePushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

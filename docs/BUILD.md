@@ -1,7 +1,8 @@
 # Building Craterline for Android
 
 Short version: run `tools/build_android_debug.sh` to get a phone-installable APK, and `tools/build_android_release.sh`
-to get a release-style AAB. CI does the same on every push. Nothing here needs a secret yet.
+to get a release-style AAB. CI does the same on every push. Nothing here needs a secret; the one optional secret
+(`GOOGLE_SERVICES_JSON`, for push notifications) is described in `docs/FIREBASE_SETUP.md`.
 
 ## What is a "Gradle build" and why do we need it?
 
@@ -14,8 +15,9 @@ Godot can export an Android app in two ways:
    libraries to the app.
 
 We need option 2 for **Google Play Billing**, the library behind in-app purchases (the "Full game" unlock, see
-`docs/ARCHITECTURE.md` section 32). The billing plugin is Android code, so it can only be added through Gradle. Gradle
-also produces the **AAB** (Android App Bundle), the file format Google Play requires for new apps.
+`docs/ARCHITECTURE.md` section 32), and for the **online play** plugins (push notifications, Google sign-in, share and
+invite links, section 49). They are Android code, so they can only be added through Gradle. Gradle also produces the
+**AAB** (Android App Bundle), the file format Google Play requires for new apps.
 
 Both export presets in `game/export_presets.cfg` use Gradle, minimum Android 8 (SDK 26), target SDK 36:
 
@@ -44,7 +46,47 @@ recreates it.
   that release to build the game; it is a convenience copy.
 - To upgrade: change `tools/billing/pin.env`, run `tools/setup_billing_plugin.sh --rebuild` (it exits with code 3 and the
   new hashes if they differ), copy the new hashes into `tools/billing/SHA256SUMS`, and update the version above.
-- Exported builds exclude the unit tests, GUT and the billing plugin's editor-only script (`exclude_filter` in the preset).
+- Exported builds exclude the unit tests, GUT, the billing plugin's editor-only script and the Craterline plugin's editor
+  script and generated AARs (`exclude_filter` in the preset).
+
+## The Craterline Android plugins (online play)
+
+Three small plugins of our own, written in Kotlin, live in `android_plugins/` (a separate Gradle project; its README lists
+the files). They give GDScript what Godot cannot do alone (`docs/ARCHITECTURE.md` section 49):
+
+| Godot singleton | What it does | GDScript wrapper (`game/platform/`) |
+|---|---|---|
+| `CraterlinePush` | Firebase Cloud Messaging: token, token changes, "Turns" notification channel, Android 13+ permission, taps on notifications (cold and warm start) | `PushService` |
+| `CraterlineGoogleSignIn` | Sign in with Google (Credential Manager): returns a Google ID token or a typed error/cancel | `GoogleSignIn` |
+| `CraterlineShare` | Android share sheet; `craterline://join/CODE` links (cold and warm start) | `ShareService`, `DeepLinks` |
+
+Each wrapper has an `available` flag and a fake (`PushFake`, `GoogleSignInFake`, `ShareFake`); on desktop, in headless tests
+and in builds without the plugin nothing is emitted and nothing errors.
+
+How they get into the game:
+
+- `tools/plugins/build_plugins.sh` (run by both build scripts) builds the AARs with Gradle into
+  `game/addons/craterline_android/bin/` (generated, git-ignored), skipping the work when nothing changed.
+- `game/addons/craterline_android/` (enabled in `project.godot`) is the editor export plugin: it adds the AARs, the pinned
+  Maven libraries (Credential Manager, googleid, and Firebase Messaging if built in) and an exported `<activity-alias>`
+  that carries the `craterline://join` intent filter (the game's own activity is not exported).
+- Versions are pinned in `tools/plugins/pin.env` (Kotlin, Android Gradle Plugin, Godot library, Firebase BOM and the
+  `firebase-messaging` version it resolves to, `androidx.credentials`, `googleid`) and in the Gradle wrapper (Gradle version and
+  SHA-256). The build fails if the Firebase BOM and the pinned `firebase-messaging` ever disagree.
+- **Push is optional at build time.** With `android_plugins/google-services.json` (git-ignored; CI writes it from the
+  `GOOGLE_SERVICES_JSON` secret) the push plugin is built with real Firebase and the app gains the Firebase libraries and
+  the `POST_NOTIFICATIONS` permission. Without it the push plugin is a stub whose `is_available()` is false, and the APK
+  contains no Firebase Messaging code. Both builds were verified (see the numbers below).
+- After exporting, both build scripts check that the plugin classes, their manifest entries, the deep-link filter and (matching
+  the build) the Firebase classes or their absence are really in the APK or AAB.
+- To change a Kotlin file, edit it, run `tools/build_android_debug.sh`; the plugin build notices the change. To work on the
+  plugins alone: `tools/plugins/build_plugins.sh --force`.
+
+Size cost, measured on the debug APK (arm64 only): the base game with the billing plugin is 85.3 MB (85,309,673 bytes).
+With the plugins and **no** Firebase file it is 86.8 MB (+1.5 MB: Credential Manager and its Google Play services pieces).
+With the Firebase file it is 87.8 MB (+2.5 MB in total, the push library adds about 1.0 MB).
+
+`USE_BIOMETRIC` appears in the manifest because the Credential Manager library declares it; the game never uses it.
 
 ## Building locally
 
@@ -54,7 +96,7 @@ tools/build_android_release.sh   # AAB, ALSO signed with the public debug key (s
 ```
 
 Needs: Java 17 or newer, `curl`, `unzip`, internet access. Everything else (Godot, export templates, Android SDK pieces,
-Gradle, the Android Gradle plugin, the Play Billing library, bundletool) is downloaded and pinned by the scripts. The
+Gradle, the Android Gradle plugin, the Play Billing library, the plugin libraries, bundletool) is downloaded and pinned by the scripts. The
 first run downloads a few hundred MB and takes a few minutes; later runs take 20 to 60 seconds (Gradle caches in `~/.gradle`).
 
 Internet hosts used: this repo's GitHub Releases (Godot and templates), `dl.google.com` (Android SDK, Google Maven),
@@ -74,7 +116,11 @@ newer GUT version when Godot loads the project. It does not affect the build.
    `tools/build_android_release.sh` and uploads it as the artifact `craterline-release-aab-debug-signed` (kept 14 days).
    It is **never** published to a release.
 4. Gradle downloads are cached (`~/.gradle/caches/modules-2` and the Gradle distribution). The cache key changes when the
-   Godot version, the billing pin or the export presets change.
+   Godot version, the billing pin, the plugin pins (`tools/plugins/pin.env`, `android_plugins/**/*.gradle`) or the export
+   presets change.
+5. When the repository secret `GOOGLE_SERVICES_JSON` exists, a step writes it to `android_plugins/google-services.json`
+   before the build, so CI builds include real push (`docs/FIREBASE_SETUP.md` step 4). Without it the build still passes
+   with the push stub.
 
 ## Signing: read this before uploading anything
 

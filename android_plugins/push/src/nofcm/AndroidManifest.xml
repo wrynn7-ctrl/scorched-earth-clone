@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Built WITHOUT google-services.json: the plugin loads and reports available = false. No Firebase, no permission. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.CraterlinePush"
+            android:value="com.wrynn7.craterline.plugin.push.CraterlinePush" />
+    </application>
+</manifest>

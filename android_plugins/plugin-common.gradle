@@ -1,0 +1,28 @@
+// Settings shared by the three plugin modules (applied after their `plugins {}` block).
+android {
+    compileSdk 36
+    defaultConfig {
+        minSdk 26   // matches gradle_build/min_sdk in game/export_presets.cfg
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false   // the game's own build decides about shrinking; the AAR stays plain
+        }
+    }
+}
+
+dependencies {
+    // Godot's plugin API. The app already contains it at runtime (compileOnly keeps it out of the AAR).
+    compileOnly "org.godotengine:godot:${rootProject.ext.pins.getProperty('GODOT_LIB_VERSION')}"
+    // OnNewIntentProvider (ComponentActivity) lives in androidx.core / androidx.activity; the app has them via Fragment.
+    compileOnly "androidx.fragment:fragment:${rootProject.ext.pins.getProperty('FRAGMENT_VERSION')}"
+    compileOnly "androidx.core:core:${rootProject.ext.pins.getProperty('CORE_VERSION')}"
+}

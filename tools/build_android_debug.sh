@@ -6,7 +6,8 @@
 #   2. Godot 4.7.2 Android templates (this repo's release `tools-godot-4.7.2`), including android_source.zip
 #   3. Android SDK: platform-tools + build-tools (+ cmdline-tools, platform), licenses accepted
 #   4. Godot editor settings: SDK path, JDK path, committed debug keystore
-#   5. Gradle build template in game/android (generated, git-ignored), billing plugin checked against its pins
+#   5. Gradle build template in game/android (generated, git-ignored), billing plugin checked against its pins,
+#      Craterline Android plugins (android_plugins/: push, Google sign-in, share) built into game/addons/craterline_android/bin
 #   6. godot --headless --export-debug "Android" -> build/craterline-debug.apk, then apksigner verify
 #
 # Prints the APK path and size on stdout's last lines; progress goes to stderr. The first run downloads Gradle, the
@@ -49,6 +50,12 @@ unzip -p "${OUT_APK}" AndroidManifest.xml | strings -e l | grep -q 'org.godoteng
   || die "billing plugin meta-data is missing from the APK manifest"
 log "billing plugin and Play Billing library present in the APK"
 unzip -l "${OUT_APK}" | grep -i billing | sed 's/^/  /' >&2 || true
+
+# Craterline's own plugins (push, Google sign-in, share + deep links), see android_plugins/ and docs/FIREBASE_SETUP.md.
+MANIFEST_TMP="$(mktemp)"
+CLEANUP_PATHS+=("${MANIFEST_TMP}")
+unzip -p "${OUT_APK}" AndroidManifest.xml | { strings -e l; strings; } >"${MANIFEST_TMP}"
+verify_craterline_plugins "${DEX_TMP}" "${MANIFEST_TMP}" "${OUT_APK}" resources.arsc
 
 SIZE_BYTES="$(stat -c %s "${OUT_APK}")"
 echo "APK: ${OUT_APK}"

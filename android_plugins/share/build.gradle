@@ -1,0 +1,10 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.wrynn7.craterline.plugin.share'
+}
+
+apply from: '../plugin-common.gradle'

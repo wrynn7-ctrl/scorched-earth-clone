@@ -21,3 +21,17 @@
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Node / Firebase (firebase/ and firebase/functions/)
+node_modules/
+/firebase/functions/lib/
+/firebase/.firebase/
+*-debug.log
+/firebase/functions/.secret.local
+/firebase/functions/.env.local
+/firebase/functions/.runtimeconfig.json
+/firebase/*.local
+
+# Firebase / Google service credentials: never commit
+google-services.json
+service-account*.json

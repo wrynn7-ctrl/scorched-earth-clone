@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The craterline://join/CODE intent filter is added to the game's manifest by the export plugin
+     (game/addons/craterline_android/export_plugin.gd): it needs an <activity-alias> that points at the game's own activity. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.CraterlineShare"
+            android:value="com.wrynn7.craterline.plugin.share.CraterlineShare" />
+    </application>
+</manifest>
