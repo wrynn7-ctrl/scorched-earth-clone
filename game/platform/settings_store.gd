@@ -9,6 +9,8 @@ const SECTION: String = "show"
 const SETUP_SECTION: String = "setup"
 ## The Love Edition's own little setup (player 2).
 const LOVE_SECTION: String = "love"
+## Online play (ARCHITECTURE section 48): only the player's own choices live here, never account data.
+const ONLINE_SECTION: String = "online"
 
 ## Where load/save go. Tests point this at a scratch file.
 static var path: String = DEFAULT_PATH
@@ -19,6 +21,10 @@ static var allow_headless_load: bool = false
 ## The Love Edition secret was found (ARCHITECTURE section 37). It lives here, not in ShowSettings,
 ## so "reset settings" can never hide the button again.
 static var love_found: bool = false
+## The player has been through the online name setup (so the Online screen does not ask again).
+static var online_named: bool = false
+## Players (uids) whose quick messages are hidden. Local only.
+static var online_muted: PackedStringArray = PackedStringArray()
 
 static var _loaded: bool = false
 
@@ -68,6 +74,7 @@ static func load_into(file_path: String = "") -> bool:
 	ShowSettings.left_handed = _bool(cfg, "left_handed", ShowSettings.left_handed)
 	love_found = _bool(cfg, "love_found", love_found)
 	CameraSettings.load_from(cfg)
+	_load_online(cfg)
 	_load_setup(cfg)
 	var love_cpu: Variant = cfg.get_value(LOVE_SECTION, "cpu", SetupPrefs.love_cpu)
 	if typeof(love_cpu) == TYPE_INT or typeof(love_cpu) == TYPE_FLOAT:
@@ -95,6 +102,8 @@ static func save(file_path: String = "") -> bool:
 	cfg.set_value(SECTION, "left_handed", ShowSettings.left_handed)
 	cfg.set_value(SECTION, "love_found", love_found)
 	CameraSettings.save_to(cfg)
+	cfg.set_value(ONLINE_SECTION, "named", online_named)
+	cfg.set_value(ONLINE_SECTION, "muted", online_muted)
 	if SetupPrefs.love_cpu != 0:
 		cfg.set_value(LOVE_SECTION, "cpu", SetupPrefs.love_cpu)
 	if SetupPrefs.has_saved:
@@ -129,6 +138,23 @@ static func _load_setup(cfg: ConfigFile) -> void:
 	SetupPrefs.set_teams_from(cfg.get_value(SETUP_SECTION, "teams", []))
 	var ff: Variant = cfg.get_value(SETUP_SECTION, "friendly_fire", true)
 	SetupPrefs.friendly_fire = ff as bool if typeof(ff) == TYPE_BOOL else true
+
+
+## The [online] section: the name-setup flag and the muted players (plain strings, capped).
+static func _load_online(cfg: ConfigFile) -> void:
+	var named: Variant = cfg.get_value(ONLINE_SECTION, "named", online_named)
+	online_named = named as bool if typeof(named) == TYPE_BOOL else false
+	var muted: Variant = cfg.get_value(ONLINE_SECTION, "muted", PackedStringArray())
+	var list := PackedStringArray()
+	var items: Array = []
+	if typeof(muted) == TYPE_PACKED_STRING_ARRAY:
+		items = Array(muted as PackedStringArray)
+	elif typeof(muted) == TYPE_ARRAY:
+		items = muted as Array
+	for v: Variant in items:
+		if typeof(v) == TYPE_STRING and (v as String) != "" and (v as String).length() <= 64 and list.size() < 200:
+			list.append(v as String)
+	online_muted = list
 
 
 static func _int_in(cfg: ConfigFile, key: String, fallback: int, lo: int, hi: int) -> int:
