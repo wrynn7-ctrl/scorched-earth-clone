@@ -263,7 +263,7 @@ func _dispatch(kind: String, data_text: String) -> void:
 				_apply(kind, p, data)
 			event_received.emit(kind, p, data)
 			if _cache:
-				value_changed.emit(value)
+				value_changed.emit(_copy(value))
 		"keep-alive":
 			pass
 		"cancel":
@@ -279,7 +279,7 @@ func _dispatch(kind: String, data_text: String) -> void:
 func _apply(kind: String, p: String, data: Variant) -> void:
 	var parts: PackedStringArray = _path_parts(p)
 	if kind == "put":
-		value = _set_path(value, parts, 0, data)
+		value = _set_path(value, parts, 0, _copy(data))
 		return
 	if typeof(data) != TYPE_DICTIONARY:
 		return
@@ -288,7 +288,12 @@ func _apply(kind: String, p: String, data: Variant) -> void:
 		var sub: PackedStringArray = parts.duplicate()
 		for piece: String in str(k).split("/", false):
 			sub.append(piece)
-		value = _set_path(value, sub, 0, d[k])
+		value = _set_path(value, sub, 0, _copy(d[k]))
+
+
+## Events hand the same Dictionary to every listener and the cache is edited in place, so each gets its own copy.
+static func _copy(v: Variant) -> Variant:
+	return (v as Dictionary).duplicate(true) if typeof(v) == TYPE_DICTIONARY else (v as Array).duplicate(true) if typeof(v) == TYPE_ARRAY else v
 
 
 static func _path_parts(p: String) -> PackedStringArray:

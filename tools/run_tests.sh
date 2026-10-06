@@ -8,7 +8,10 @@
 #   tools/run_tests.sh --suite=qa               (the = form works too)
 #   tools/run_tests.sh -gdir=res://tests/core   a passed -gdir REPLACES the default (repeatable: one run each)
 #   tools/run_tests.sh -gselect=test_terrain    filter by script name; combine with --suite to narrow further
-# A suite name is any directory under game/tests (core, qa, show, ui, ...) or `all`.
+# A suite name is any directory under game/tests (core, qa, show, ui, net, ...) or `all`.
+# The `net` suite also runs the emulator integration tests: this script then re-runs itself inside
+# tools/firebase/with_emulators.sh (Firebase emulators up, CRATERLINE_NET_EMULATOR=1; needs Java 21+ and Node 22+).
+# `--suite all` does not start emulators: those tests report "pending" there.
 # Note: with several suites plus -gselect, every suite must contain a match or it reports "no tests ran".
 #
 # Exit code is non-zero if: Godot exits non-zero, any test fails, no tests ran, or the
@@ -28,6 +31,7 @@ available_suites() {
   find "${TESTS_DIR}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | paste -sd' ' -
 }
 
+ORIG_ARGS=("$@")
 # ---- Argument parsing: pull out --suite and -gdir=, pass everything else to GUT. ----
 SUITES=()   # requested suite names
 GDIRS=()    # explicit -gdir= values
@@ -72,6 +76,15 @@ elif (( ${#SUITES[@]} > 0 )); then
   done
 else
   RUNS+=("all|res://tests")
+fi
+
+# The net suite's integration tests talk to the Firebase emulators: start them around a second run of this script.
+if [[ -z "${CRATERLINE_NET_EMULATOR:-}" ]]; then
+  for entry in "${RUNS[@]}"; do
+    if [[ "${entry%%|*}" == "net" || "${entry#*|}" == res://tests/net* ]]; then
+      exec "${ROOT}/tools/firebase/with_emulators.sh" env CRATERLINE_NET_EMULATOR=1 "${ROOT}/tools/run_tests.sh" "${ORIG_ARGS[@]}"
+    fi
+  done
 fi
 
 GODOT="$("${ROOT}/tools/setup_godot.sh")"

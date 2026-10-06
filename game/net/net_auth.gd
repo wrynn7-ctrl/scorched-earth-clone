@@ -175,7 +175,7 @@ func _sign_in_with_idp(google_id_token: String, current_token: String) -> NetRes
 	if not res.ok:
 		return _auth_failure(res)
 	var d: Dictionary = res.dict()
-	if d.get("needConfirmation", false) == true:
+	if d.get("needConfirmation", false) == true or d.has("errorMessage"):
 		return NetResult.failure(NetError.Code.PRECONDITION, "google_already_linked")
 	var applied: NetResult = _apply_sign_in(d, false)
 	if applied.ok:

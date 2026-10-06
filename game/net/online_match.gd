@@ -74,6 +74,8 @@ var connection: int = Connection.RECONNECTING
 var presence: Dictionary = {}
 ## index -> fingerprint this client computed at the end of a turn (tests and the debug overlay compare them).
 var fingerprints: Dictionary = {}
+## How many writes the database refused because somebody else wrote first (each was followed by a refetch and a retry).
+var write_retries: int = 0
 
 ## Tests only: when not null, new turns get `deadline = now + this` (negative = already due) and `liveDeadline = now + that`.
 var debug_deadline_offset_ms: Variant = null
@@ -305,6 +307,7 @@ func _check_shape(actions: Array, out: Array[Dictionary]) -> String:
 func _submit_locked(first: Array[Dictionary], wait_online_sec: float) -> NetResult:
 	var waited: float = 0.0
 	var attempt: int = 0
+	var synced: bool = false
 	while attempt < WRITE_ATTEMPTS:
 		if not _open:
 			return NetResult.failure(NetError.Code.CLOSED, "closed")
@@ -315,6 +318,11 @@ func _submit_locked(first: Array[Dictionary], wait_online_sec: float) -> NetResu
 		if _needs_resolve() or replay.count < _server_count:
 			await _catch_up_and_resolve()
 		var plan: Dictionary = replay.plan_batch(first)
+		if not (plan["ok"] as bool) and not synced:
+			# Maybe we are simply behind (a dropped connection): look at the log once before saying no.
+			synced = true
+			await sync_now()
+			continue
 		if not (plan["ok"] as bool):
 			var why: String = (plan["err"] as String).trim_prefix("invalid_")
 			return NetResult.failure(NetError.Code.ILLEGAL_ACTION if attempt == 0 else NetError.Code.STALE, why)
@@ -335,6 +343,7 @@ func _submit_locked(first: Array[Dictionary], wait_online_sec: float) -> NetResu
 			return res
 		# Refused: somebody else wrote first (or it is no longer our turn). Look at the log again.
 		attempt += 1
+		write_retries += 1
 		await sync_now()
 		if _landed(first, base):
 			return NetResult.success({"index": base, "entries": first})
