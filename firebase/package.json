@@ -13,8 +13,8 @@
     "typecheck": "tsc -p test/tsconfig.json --noEmit && npm --prefix functions run typecheck",
     "lint": "eslint .",
     "build": "npm --prefix functions run build",
-    "test:rules": "mocha --config test/.mocharc.json 'test/rules/**/*.test.ts'",
-    "test:functions": "mocha --config test/.mocharc.json 'test/unit/**/*.test.ts' 'test/functions/**/*.test.ts'"
+    "test:rules": "mocha --config test/.mocharc.json 'test/rules/**/*.test.ts' 'test/qa/rules/**/*.test.ts'",
+    "test:functions": "mocha --config test/.mocharc.json 'test/unit/**/*.test.ts' 'test/functions/**/*.test.ts' 'test/qa/functions/**/*.test.ts' 'test/qa/unit/**/*.test.ts'"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
