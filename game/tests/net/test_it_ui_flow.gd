@@ -42,6 +42,21 @@ func _battle(m: OnlineMatch) -> OnlineBattleController:
 	return b
 
 
+## True when `m` is LIVE and every stream it opened (meta, actions, fp, msgs) is connected, and the msgs stream has delivered
+## its first snapshot. API gap: OnlineMatch exposes `connection` (meta + actions only) and no signal for the msgs stream, so this
+## reads the private `_streams` / `_msgs_baseline` defensively (a missing member counts as satisfied).
+func _streams_ready(m: OnlineMatch) -> bool:
+	if m.connection != OnlineMatch.Connection.LIVE:
+		return false
+	var streams: Variant = m.get("_streams")
+	if typeof(streams) == TYPE_ARRAY:
+		for st: Variant in streams as Array:
+			if st is NetStream and not (st as NetStream).is_connected_now:
+				return false
+	var baseline: Variant = m.get("_msgs_baseline")
+	return typeof(baseline) != TYPE_BOOL or baseline == true
+
+
 ## One step of a phone's player through the screens: READY in the shop, a shot on an aim turn.
 func _act(b: OnlineBattleController) -> void:
 	if b.is_sending() or b.queue_size() > 0:
@@ -117,7 +132,10 @@ func test_host_join_start_and_play_through_the_screens() -> void:
 	var bg: OnlineBattleController = _battle(mg)
 	await get_tree().process_frame
 
-	# a quick message crosses over
+	# a quick message crosses over, once the guest's streams (msgs included) are up: a message written before the guest's msgs
+	# stream connected is history to it
+	assert_true(await _until(func() -> bool: return _streams_ready(mg), 20.0), "the guest's match is open and its streams are connected")
+	assert_true(await _until(func() -> bool: return _streams_ready(mh), 20.0), "the host's streams are connected")
 	var sent: NetResult = await mh.send_message(2, mh.my_seats[0])
 	assert_true(sent.ok, str(sent))
 	assert_true(await _until(func() -> bool: return bg.get_online_overlay().bubble_count() == 1, 10.0), "the guest sees the host's bubble")

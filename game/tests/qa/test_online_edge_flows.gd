@@ -103,12 +103,9 @@ func test_a_lobby_closed_behind_the_players_back_sends_them_home_with_a_notice()
 	_net.fake_lobby.remote_change("m1", func(m: Dictionary) -> void: m["status"] = NetProtocol.STATUS_ABANDONED)
 	await settle()
 	assert_eq(OnlineHub.last_scene(), OnlineHub.ONLINE_SCENE, "sent back to the Online home")
-	# BUG (low): lobby_screen.gd _on_abandoned() goes home but leaves OnlineHub.open_lobby_id / lobby_to_show pointing at the dead lobby
-	# (leave() and enter_match() clear them), so the Friends tab keeps offering INVITE for a lobby that no longer exists.
-	if OnlineHub.open_lobby_id != "":
-		pending("BUG (low): after the host closed the lobby OnlineHub.open_lobby_id is still '%s' (the Friends tab would offer INVITE for it); _on_abandoned must clear open_lobby_id and lobby_to_show" % OnlineHub.open_lobby_id)
-		return
+	# _on_abandoned() clears the hub's lobby pointers, so the Friends tab stops offering INVITE for a lobby that is gone.
 	assert_eq(OnlineHub.open_lobby_id, "")
+	assert_eq(OnlineHub.lobby_to_show, "")
 
 
 func test_a_lobby_whose_host_is_not_seated_has_nobody_who_can_start_and_does_not_crash() -> void:
@@ -216,14 +213,8 @@ func test_a_protocol_mismatch_in_the_middle_of_a_match_leaves_the_player_a_way_o
 
 # --- the Android back button with a confirm dialog open ------------------------------------------------------------------
 
-# BUG (low), known from M7-U: BattleController._notification(NOTIFICATION_WM_GO_BACK_REQUEST) knows the diag, settings and pause
-# overlays but not OnlineBattleController's OnlineConfirm. With LEAVE? / END? open, Back opens the pause menu on top of (or
-# behind) the question instead of answering "no" like every other online screen does (online_screen.gd:_on_back_request,
-# lobby_screen.gd:_notification close the confirm first).
-#   input:    OnlineBattleController.ask_leave(), then NOTIFICATION_WM_GO_BACK_REQUEST
-#   expected: the confirm closes, the pause menu stays closed
-#   actual:   see the assertions below (confirm still open and/or pause menu opened)
-#   cause:    show/battle/battle_controller.gd:310 _notification; show/online/online_battle_controller.gd has no override.
+# Back with LEAVE? / END? open answers "no" like every other online screen (BattleController._on_back_request, overridden by
+# OnlineBattleController): the question closes and the pause menu stays closed.
 func test_back_with_the_leave_question_open_cancels_the_question() -> void:
 	var b: OnlineBattleController = _battle(_aim_match())
 	await settle()
@@ -232,13 +223,8 @@ func test_back_with_the_leave_question_open_cancels_the_question() -> void:
 	assert_true(b.get_confirm().is_open())
 	b._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	await settle()
-	var confirm_open: bool = b.get_confirm().is_open()
-	var pause_open: bool = b.is_paused()
-	if confirm_open or pause_open:
-		pending("BUG (low): Back with the LEAVE question open leaves confirm_open=%s pause_menu_open=%s (expected both false): BattleController._notification ignores OnlineConfirm" % [confirm_open, pause_open])
-		return
-	assert_false(confirm_open)
-	assert_false(pause_open)
+	assert_false(b.get_confirm().is_open(), "the question is closed")
+	assert_false(b.is_paused(), "and the pause menu did not open")
 
 
 func test_back_with_the_end_question_open_never_leaves_the_match() -> void:

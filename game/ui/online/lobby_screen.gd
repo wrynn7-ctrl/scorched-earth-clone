@@ -350,6 +350,7 @@ func open_lobby(session: NetSession, id: String) -> void:
 		return
 	if not r.ok or typeof(r.value) != TYPE_DICTIONARY:
 		show_toast(OnlineText.error(r) if not r.ok else tr("NET_ERR_NOT_FOUND"))
+		_forget_lobby()
 		_go_online()
 		return
 	apply_meta(NetLobby.normalize_meta(r.dict()))
@@ -391,6 +392,7 @@ func _on_abandoned(_meta_value: Dictionary) -> void:
 	if _left or _entering:
 		return
 	show_toast(tr("NET_LOBBY_CLOSED"))
+	_forget_lobby()
 	_go_online()
 
 
@@ -754,13 +756,13 @@ func enter_match() -> void:
 	if not is_inside_tree():
 		return
 	if r.ok:
-		OnlineHub.open_lobby_id = ""
-		OnlineHub.lobby_to_show = ""
+		_forget_lobby()
 		entered_match.emit()
 		OnlineHub.play(get_tree(), r.value as OnlineMatch)
 		return
 	_entering = false
 	show_toast(tr("NET_ERR_UPDATE") if r.is_code(NetError.Code.PROTOCOL_MISMATCH) else OnlineText.error(r))
+	_forget_lobby()
 	_go_online()
 
 
@@ -775,9 +777,15 @@ func leave() -> void:
 	_unwatch()
 	if net != null and match_id != "":
 		await net.lobby.leave(match_id)
+	_forget_lobby()
+	_go_online()
+
+
+## The lobby is over (left, closed by its host, started or unreadable): the hub must stop pointing at it, or the Friends
+## tab would keep offering INVITE for a lobby that is gone.
+func _forget_lobby() -> void:
 	OnlineHub.open_lobby_id = ""
 	OnlineHub.lobby_to_show = ""
-	_go_online()
 
 
 func _go_online() -> void:
@@ -812,7 +820,7 @@ func open_player_menu(uid: String, shown: String) -> void:
 	for f: Variant in net.friends.friends:
 		if (f as Dictionary).get("uid", "") == uid:
 			friend = true
-	_menu.open_for(net, {"uid": uid, "name": shown, "friend": friend, "in_match": false})
+	_menu.open_for(net, {"uid": uid, "name": shown, "friend": friend, "in_match": false, "match_id": match_id})
 
 
 func show_toast(text: String) -> void:

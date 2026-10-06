@@ -127,6 +127,14 @@ func open_panel() -> void:
 			_fit_scroll()
 
 
+## Android Back: a question that is open is answered "no" first; the panel closes with the next Back.
+func close_topmost() -> void:
+	if _confirm != null and _confirm.is_open():
+		_confirm.close()
+	else:
+		close()
+
+
 func close() -> void:
 	if _confirm != null and _confirm.is_open():
 		_confirm.close()

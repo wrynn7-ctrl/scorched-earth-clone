@@ -328,6 +328,43 @@ func test_the_host_closing_the_lobby_sends_joiners_back() -> void:
 	assert_string_contains(s.get_toast().get_text(), "closed the lobby")
 
 
+func test_a_lobby_the_host_closed_is_forgotten_by_the_hub() -> void:
+	var s: LobbyScreen = await _lobby([OnlineFakes.human_seat(OnlineFakes.OTHER, "ANNA"), OnlineFakes.human_seat(OnlineFakes.ME, "HANA")], {}, OnlineFakes.OTHER)
+	assert_eq(OnlineHub.open_lobby_id, "lobby1", "while it is open the Friends tab may invite into it")
+	_net.fake_lobby.remote_change("lobby1", func(m: Dictionary) -> void: m["status"] = "abandoned")
+	await settle(3)
+	assert_eq(OnlineHub.open_lobby_id, "")
+	assert_eq(OnlineHub.lobby_to_show, "")
+	assert_not_null(s)
+
+
+func test_leaving_forgets_the_lobby() -> void:
+	var s: LobbyScreen = await _lobby(_two_humans_and_cpu())
+	s.ask_leave()
+	s.get_confirm().get_yes_button().pressed.emit()
+	await settle(3)
+	assert_eq(OnlineHub.open_lobby_id, "")
+	assert_eq(OnlineHub.lobby_to_show, "")
+
+
+func test_a_started_match_is_not_a_lobby_any_more() -> void:
+	var seats: Array = [OnlineFakes.human_seat(OnlineFakes.OTHER, "ANNA"), OnlineFakes.human_seat(OnlineFakes.ME, "HANA")]
+	var s: LobbyScreen = await _lobby(seats, {}, OnlineFakes.OTHER)
+	_net.fake_match = OnlineFakes.match_for(OnlineFakes.ME, seats)
+	_net.fake_lobby.remote_change("lobby1", func(m: Dictionary) -> void: m["status"] = "playing")
+	await settle(4)
+	assert_eq(OnlineHub.last_scene(), OnlineHub.BATTLE_SCENE)
+	assert_eq(OnlineHub.open_lobby_id, "")
+	assert_eq(OnlineHub.lobby_to_show, "")
+	assert_not_null(s)
+
+
+func test_the_lobby_hands_its_match_to_the_player_menu() -> void:
+	var s: LobbyScreen = await _lobby([OnlineFakes.human_seat(OnlineFakes.ME, "HANA"), OnlineFakes.human_seat(OnlineFakes.OTHER, "ANNA")])
+	(s.get_seat_row(1).find_child("Name", true, false) as Button).pressed.emit()
+	assert_eq(s.get_player_menu().info.get("match_id", ""), "lobby1", "passed explicitly, not found by walking the tree")
+
+
 func test_invite_friends_from_the_picker() -> void:
 	_net.fake_friends.friends = [OnlineFakes.friend("f1", "ANNA"), OnlineFakes.friend("f2", "BO")]
 	var s: LobbyScreen = await _lobby(_two_humans_and_cpu())

@@ -310,18 +310,24 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			if _diag != null and _diag.is_open():
-				_diag.close()
-			elif _settings_overlay != null and _settings_overlay.is_open():
-				_settings_overlay.close()
-			elif is_paused():
-				close_pause()
-			else:
-				open_pause()
+			_on_back_request()
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST:
 			# The OS may kill the app any time after these: save what we have.
 			if state != null:
 				autosave_now()
+
+
+## Android Back: closes the top-most dialog first, and opens the pause menu only when there is none. A subclass overrides
+## this (not `_notification`, which the engine would run for every class in the chain) to put its own dialogs on top.
+func _on_back_request() -> void:
+	if _diag != null and _diag.is_open():
+		_diag.close()
+	elif _settings_overlay != null and _settings_overlay.is_open():
+		_settings_overlay.close_topmost()
+	elif is_paused():
+		close_pause()
+	else:
+		open_pause()
 
 
 # ======================================================================================

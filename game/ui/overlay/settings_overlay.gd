@@ -165,6 +165,18 @@ func _refit_settings_next_frame() -> void:
 		_fit_scrolls()
 
 
+## Android Back: closes the innermost open dialog (online account, diagnostics, unlock) and only then the settings.
+func close_topmost() -> void:
+	if _online.is_open():
+		_online.close_topmost()
+	elif _diag.is_open():
+		_diag.close()
+	elif _unlock.is_open():
+		_unlock.close()
+	else:
+		close()
+
+
 func close() -> void:
 	if _online.is_open():
 		_online.close()

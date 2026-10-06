@@ -235,6 +235,25 @@ func test_pause_overlay_opens_and_closes() -> void:
 	assert_false(get_tree().is_quit_on_go_back(), "back is handled by the game, not the engine")
 
 
+func test_back_in_a_nested_settings_dialog_closes_only_that_dialog() -> void:
+	SettingsStore.path = "user://test_settings_flow.cfg"
+	var c: BattleController = _make_round(3, SEED)
+	c.open_pause()
+	(c.get_pause_overlay().find_child("Settings", true, false) as Button).pressed.emit()
+	var settings: SettingsOverlay = c.get_settings_overlay()
+	assert_true(settings.is_open())
+	settings.get_unlock_screen().open()
+	c.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	assert_false(settings.get_unlock_screen().is_open(), "Back closes the Unlock screen first")
+	assert_true(settings.is_open(), "the settings stay")
+	c.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	assert_false(settings.is_open())
+	assert_true(c.is_paused(), "and the pause menu is behind them")
+	c.close_pause()
+	SettingsStore.delete()
+	SettingsStore.path = SettingsStore.DEFAULT_PATH
+
+
 func test_pause_menu_opens_settings_and_back_returns_to_it() -> void:
 	SettingsStore.path = "user://test_settings_flow.cfg"
 	var c: BattleController = _make_round(3, SEED)

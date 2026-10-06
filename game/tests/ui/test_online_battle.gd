@@ -752,6 +752,96 @@ func test_the_players_list_opens_the_player_menu() -> void:
 	assert_null(panel.get_row(2).find_child("Name", true, false) as Button, "a computer has no menu")
 
 
+func test_the_battle_hands_its_match_to_the_player_menu() -> void:
+	var fm: OnlineFakes.FakeMatch = _aim_match(true)
+	var b: OnlineBattleController = _battle(fm)
+	await settle()
+	b.open_players()
+	var theirs: int = 1 if fm.my_seats.has(0) else 0
+	(b.get_players_panel().get_row(theirs).find_child("Name", true, false) as Button).pressed.emit()
+	assert_eq(b.get_player_menu().info.get("match_id", ""), fm.match_id)
+	assert_ne(fm.match_id, "")
+
+
+# --- Android Back --------------------------------------------------------------------------------------------------------
+
+func _back(b: OnlineBattleController) -> void:
+	b.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+
+
+func test_back_opens_the_pause_menu_and_a_second_back_closes_it() -> void:
+	var b: OnlineBattleController = _battle(_aim_match(true))
+	await settle()
+	_back(b)
+	assert_true(b.is_paused())
+	_back(b)
+	assert_false(b.is_paused())
+
+
+func test_back_closes_the_leave_question_and_leaves_the_pause_menu_closed() -> void:
+	var fm: OnlineFakes.FakeMatch = _aim_match(true)
+	var b: OnlineBattleController = _battle(fm)
+	await settle()
+	b.open_pause()
+	b.ask_leave()
+	_back(b)
+	await settle()
+	assert_false(b.get_confirm().is_open())
+	assert_false(b.is_paused())
+	assert_eq(_net.sc.count("leave"), 0, "Back is never a yes")
+
+
+func test_back_closes_the_player_menu_before_anything_else() -> void:
+	var fm: OnlineFakes.FakeMatch = _aim_match(true)
+	var b: OnlineBattleController = _battle(fm)
+	await settle()
+	b.open_players()
+	var theirs: int = 1 if fm.my_seats.has(0) else 0
+	(b.get_players_panel().get_row(theirs).find_child("Name", true, false) as Button).pressed.emit()
+	assert_true(b.get_player_menu().is_open())
+	_back(b)
+	await settle()
+	assert_false(b.get_player_menu().is_open())
+	assert_false(b.is_paused(), "no pause menu opened over it")
+
+
+func test_back_closes_the_players_panel() -> void:
+	var b: OnlineBattleController = _battle(_aim_match(true))
+	await settle()
+	b.open_players()
+	assert_true(b.get_players_panel().is_open())
+	_back(b)
+	await settle()
+	assert_false(b.get_players_panel().is_open())
+	assert_false(b.is_paused())
+
+
+func test_back_closes_the_message_picker() -> void:
+	var b: OnlineBattleController = _battle(_aim_match(true))
+	await settle()
+	b.open_messages()
+	assert_true(b.get_online_overlay().get_picker().is_open())
+	_back(b)
+	await settle()
+	assert_false(b.get_online_overlay().get_picker().is_open())
+	assert_false(b.is_paused())
+
+
+func test_back_peels_dialogs_one_at_a_time_from_the_top() -> void:
+	var b: OnlineBattleController = _battle(_aim_match(true))
+	await settle()
+	b.open_messages()
+	b.get_confirm().ask("?", Callable(), "OK")
+	_back(b)
+	await settle()
+	assert_false(b.get_confirm().is_open(), "the question was on top")
+	assert_true(b.get_online_overlay().get_picker().is_open(), "the picker is still there")
+	_back(b)
+	await settle()
+	assert_false(b.get_online_overlay().get_picker().is_open())
+	assert_false(b.is_paused())
+
+
 # --- the end of the match -------------------------------------------------------------------------------------------------
 
 func _finished_match_but_one() -> Array:

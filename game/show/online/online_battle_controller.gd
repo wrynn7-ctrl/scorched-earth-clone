@@ -738,6 +738,21 @@ func is_sending() -> bool:
 	return _sending
 
 
+## Android Back: the top-most online dialog goes first (a question is answered "no", never "yes"), then the base class'
+## dialogs; only with nothing open does Back open the pause menu.
+func _on_back_request() -> void:
+	if _confirm != null and _confirm.is_open():
+		_confirm.close()
+	elif _menu != null and _menu.is_open():
+		_menu.close()
+	elif _players_panel != null and _players_panel.is_open():
+		_players_panel.close()
+	elif _overlay != null and _overlay.get_picker().is_open():
+		_overlay.get_picker().close()
+	else:
+		super._on_back_request()
+
+
 func open_pause() -> void:
 	# The network keeps running behind the menu, so the tree is never paused online.
 	if is_paused():
@@ -757,7 +772,15 @@ func open_players() -> void:
 
 
 func _on_player_tapped(info: Dictionary) -> void:
-	_menu.open_for(OnlineHub.session, info)
+	_menu.open_for(OnlineHub.session, _with_match_id(info))
+
+
+## The menu's ADD FRIEND needs the match both players are in: say it instead of letting the menu look for it.
+func _with_match_id(info: Dictionary) -> Dictionary:
+	var out: Dictionary = info.duplicate()
+	if om != null and om.match_id != "":
+		out["match_id"] = om.match_id
+	return out
 
 
 func ask_leave() -> void:
