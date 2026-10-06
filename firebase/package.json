@@ -1,0 +1,32 @@
+{
+  "name": "craterline-firebase",
+  "private": true,
+  "description": "Craterline online backend: Realtime Database rules, Cloud Functions and their emulator tests (see README.md).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "rules:build": "node rules/build_rules.mjs",
+    "rules:check": "node rules/build_rules.mjs --check",
+    "blocklist:build": "node ../tools/firebase/gen_name_blocklist.mjs",
+    "blocklist:check": "node ../tools/firebase/gen_name_blocklist.mjs --check",
+    "typecheck": "tsc -p test/tsconfig.json --noEmit && npm --prefix functions run typecheck",
+    "lint": "eslint .",
+    "build": "npm --prefix functions run build",
+    "test:rules": "mocha --config test/.mocharc.json 'test/rules/**/*.test.ts'",
+    "test:functions": "mocha --config test/.mocharc.json 'test/unit/**/*.test.ts' 'test/functions/**/*.test.ts'"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.5",
+    "eslint": "10.12.0",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.32.1",
+    "mocha": "12.0.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.1"
+  }
+}
