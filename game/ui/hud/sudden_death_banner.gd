@@ -112,7 +112,8 @@ func _apply_progress() -> void:
 		var f: float = _t / _t_in
 		k = POP_FROM + (1.0 - POP_FROM) * (1.0 - pow(1.0 - f, 3.0))
 	_panel.pivot_offset = _panel.size * 0.5
-	_panel.scale = Vector2(k, k)
+	# The band already spans the screen: pop it vertically only, so it never pokes past the edges.
+	_panel.scale = Vector2(1.0, k)
 	var pulse: float = 0.5 + 0.5 * sin(_t * TAU * PULSE_HZ)
 	var glow: float = 0.7 if (ShowSettings.reduce_flashing or ShowSettings.reduce_motion) else 0.45 + 0.4 * pulse
 	_label.add_theme_color_override("font_shadow_color", Color(NeonPalette.SUNSET, glow))

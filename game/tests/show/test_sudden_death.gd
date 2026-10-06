@@ -151,7 +151,7 @@ func test_reduce_motion_makes_the_banner_calm() -> void:
 	var b := SuddenDeathBanner.new()
 	add_child_autofree(b)
 	b.play()
-	assert_almost_eq(b.get_band().scale.x, 1.0, 0.001, "no pop-in scaling")
+	assert_almost_eq(b.get_band().scale.y, 1.0, 0.001, "no pop-in scaling")
 	var t: float = 0.0
 	while b.is_showing() and t < 6.0:
 		b.advance(0.05)
@@ -160,7 +160,8 @@ func test_reduce_motion_makes_the_banner_calm() -> void:
 	ShowSettings.reduce_motion = false
 	ShowSettings.reduce_flashing = true
 	b.play()
-	assert_gt(b.get_band().scale.x, 1.0, "the pop-in is on again")
+	assert_gt(b.get_band().scale.y, 1.0, "the pop-in is on again (vertical only)")
+	assert_almost_eq(b.get_band().scale.x, 1.0, 0.001, "the full-width band never grows past the screen edges")
 	b.advance(0.05)
 	var a: float = b.get_label().get_theme_color("font_shadow_color").a
 	b.advance(0.2)
