@@ -6,8 +6,8 @@ extends RefCounted
 const MAX_SAFE: int = 9007199254740992
 
 
-## Parses `text`. Returns null for an empty text. `ok` (optional out via the returned Dictionary) is not needed:
-## use `try_parse` when a parse failure must be told apart from a literal null.
+## Parses `text` (whole-number floats become ints). Returns null for an empty or invalid text; use `try_parse` when a
+## parse failure must be told apart from a literal null.
 static func parse(text: String) -> Variant:
 	return try_parse(text)["value"]
 

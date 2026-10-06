@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Compare game/tests/* with the matrix
         run: |
-          covered="core qa show ui ai"
+          covered="core qa show ui ai net"
           for d in game/tests/*/; do
             n="$(basename "$d")"
             case " $covered " in
@@ -89,11 +89,12 @@ jobs:
           done
 
   # Online backend (ARCHITECTURE section 43): lint, typecheck, then the rules and functions tests against the local Firebase
-  # emulators (project "demo-craterline": fully offline, no credentials, no real Firebase project). Independent of the Godot jobs.
+  # emulators (project "demo-craterline": fully offline, no credentials, no real Firebase project), then the Godot net client
+  # tests (game/tests/net: unit tests plus two-phone integration tests) against the same emulators. Independent of the other jobs.
   firebase:
-    name: Firebase (rules + functions + emulators)
+    name: Firebase (rules + functions + emulators + Godot net suite)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -128,6 +129,23 @@ jobs:
       # Static checks (generated files up to date, typecheck, eslint, build), rules tests, functions tests.
       - name: Firebase tests
         run: tools/firebase/test.sh
+
+      # The Godot net suite: needs Godot, and starts the emulators itself (tools/run_tests.sh --suite net re-runs inside
+      # tools/firebase/with_emulators.sh). Same Godot download as the test job.
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TOOLS_TAG" --repo "${{ github.repository }}" \
+            --pattern "godot-${GODOT_VERSION}-linux.x86_64.zip" --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/godot-dl"
+          (cd "$RUNNER_TEMP/godot-dl" && grep " godot-${GODOT_VERSION}-linux.x86_64.zip\$" SHA256SUMS.txt | sha256sum -c -)
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot-dl/godot-${GODOT_VERSION}-linux.x86_64.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Godot net tests (client against the emulators)
+        run: tools/run_tests.sh --suite net
 
   android-debug:
     name: Android debug APK

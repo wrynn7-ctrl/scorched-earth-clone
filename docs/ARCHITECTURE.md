@@ -886,3 +886,19 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
   days. Caps: 40 matches and 50 pending requests per player.
 - **Region:** `europe-west1` (one constant). Push uses a notification plus `data {type, matchId}` on channel `turns`.
 - **Shop timeouts are client-written** (the sweep only abandons a shop stuck for 14 days).
+
+## 52. M7-N as built (client; reference: `game/net/README.md`)
+- **Entry point:** `NetSession.create()` → `await start()` (anonymous sign-in or restore, then `ensureProfile`). Parts:
+  `account`, `friends`, `lobby`, `matches`, `open_match(id) -> OnlineMatch`. Every call returns a `NetResult` and never
+  throws. Error codes are listed in `NetError.Code`, and backend reasons come through in `reason`.
+- **`OnlineMatch`:**
+  - The UI reads `state`, `turn_info()`, `my_seats` and `connection`.
+  - It acts only through `submit()` / `submit_many()` / `send_message()` / `abandon()`, and never mutates `state`.
+  - Playback comes from `entry_applied(index, result)`, with `result.steps` as the timelines.
+- **Replay equivalence:** `NetReplay` is proven equivalent to the offline `MatchSession` path, fingerprint for
+  fingerprint, at every turn end. `test_net_protocol_golden.gd` pins a scripted match. When it trips, bump
+  `NetProtocol.VERSION`.
+- **Timeout entries:** `{kind: "timeout", tank, async?: 1}`.
+  - `async: 1` is written after the hard (async) deadline, by the sweep or a client. It means the AI plays the turn
+    at level 2 (or the match ends if `asyncTimeout = "end"`).
+  - Without it, it's a live skip: a pass, or ready in the shop.
