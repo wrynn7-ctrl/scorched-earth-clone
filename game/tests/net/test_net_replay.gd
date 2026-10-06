@@ -155,7 +155,7 @@ func test_entries_after_the_end_are_disputed() -> void:
 	r.apply_entry({"kind": "ready", "tank": 0})
 	r.apply_entry({"kind": "ready", "tank": 1})
 	var tank: int = r.state.current_tank
-	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": tank})
+	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": tank, "async": 1})
 	assert_true(res["ok"])
 	assert_true(r.ended)
 	assert_true(r.ended_by_timeout)
@@ -164,11 +164,10 @@ func test_entries_after_the_end_are_disputed() -> void:
 	assert_eq(r.apply_entry({"kind": "pass", "tank": tank})["err"], "entry_after_end")
 
 
-func test_timeout_modes() -> void:
-	assert_eq(_replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 60}).timeout_mode(), "pass")
-	assert_eq(_replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 0}).timeout_mode(), "auto")
-	assert_eq(_replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 0, "asyncTimeout": "end"}).timeout_mode(), "end")
-	assert_eq(_replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 60, "asyncTimeout": "end"}).timeout_mode(), "end")
+func test_timeout_mode_depends_on_the_async_flag_only() -> void:
+	assert_eq(NetReplay.timeout_mode({"kind": "timeout", "tank": 0}), "pass")
+	assert_eq(NetReplay.timeout_mode({"kind": "timeout", "tank": 0, "async": 1}), "auto")
+	assert_eq(NetReplay.timeout_mode({"kind": "timeout", "tank": 0, "async": 0}), "pass")
 
 
 func _into_aim(r: NetReplay) -> void:
@@ -189,11 +188,27 @@ func test_live_timeout_passes_the_turn() -> void:
 	assert_ne(r.state.current_tank, tank)
 
 
-func test_async_timeout_lets_the_ai_play_the_turn() -> void:
-	var r: NetReplay = _replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 0})
+func test_async_timeout_lets_the_ai_play_the_turn_also_in_a_live_capable_match() -> void:
+	for timers: Dictionary in [{"liveSec": 0}, {"liveSec": 60}]:
+		_async_timeout_plays_the_ai(timers)
+
+
+func test_a_live_skip_passes_even_without_a_live_timer_or_with_end_timers() -> void:
+	for timers: Dictionary in [{"liveSec": 0}, {"liveSec": 60, "asyncTimeout": "end"}]:
+		var r: NetReplay = _replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, timers)
+		_into_aim(r)
+		var tank: int = r.state.current_tank
+		var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": tank})
+		assert_true(res["ok"])
+		assert_false(r.ended)
+		assert_eq((res["steps"] as Array)[0]["action"], {"kind": "pass", "tank": tank})
+
+
+func _async_timeout_plays_the_ai(timers: Dictionary) -> void:
+	var r: NetReplay = _replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, timers)
 	_into_aim(r)
 	var tank: int = r.state.current_tank
-	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": tank})
+	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": tank, "async": 1})
 	assert_true(res["ok"], str(res))
 	assert_ne(r.state.current_tank, tank)
 	var last: Dictionary = (res["steps"] as Array).back()["action"]
@@ -207,11 +222,13 @@ func test_shop_timeouts() -> void:
 	var res: Dictionary = r.apply_entry({"kind": "timeout", "tank": 0})
 	assert_true(res["ok"])
 	assert_true(r.state.tanks[0].ready)
-	var r2: NetReplay = _replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 0})
-	var res2: Dictionary = r2.apply_entry({"kind": "timeout", "tank": 1})
+	assert_eq((res["steps"] as Array).size(), 1, "a live skip only readies")
+	var r2: NetReplay = _replay([NetTestUtil.human(A), NetTestUtil.human(B)], {}, {"liveSec": 60})
+	var res2: Dictionary = r2.apply_entry({"kind": "timeout", "tank": 1, "async": 1})
 	assert_true(res2["ok"], str(res2))
 	assert_true(r2.state.tanks[1].ready)
-	assert_false(r2.apply_entry({"kind": "timeout", "tank": 1})["ok"], "already ready")
+	assert_gt((res2["steps"] as Array).size(), 1, "an async timeout lets the AI shop for the sleeper")
+	assert_false(r2.apply_entry({"kind": "timeout", "tank": 1, "async": 1})["ok"], "already ready")
 
 
 func test_expected_turn_and_check() -> void:

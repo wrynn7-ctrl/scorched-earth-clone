@@ -119,9 +119,10 @@ input through `om.submit`, never call `Simulation.apply_action` on `om.state` yo
   real `Simulation`: real actions as they are, and the markers `auto` (AiPlayer plays the turn), `auto_shop` (CPU shop
   visit) and `timeout` expanded exactly like the offline game does it. `start_round` is automatic when the shop is all ready.
   Tests prove equal fingerprints against the offline `MatchSession` path.
-- `timeout` meaning (the entry cannot say which deadline fired, so the timers decide): `asyncTimeout "end"` ends the match
-  (no live skips then); otherwise `liveSec > 0` -> the player passes (in the shop: ready); `liveSec == 0` (pure async) ->
-  the AI plays the turn at level 2 (in the shop: buys and readies).
+- `timeout` entries are `{kind: "timeout", tank, async?: 1}` (ARCHITECTURE section 52). With `async: 1` (written after the
+  hard deadline by the sweep or a client) the AI plays the turn at level 2 (in the shop it buys and readies), or the match
+  ends when `asyncTimeout` is `end`. Without it it is a live skip: the player passes (in the shop: ready). The rules allow a
+  live skip only after `liveDeadline` while the holder's heartbeat is fresh, and `async: 1` only after `deadline`.
 - Writers: any member resolves "needs resolve" turns and continues CPU turns left by a full batch (staggered by seat so
   they do not all race), and writes `timeout` entries after a deadline. Deadlines come from the server clock.
 - Disputed: an entry the simulation refuses, an `auto` for a human seat, history that changed, a stored turn that

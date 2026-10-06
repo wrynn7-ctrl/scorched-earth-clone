@@ -39,7 +39,6 @@ func test_async_timeout_lets_the_ai_play_the_turn() -> void:
 			NetLobby.timers(0, 24, "auto"))
 	var mh: OnlineMatch = c["mh"]
 	var mf: OnlineMatch = c["mf"]
-	assert_eq(mh.replay.timeout_mode(), "auto")
 	# the friend writes the first aim turn with a deadline one second in the past
 	mf.debug_deadline_offset_ms = -1000
 	await _both_ready(c)
@@ -53,7 +52,7 @@ func test_async_timeout_lets_the_ai_play_the_turn() -> void:
 			timeout_index = i
 			break
 	# there is no `fire` entry for the sleeper's tank: the AI's shot is expanded by every client from the marker
-	assert_eq(mh.replay.entries[timeout_index], {"kind": "timeout", "tank": first_holder})
+	assert_eq(mh.replay.entries[timeout_index], {"kind": "timeout", "tank": first_holder, "async": 1})
 	assert_eq(mh.replay.fingerprint(), mf.replay.fingerprint())
 	mh.debug_deadline_offset_ms = null
 	assert_true(await _play_out([mh, mf], 150.0))
@@ -85,16 +84,54 @@ func test_live_timeout_passes_while_the_holder_is_online() -> void:
 	var c: Dictionary = await _pair(NetLobby.settings({"rounds": 1, "wind_max": 10}), [NetLobby.seat_human(true), NetLobby.seat_human()], NetLobby.timers(10, 72, "auto"))
 	var mh: OnlineMatch = c["mh"]
 	var mf: OnlineMatch = c["mf"]
-	assert_eq(mh.replay.timeout_mode(), "pass")
 	mf.debug_live_offset_ms = -1000
 	await _both_ready(c)
 	var holder: int = mh.turn_info()["tank"]
 	assert_true(mh.turn_info().has("liveDeadline"))
 	assert_true(await _until(func() -> bool: return _count_kind(mh, "timeout") >= 1 and _count_kind(mf, "timeout") >= 1), "live timeout written")
 	mf.debug_live_offset_ms = null
+	for e: Dictionary in mh.replay.entries:
+		if e["kind"] == "timeout":
+			assert_false(e.has("async"), "a live skip carries no async flag")
+			break
 	assert_true(await _until(func() -> bool: return mh.turn_info()["tank"] != holder))
 	assert_eq(mh.replay.fingerprint(), mf.replay.fingerprint())
 	assert_lt(mh.live_seconds_left(), 11.0)
+
+
+func test_hard_deadline_in_a_live_capable_match_hands_the_turn_to_the_ai() -> void:
+	if not _need_emulator():
+		return
+	# liveSec 10 means live skips exist, but the HARD deadline still makes the AI play the sleeper's turn
+	var c: Dictionary = await _pair(NetLobby.settings({"rounds": 1, "wind_max": 10}), [NetLobby.seat_human(true), NetLobby.seat_human(), NetLobby.seat_cpu(2)],
+			NetLobby.timers(10, 24, "auto"))
+	var mh: OnlineMatch = c["mh"]
+	var mf: OnlineMatch = c["mf"]
+	var steps: Array = []
+	mh.entry_applied.connect(func(_i: int, r: Dictionary) -> void:
+		if (r["entry"] as Dictionary)["kind"] == "timeout":
+			steps.append(r["steps"]))
+	mf.debug_deadline_offset_ms = -1000
+	await _both_ready(c)
+	var holder: int = mh.turn_info()["tank"]
+	assert_true(mh.turn_info().has("liveDeadline"), "the turn also has a live deadline (10 s away)")
+	assert_true(await _until(func() -> bool: return _count_kind(mh, "timeout") >= 1 and _count_kind(mf, "timeout") >= 1), "a timeout was written at the hard deadline")
+	mf.debug_deadline_offset_ms = null
+	var written: Dictionary = {}
+	for e: Dictionary in mh.replay.entries:
+		if e["kind"] == "timeout":
+			written = e
+			break
+	assert_eq(written, {"kind": "timeout", "tank": holder, "async": 1})
+	assert_true(await _until(func() -> bool: return steps.size() >= 1))
+	var last: Dictionary = ((steps[0] as Array).back() as Dictionary)["action"]
+	assert_eq(last["kind"], "fire", "the AI fired for the sleeper; a live skip would only be a pass")
+	assert_true(await _until(func() -> bool: return mh.replay.count == mf.replay.count))
+	assert_eq(mh.replay.fingerprint(), mf.replay.fingerprint())
+	assert_false(mh.is_disputed() or mf.is_disputed())
+	assert_true(await _play_out([mh, mf], 150.0))
+	assert_true(await _until(func() -> bool: return mf.replay.count == mh.replay.count and mf.status == "over"))
+	await _assert_in_sync([mh, mf], c["id"] as String, [c["host"], c["friend"]])
 
 
 func test_disconnect_then_catch_up() -> void:

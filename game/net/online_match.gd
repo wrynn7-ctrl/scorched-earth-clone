@@ -436,7 +436,7 @@ func _make_turn(want: Dictionary) -> Dictionary:
 		deadline = now + (debug_deadline_offset_ms as int)
 	var t: Dictionary = {"tank": tank, "uid": want["uid"], "deadline": deadline, "index": (_turn_raw.get("index", 0) as int) + 1}
 	var live_sec: int = timers.get("liveSec", 0)
-	var live_ok: bool = tank >= 0 and want["uid"] != NetProtocol.UID_CPU and replay.timeout_mode() != NetReplay.TIMEOUT_END
+	var live_ok: bool = tank >= 0 and want["uid"] != NetProtocol.UID_CPU
 	if live_ok and (live_sec > 0 or debug_live_offset_ms != null):
 		t["liveDeadline"] = now + (debug_live_offset_ms as int if debug_live_offset_ms != null else live_sec * 1000)
 	return t
@@ -827,8 +827,8 @@ func _can_write_locked() -> bool:
 	return _open and not replay.disputed and status == NetProtocol.STATUS_PLAYING and replay.count == _server_count
 
 
-## After a deadline any member writes the `timeout` entry (rules: hard deadline, or the live deadline while the holder's
-## heartbeat is fresh). A match whose asyncTimeout is "end" has no live skips: only the hard deadline counts.
+## After a deadline any member writes the `timeout` entry (section 52): `async: 1` after the hard deadline (the AI plays, or
+## the match ends), a plain one for a live skip after the live deadline while the holder's heartbeat is fresh.
 func _maybe_timeout(now: int) -> void:
 	if not _can_write() or now < _timeout_block_until or _turn_raw.is_empty():
 		return
@@ -836,10 +836,11 @@ func _maybe_timeout(now: int) -> void:
 	if tank == NetProtocol.TURN_NEEDS_RESOLVE or str(_turn_raw.get("uid", "")) == NetProtocol.UID_CPU:
 		return
 	var deadline: int = _turn_raw.get("deadline", 0)
-	var due: bool = deadline > 0 and now > deadline + TIMEOUT_MARGIN_MS
-	if not due and tank >= 0 and _turn_raw.has("liveDeadline") and replay.timeout_mode() != NetReplay.TIMEOUT_END:
-		due = now > (_turn_raw["liveDeadline"] as int) + TIMEOUT_MARGIN_MS and is_online(str(_turn_raw.get("uid", "")))
-	if not due:
+	var hard: bool = deadline > 0 and now > deadline + TIMEOUT_MARGIN_MS
+	var live: bool = false
+	if not hard and tank >= 0 and _turn_raw.has("liveDeadline"):
+		live = now > (_turn_raw["liveDeadline"] as int) + TIMEOUT_MARGIN_MS and is_online(str(_turn_raw.get("uid", "")))
+	if not hard and not live:
 		_timeout_since = 0
 		return
 	if _timeout_since == 0:
@@ -848,7 +849,7 @@ func _maybe_timeout(now: int) -> void:
 	if now - _timeout_since < wait:
 		return
 	_timeout_since = 0
-	_write_timeout(_timeout_tank(tank))
+	_write_timeout(_timeout_tank(tank), hard)
 
 
 ## The seat a timeout entry names: the turn's tank, or in the shop the first human seat that is not ready.
@@ -861,13 +862,16 @@ func _timeout_tank(tank: int) -> int:
 	return -1
 
 
-func _write_timeout(tank: int) -> void:
+func _write_timeout(tank: int, hard_deadline: bool) -> void:
 	if tank < 0:
 		_timeout_block_until = now_ms() + 5000
 		return
 	await _lock()
 	if _can_write_locked():
-		var plan: Dictionary = replay.plan_batch([{"kind": "timeout", "tank": tank}])
+		var entry: Dictionary = {"kind": "timeout", "tank": tank}
+		if hard_deadline:
+			entry["async"] = 1
+		var plan: Dictionary = replay.plan_batch([entry])
 		if not (plan["ok"] as bool):
 			_timeout_block_until = now_ms() + 3000
 		else:

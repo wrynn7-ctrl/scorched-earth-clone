@@ -8,7 +8,7 @@ extends RefCounted
 ## (fire, move, use_item, pass, buy, sell, ready) or three net markers that are expanded here:
 ##   auto       {tank, level}   AiPlayer plays that tank's whole turn (shield, move... then the shot), like the offline game
 ##   auto_shop  {tank, level}   the CPU shop visit: AiPlayer's purchases, then `ready` (same as CpuShop offline)
-##   timeout    {tank}          what a missed deadline does, decided by the match timers (see _timeout_mode)
+##   timeout    {tank, async?}  a missed deadline: a live skip (pass), or with async: 1 the AI plays / the match ends
 ## `start_round` is never logged: it happens by itself when the shop is all ready, exactly like offline.
 ##
 ## Anything that does not fit (an entry the simulation refuses, an `auto` for a human seat, an entry after the end...)
@@ -23,7 +23,6 @@ extends RefCounted
 const MAX_CPU_CALLS: int = 4
 ## Hard stop for a runaway turn loop (never reached: the 4th call always ends the turn).
 const MAX_TURN_STEPS: int = 12
-const TIMEOUT_END: String = "end"
 const TIMEOUT_PASS: String = "pass"
 const TIMEOUT_AUTO: String = "auto"
 
@@ -339,42 +338,37 @@ func _apply_auto_shop(entry: Dictionary, result: Dictionary) -> String:
 	return _shop_ai(tank, level, result)
 
 
-## What a `timeout` means. The entry cannot say whether a live or an async deadline fired, so the match timers decide:
-##   asyncTimeout "end"            the match ends (clients only write a timeout after the hard deadline then)
-##   otherwise liveSec > 0         the player passes / is marked ready (a live-capable match skips slow players)
-##   otherwise (pure async, auto)  the AI plays the turn for them at level TIMEOUT_AI_LEVEL
-func timeout_mode() -> String:
-	if str(timers.get("asyncTimeout", "auto")) == "end":
-		return TIMEOUT_END
-	if (timers.get("liveSec", 0) as int) > 0:
-		return TIMEOUT_PASS
-	return TIMEOUT_AUTO
+## What a `timeout` means (docs/ARCHITECTURE.md section 52): `{kind: "timeout", tank, async?: 1}`.
+##   async: 1   written after the hard deadline: the AI plays the turn at level TIMEOUT_AI_LEVEL (in the shop it buys and
+##              readies), or the match ends when the timers say asyncTimeout "end"
+##   otherwise  a live skip: the player passes (in the shop: is marked ready)
+static func timeout_mode(entry: Dictionary) -> String:
+	return TIMEOUT_AUTO if entry.get("async", 0) == 1 else TIMEOUT_PASS
 
 
 func _apply_timeout(entry: Dictionary, result: Dictionary) -> String:
 	var tank: int = _int_field(entry, "tank")
-	var mode: String = timeout_mode()
+	var mode: String = timeout_mode(entry)
+	var ends: bool = mode == TIMEOUT_AUTO and str(timers.get("asyncTimeout", "auto")) == "end"
 	if state.phase == SimConstants.PHASE_AIM:
 		if tank != state.current_tank:
 			return "bad_timeout"
-		match mode:
-			TIMEOUT_END:
-				ended = true
-				ended_by_timeout = true
-				return ""
-			TIMEOUT_PASS:
-				return _apply_real({"kind": "pass", "tank": tank}, result)
+		if ends:
+			ended = true
+			ended_by_timeout = true
+			return ""
+		if mode == TIMEOUT_PASS:
+			return _apply_real({"kind": "pass", "tank": tank}, result)
 		return _play_ai_turn(tank, NetProtocol.TIMEOUT_AI_LEVEL, result)
 	if state.phase == SimConstants.PHASE_SHOP:
 		if tank < 0 or tank >= state.tanks.size() or state.tanks[tank].ready:
 			return "bad_timeout"
-		match mode:
-			TIMEOUT_END:
-				ended = true
-				ended_by_timeout = true
-				return ""
-			TIMEOUT_PASS:
-				return _apply_real({"kind": "ready", "tank": tank}, result)
+		if ends:
+			ended = true
+			ended_by_timeout = true
+			return ""
+		if mode == TIMEOUT_PASS:
+			return _apply_real({"kind": "ready", "tank": tank}, result)
 		return _shop_ai(tank, NetProtocol.TIMEOUT_AI_LEVEL, result)
 	return "bad_timeout"
 
