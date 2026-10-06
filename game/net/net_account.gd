@@ -6,6 +6,7 @@ extends RefCounted
 ##   set_name(raw)         NameFilter first (typed NAME_REJECTED, nothing is sent), then the database
 ##   fetch_public(uid)     {uid, name, hidden, display} of any player you may see (hidden names read "PLAYER ab12")
 ##   verify_purchase(tok)  asks the backend to verify the full-unlock purchase; refreshes `profile.full`
+##   sync_full(tok)        verify_purchase only when the profile is not full yet, then re-read the profile
 ##   register_push_token / bind_push   FCM token -> users/{uid}/fcm/{hash}
 ##   link_google(gs)       Google sign-in sheet, then link the ID token to this (anonymous) account
 ##   delete_my_data()      removes everything online, then signs out (the Auth user is deleted too)
@@ -118,6 +119,21 @@ func verify_purchase(purchase_token: String) -> NetResult:
 		profile["full"] = true
 		profile_changed.emit(profile)
 	return res
+
+
+## Makes the server's `full` flag match a full game owned on this phone: when the profile is not full yet, sends the store's
+## purchase token to `verifyPurchase`, then re-reads the profile. Already full: nothing is sent. No token (`token == ""`):
+## PRECONDITION `no_token`, nothing is sent. Failures come through unchanged (`token_used`, `not_purchased`, offline, ...).
+func sync_full(purchase_token: String) -> NetResult:
+	if is_full():
+		return NetResult.success({"full": true})
+	if purchase_token == "":
+		return NetResult.failure(NetError.Code.PRECONDITION, "no_token")
+	var res: NetResult = await verify_purchase(purchase_token)
+	if not res.ok:
+		return res
+	await refresh_profile()  # best effort: verify_purchase already set profile.full
+	return NetResult.success({"full": is_full()})
 
 
 ## Deletes everything online, then signs out locally. After success the next `ensure_signed_in` creates a new account.

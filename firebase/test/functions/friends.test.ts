@@ -105,6 +105,87 @@ describe('functions: friend requests', () => {
   });
 });
 
+describe('functions: friend request by uid (shared match)', () => {
+  /** Host plus a joiner in one lobby. */
+  async function sharedMatch(host: TestUser, guest: TestUser): Promise<string> {
+    const { matchId, code: matchCode } = await hostLobby(host);
+    await guest.call('joinMatch', { code: matchCode });
+    return matchId;
+  }
+
+  it('sends a request between two members, same result shape as by code, and the target can accept', async () => {
+    const [ann, ben] = [await newUser({ name: 'Ann', full: true }), await newUser({ name: 'Ben' })];
+    const matchId = await sharedMatch(ann, ben);
+    const sent = await ben.call<{ status: string; name: string }>('sendFriendRequestToUid', { targetUid: ann.uid, matchId });
+    assert.deepEqual(sent, { status: 'sent', name: 'Ann' });
+    const pending = (await value<Record<string, { name: string }>>(`friendRequests/${ann.uid}`)) ?? {};
+    assert.equal(pending[ben.uid]?.name, 'Ben');
+    assert.equal(await value(`sentRequests/${ben.uid}/${ann.uid}`), true);
+    assert.deepEqual(await ann.call('respondFriendRequest', { fromUid: ben.uid, accept: true }), { status: 'accepted' });
+    assert.ok(await value(`friends/${ann.uid}/${ben.uid}`));
+  });
+
+  it('turns a crossing request into a friendship, and repeating a friendship is refused', async () => {
+    const [ann, ben] = [await newUser({ name: 'Ann', full: true }), await newUser({ name: 'Ben' })];
+    const matchId = await sharedMatch(ann, ben);
+    await ann.call('sendFriendRequest', { code: await code(ben) });
+    const answer = await ben.call<{ status: string; friendUid: string }>('sendFriendRequestToUid', { targetUid: ann.uid, matchId });
+    assert.equal(answer.status, 'friends');
+    assert.equal(answer.friendUid, ann.uid);
+    assert.ok(await value(`friends/${ben.uid}/${ann.uid}`));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('ALREADY_EXISTS', 'already_friends'));
+  });
+
+  it('refuses when the caller is not in the match, or the target is not (neutral unknown_code)', async () => {
+    const [ann, ben, cy] = [await newUser({ full: true }), await newUser(), await newUser()];
+    const matchId = await sharedMatch(ann, ben);
+    await assert.rejects(cy.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('PERMISSION_DENIED', 'not_a_member'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: cy.uid, matchId }), reason('NOT_FOUND', 'unknown_code'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: 'nobody', matchId }), reason('NOT_FOUND', 'unknown_code'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId: 'nomatch' }), reason('PERMISSION_DENIED', 'not_a_member'));
+    assert.equal(await value(`friendRequests/${cy.uid}/${ben.uid}`), null);
+  });
+
+  it('refuses a player who left the match', async () => {
+    const [ann, ben] = [await newUser({ full: true }), await newUser()];
+    const matchId = await sharedMatch(ann, ben);
+    await ben.call('leaveMatch', { matchId });
+    await assert.rejects(ann.call('sendFriendRequestToUid', { targetUid: ben.uid, matchId }), reason('NOT_FOUND', 'unknown_code'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('PERMISSION_DENIED', 'not_a_member'));
+  });
+
+  it('gives a blocked pair (either direction) the same neutral error as an unknown code, and writes nothing', async () => {
+    const [ann, ben] = [await newUser({ full: true }), await newUser()];
+    const matchId = await sharedMatch(ann, ben);
+    await ann.call('block', { targetUid: ben.uid });
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('NOT_FOUND', 'unknown_code'));
+    await assert.rejects(ann.call('sendFriendRequestToUid', { targetUid: ben.uid, matchId }), reason('NOT_FOUND', 'unknown_code'));
+    assert.equal(await value(`friendRequests/${ann.uid}/${ben.uid}`), null);
+    assert.equal(await value(`friendRequests/${ben.uid}/${ann.uid}`), null);
+  });
+
+  it('refuses malformed arguments, own uid and profile-less callers', async () => {
+    const [ann, ben] = [await newUser({ full: true }), await newUser()];
+    const matchId = await sharedMatch(ann, ben);
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ben.uid, matchId }), reason('FAILED_PRECONDITION', 'self'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { matchId }), status('INVALID_ARGUMENT'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid }), status('INVALID_ARGUMENT'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: '../x', matchId }), status('INVALID_ARGUMENT'));
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId: 'a/b' }), status('INVALID_ARGUMENT'));
+    const bare = await signUp();
+    await assert.rejects(bare.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('FAILED_PRECONDITION', 'no_profile'));
+  });
+
+  it('respects the pending-request cap', async () => {
+    const [ann, ben] = [await newUser({ full: true }), await newUser()];
+    const matchId = await sharedMatch(ann, ben);
+    const seeded: Record<string, unknown> = {};
+    for (let i = 0; i < 50; i += 1) seeded[`friendRequests/${ann.uid}/fake${i}`] = { name: `F${i}`, at: 1 };
+    await db.ref().update(seeded);
+    await assert.rejects(ben.call('sendFriendRequestToUid', { targetUid: ann.uid, matchId }), reason('RESOURCE_EXHAUSTED', 'too_many_requests'));
+  });
+});
+
 describe('functions: blocks', () => {
   it('records a block, and unblocking removes it', async () => {
     const [ann, ben] = [await newUser(), await newUser()];

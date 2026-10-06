@@ -6,6 +6,8 @@ extends BillingBackend
 ## reports "Store unavailable": a shipped game must never hand out the full version for free.
 
 const FAKE_PRICE: String = "$3.99"
+## The purchase token of the pretend purchase. The emulator's purchase verifier accepts exactly this one.
+const FAKE_TOKEN: String = "test-full"
 
 ## Seconds a debug purchase takes. 0 = answer at once (tests).
 static var delay_sec: float = 0.6
@@ -22,6 +24,14 @@ func backend_name() -> String:
 	return "fake"
 
 
+## A debug build "owns" the token as soon as a pretend purchase happened or the full game is on (cache, debug switch), so
+## the whole online flow can be tried on a desktop against the emulator. A release build never has one.
+func owned_token() -> String:
+	if Entitlement.is_debug_build() and (store_owned or Entitlement.is_full()):
+		return FAKE_TOKEN
+	return ""
+
+
 func start() -> void:
 	if Entitlement.is_debug_build():
 		price.emit(FAKE_PRICE)
@@ -32,6 +42,7 @@ func refresh() -> void:
 		price.emit(FAKE_PRICE)
 		# A real store would confirm ownership here; only say so when we know it.
 		if store_owned:
+			purchase_token.emit(FAKE_TOKEN)
 			ownership.emit(true)
 
 
@@ -53,6 +64,7 @@ func restore() -> void:
 		return
 	_after_delay(func() -> void:
 		if store_owned:
+			purchase_token.emit(FAKE_TOKEN)
 			ownership.emit(true)
 			outcome.emit(Outcome.SUCCESS)
 		else:
@@ -72,6 +84,7 @@ func _finish(result: String) -> void:
 			outcome.emit(Outcome.ERROR)
 		_:
 			store_owned = true
+			purchase_token.emit(FAKE_TOKEN)
 			ownership.emit(true)
 			outcome.emit(Outcome.SUCCESS)
 

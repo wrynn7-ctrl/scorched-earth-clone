@@ -12,6 +12,7 @@ import {
   reportName as reportNameHandler,
   respondFriendRequest as respondFriendRequestHandler,
   sendFriendRequest as sendFriendRequestHandler,
+  sendFriendRequestToUid as sendFriendRequestToUidHandler,
   unblockUser,
 } from './friends';
 import {
@@ -40,6 +41,7 @@ function authed<T>(handler: (deps: Deps, uid: string, data: unknown) => Promise<
 
 export const ensureProfile = authed(ensureProfileHandler);
 export const sendFriendRequest = authed(sendFriendRequestHandler);
+export const sendFriendRequestToUid = authed(sendFriendRequestToUidHandler);
 export const respondFriendRequest = authed(respondFriendRequestHandler);
 export const removeFriend = authed(removeFriendHandler);
 export const block = authed(blockUser);

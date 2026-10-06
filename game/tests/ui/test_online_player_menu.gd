@@ -57,6 +57,76 @@ func test_add_friend_sends_a_request_when_the_code_is_known() -> void:
 	assert_false(m.is_open())
 
 
+func test_add_friend_uses_the_uid_request_when_the_match_is_known() -> void:
+	var info: Dictionary = _info(false, true)
+	info["match_id"] = "m42"
+	var m: PlayerMenu = _menu(info)
+	var done: Array = []
+	var toasts: Array = []
+	m.done.connect(func(kind: String, _uid: String) -> void: done.append(kind))
+	m.toast.connect(func(t: String) -> void: toasts.append(t))
+	m.get_add_button().pressed.emit()
+	await settle()
+	assert_eq(_net.sc.last("request_by_uid")["args"], ["u1", "m42"])
+	assert_eq(_net.sc.count("send_request"), 0)
+	assert_eq(toasts, ["Request sent to ANNA"])
+	assert_eq(done, ["requested"])
+	assert_false(m.is_open())
+
+
+func test_the_match_id_property_and_the_enclosing_lobby_or_battle_also_count() -> void:
+	var by_property: PlayerMenu = _menu(_info())
+	by_property.match_id = "m7"
+	assert_eq(by_property.shared_match_id(), "m7")
+	# A screen that holds the menu and knows its match (the lobby has `match_id`, the online battle has `om`).
+	var lobby := Control.new()
+	lobby.set_script(load("res://tests/ui/menu_host_stub.gd") as Script)
+	lobby.set("match_id", "m9")
+	add_child_autofree(lobby)
+	var inside := PlayerMenu.new()
+	lobby.add_child(inside)
+	inside.open_for(_net, _info())
+	assert_eq(inside.shared_match_id(), "m9")
+	inside.get_add_button().pressed.emit()
+	await settle()
+	assert_eq(_net.sc.last("request_by_uid")["args"], ["u1", "m9"])
+	var battle := Control.new()
+	battle.set_script(load("res://tests/ui/menu_host_stub.gd") as Script)
+	var om := OnlineMatch.new()
+	om.match_id = "m5"
+	battle.set("om", om)
+	add_child_autofree(battle)
+	var in_battle := PlayerMenu.new()
+	battle.add_child(in_battle)
+	in_battle.open_for(_net, _info(false, true))
+	assert_eq(in_battle.shared_match_id(), "m5")
+
+
+func test_a_blocked_pair_gets_the_neutral_unknown_code_text() -> void:
+	_net.sc.replies["request_by_uid"] = NetResult.failure(NetError.Code.NOT_FOUND, "unknown_code")
+	var info: Dictionary = _info(false, true)
+	info["match_id"] = "m42"
+	var m: PlayerMenu = _menu(info)
+	m.get_add_button().pressed.emit()
+	await settle()
+	assert_true(m.is_open())
+	assert_eq(m.get_hint_text(), "No match or player with that code.")
+
+
+func test_other_uid_request_failures_show_their_reason() -> void:
+	var info: Dictionary = _info(false, true)
+	info["match_id"] = "m42"
+	_net.sc.replies["request_by_uid"] = NetResult.failure(NetError.Code.ALREADY_EXISTS, "already_friends")
+	var m: PlayerMenu = _menu(info)
+	m.get_add_button().pressed.emit()
+	await settle()
+	assert_eq(m.get_hint_text(), "You are already friends.")
+	_net.sc.replies["request_by_uid"] = NetResult.failure(NetError.Code.EXHAUSTED, "too_many_requests")
+	m.get_add_button().pressed.emit()
+	await settle()
+	assert_eq(m.get_hint_text(), "That player has too many waiting requests.")
+
+
 func test_blocking_asks_first_and_then_blocks_and_mutes() -> void:
 	var m: PlayerMenu = _menu(_info(true, true))
 	m.get_block_button().pressed.emit()

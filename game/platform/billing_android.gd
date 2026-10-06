@@ -242,6 +242,7 @@ func handle_purchases(response: Dictionary) -> void:
 		var state: int = _int_of(purchase_dict.get("purchase_state", null), BillingClient.PurchaseState.UNSPECIFIED_STATE)
 		if state == BillingClient.PurchaseState.PURCHASED:
 			if not owned:
+				_remember_token(purchase_dict)
 				ownership.emit(true)  # grant first, then acknowledge
 			owned = true
 			_acknowledge(purchase_dict)
@@ -253,6 +254,7 @@ func handle_purchases(response: Dictionary) -> void:
 	elif pending:
 		outcome.emit(Outcome.PENDING)
 	else:
+		_owned_token = ""
 		ownership.emit(false)
 		if asked:
 			outcome.emit(Outcome.NOT_FOUND)
@@ -291,6 +293,7 @@ func handle_purchase_updated(response: Dictionary) -> void:
 		var purchase_dict: Dictionary = p
 		var state: int = _int_of(purchase_dict.get("purchase_state", null), BillingClient.PurchaseState.UNSPECIFIED_STATE)
 		if state == BillingClient.PurchaseState.PURCHASED:
+			_remember_token(purchase_dict)
 			ownership.emit(true)  # grant first: a problem while acknowledging must never withhold the unlock
 			_acknowledge(purchase_dict)
 			result = Outcome.SUCCESS
@@ -298,6 +301,16 @@ func handle_purchase_updated(response: Dictionary) -> void:
 		if state == BillingClient.PurchaseState.PENDING:
 			result = Outcome.PENDING  # not paid yet: do NOT unlock
 	outcome.emit(result)
+
+
+## Keeps (and announces) the token of the owned purchase. A missing or odd token is ignored, never an error.
+func _remember_token(purchase_dict: Dictionary) -> void:
+	var raw: Variant = purchase_dict.get("purchase_token", "")
+	var token: String = raw as String if typeof(raw) == TYPE_STRING else ""
+	if token == "":
+		return
+	_owned_token = token
+	purchase_token.emit(token)
 
 
 func _is_ours(purchase_dict: Dictionary) -> bool:

@@ -12,6 +12,8 @@ extends Control
 
 signal signed_in
 signal gate_changed(gate: int)
+## The server-side full flag check ended (true = the account is full, or there was nothing to verify).
+signal full_sync_finished(ok: bool)
 
 const TITLE_SCENE: String = "res://ui/title/title_screen.tscn"
 const THEME: Theme = preload("res://ui/theme/neon_theme.tres")
@@ -48,6 +50,11 @@ var _toast: Toast = null
 var _confirm: OnlineConfirm = null
 var _menu: PlayerMenu = null
 var _unlock: UnlockScreen = null
+var _full_notice: PanelContainer = null
+var _full_text: Label = null
+var _full_retry: Button = null
+var _full_busy: bool = false
+var _full_waiting_token: bool = false
 var _busy_name: bool = false
 var _opening: bool = false
 var _signing: bool = false
@@ -68,6 +75,7 @@ func _ready() -> void:
 	apply_scale()
 	LayoutWatch.attach(self, apply_scale)
 	Entitlement.hub().changed.connect(_refresh_host_lock)
+	Entitlement.hub().changed.connect(_on_entitlement_changed)
 	_connect_routes()
 	_refresh_host_lock()
 	ShotHook.attach(self)
@@ -79,6 +87,10 @@ func _exit_tree() -> void:
 	_disconnect_routes()
 	if Entitlement.hub().changed.is_connected(_refresh_host_lock):
 		Entitlement.hub().changed.disconnect(_refresh_host_lock)
+	if Entitlement.hub().changed.is_connected(_on_entitlement_changed):
+		Entitlement.hub().changed.disconnect(_on_entitlement_changed)
+	if Entitlement.hub().token_changed.is_connected(_on_token_arrived):
+		Entitlement.hub().token_changed.disconnect(_on_token_arrived)
 
 
 func _notification(what: int) -> void:
@@ -101,6 +113,7 @@ func _build() -> void:
 	_root.name = "Root"
 	_margin.add_child(_root)
 	_build_bar()
+	_build_full_notice()
 	_stack = MarginContainer.new()
 	_stack.name = "Stack"
 	_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -162,6 +175,28 @@ func _build_bar() -> void:
 	_bar.visible = true
 
 
+## A slim strip under the tab bar for "your purchase could not be verified yet" with RETRY. It is not a gate: every other
+## online feature keeps working while it shows.
+func _build_full_notice() -> void:
+	_full_notice = PanelContainer.new()
+	_full_notice.name = "FullNotice"
+	_full_notice.visible = false
+	_full_notice.add_theme_stylebox_override("panel", OnlineKit.plate(Color(NeonPalette.WARN, 0.85)))
+	_root.add_child(_full_notice)
+	var row := HBoxContainer.new()
+	row.name = "Row"
+	_full_notice.add_child(row)
+	_full_text = OnlineKit.label(tr("NET_ERR_FULL_REQUIRED"), 14.0, NeonPalette.WARN, true)
+	_full_text.name = "Text"
+	_full_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_full_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_full_text)
+	_full_retry = OnlineKit.button(tr("NET_RETRY"), 110.0, 14.0)
+	_full_retry.name = "Retry"
+	_full_retry.pressed.connect(retry_full_sync)
+	row.add_child(_full_retry)
+
+
 func _build_gate() -> void:
 	_gate_center = CenterContainer.new()
 	_gate_center.name = "Gate"
@@ -213,6 +248,7 @@ func apply_scale() -> void:
 	_root.add_theme_constant_override("separation", roundi(UiScale.dp(8.0)))
 	_bar.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	OnlineKit.apply(_bar)
+	OnlineKit.apply(_full_notice)
 	for t: OnlineTab in _tabs:
 		t.apply_scale()
 	_gate_panel.custom_minimum_size.x = minf(UiScale.dp(420.0), get_viewport_rect().size.x * 0.9)
@@ -265,6 +301,7 @@ func _on_signed_in() -> void:
 		OnlineHub.push.ensure_channel(tr("NET_PUSH_CHANNEL"), tr("NET_PUSH_CHANNEL_DESC"))
 	net.friends.watch()
 	net.matches.watch()
+	sync_full_flag()  # in the background: nothing waits for it
 	if needs_name():
 		show_gate(Gate.NAME)
 		return
@@ -289,6 +326,83 @@ func _enter_pages() -> void:
 	show_tab(start_tab)
 	if not route.is_empty():
 		_follow_route(route)
+
+
+# ======================================================================================
+# The server-side full flag (hosting needs it; ARCHITECTURE section 53)
+# ======================================================================================
+
+## A full owner's purchase has to reach the server once, or the backend refuses `createMatch` (`full_required`). Called
+## after sign-in, after buying, and by RETRY. It never blocks other online features: the strip below the tabs is the only
+## sign of trouble. Returns true when the account is full on the server (or there is nothing to verify).
+func sync_full_flag() -> bool:
+	if net == null:
+		return false
+	if _full_busy:
+		return await full_sync_finished
+	if not Entitlement.is_full() or net.account.is_full():
+		_show_full_notice(false)
+		return net.account.is_full()
+	var token: String = Entitlement.purchase_token()
+	if token == "":
+		_wait_for_token()
+		return false
+	_full_busy = true
+	var r: NetResult = await net.account.sync_full(token)
+	_full_busy = false
+	var ok: bool = r.ok
+	if is_inside_tree():
+		_show_full_notice(not ok)
+		_refresh_host_lock()
+	full_sync_finished.emit(ok)
+	return ok
+
+
+## The unlock came from the cache and the store has not told us the token yet: ask the store and continue when it does.
+func _wait_for_token() -> void:
+	if _full_waiting_token:
+		return
+	_full_waiting_token = true
+	Entitlement.hub().token_changed.connect(_on_token_arrived, CONNECT_ONE_SHOT)
+	Entitlement.start()
+	# The fake store (debug builds) knows its token at once and never announces it without a purchase.
+	if Entitlement.purchase_token() != "":
+		Entitlement.hub().token_changed.disconnect(_on_token_arrived)
+		_on_token_arrived(Entitlement.purchase_token())
+
+
+func _on_token_arrived(_token: String) -> void:
+	_full_waiting_token = false
+	sync_full_flag()
+
+
+## Buying or restoring while the screen is open: tell the server too, so HOST works right away.
+func _on_entitlement_changed() -> void:
+	if net != null and _gate == Gate.NONE and Entitlement.is_full():
+		sync_full_flag()
+
+
+func retry_full_sync() -> void:
+	_full_retry.disabled = true
+	await sync_full_flag()
+	if is_instance_valid(_full_retry):
+		_full_retry.disabled = false
+
+
+func _show_full_notice(on: bool) -> void:
+	_full_notice.visible = on
+
+
+func get_full_notice() -> Control:
+	return _full_notice
+
+
+func get_full_retry_button() -> Button:
+	return _full_retry
+
+
+func is_full_syncing() -> bool:
+	return _full_busy
 
 
 # ======================================================================================
@@ -508,7 +622,9 @@ func get_unlock_screen() -> UnlockScreen:
 func _on_unlock_closed() -> void:
 	_refresh_host_lock()
 	if _unlock.get_kind() == "host" and Entitlement.is_full() and _gate == Gate.NONE:
-		show_tab(Tab.HOST)
+		await sync_full_flag()  # a short call; HOST needs the server's flag to create a lobby
+		if is_inside_tree() and _gate == Gate.NONE:
+			show_tab(Tab.HOST)
 
 
 ## Opens a running match (the battle scene) or, when it is still a lobby, its lobby.

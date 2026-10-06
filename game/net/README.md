@@ -47,7 +47,9 @@ Backend reasons are passed through unchanged in `reason` (full list: `firebase/R
 `ensure_profile()` (called by `start()`), `profile` (`friendCode, name, nameHidden, full, protocol, serverTime`),
 `friend_code()`, `is_full()`, `my_name()`, `set_name(raw)`, `refresh_profile()`, `fetch_public(uid)` ->
 `{uid, name, hidden, display}` (hidden names read `PLAYER AB12`), `NetAccount.public_name(name, hidden, uid)`,
-`verify_purchase(token)`, `delete_my_data()` (signs out afterwards; `profile_changed` signal),
+`verify_purchase(token)`, `sync_full(token)` (verifies only when `profile.full` is false; `no_token` without a token; then
+re-reads the profile; the Online screen calls it once after sign-in with `Entitlement.purchase_token()`),
+`delete_my_data()` (signs out afterwards; `profile_changed` signal),
 `bind_push(PushService)` / `register_push_token(token)` (key = first 32 hex of SHA-256),
 `link_google(GoogleSignIn)` (CANCELLED is not an error to show; `google_already_linked` -> offer `restore_with_google`),
 `restore_with_google(GoogleSignIn)` (new phone; the uid changes, call `ensure_profile` after).
@@ -55,7 +57,9 @@ Backend reasons are passed through unchanged in `reason` (full list: `firebase/R
 
 ## Friends (`net.friends`)
 
-`send_request(code)` -> `{status: "sent"|"friends", name}`, `respond(from_uid, accept)`, `remove_friend(uid)`,
+`send_request(code)` -> `{status: "sent"|"friends", name}`, `request_by_uid(uid, match_id)` (same result; both players must
+be in that match; a blocked pair or a non-member target gets `unknown_code`; you not being in it gets `not_a_member`),
+`respond(from_uid, accept)`, `remove_friend(uid)`,
 `block(uid)`, `unblock(uid)`, `report(uid)`, `list_friends()` `[{uid, name, display, since}]`, `list_requests()`
 `[{uid, name, at}]`, `list_blocks()`, `list_invites()` `[{matchId, fromUid, fromName, at, code, mode}]`,
 `dismiss_invite(matchId)`, `NetFriends.visible_invites(list, love_found)` (hides Love invites without the Love

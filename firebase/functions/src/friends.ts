@@ -41,6 +41,28 @@ export async function sendFriendRequest(deps: Deps, uid: string, raw: unknown): 
   const target = await read<string>(deps.db, `friendCodes/${code}`);
   if (!target) return fail('not-found', 'unknown_code');
   if (target === uid) return fail('failed-precondition', 'own_code');
+  return requestBetween(deps, uid, me, target);
+}
+
+/**
+ * Friend request to a player met in a shared match (the "Add friend" button on a name in a lobby or battle). Both players
+ * must hold a seat in `matchId` (the server-written `userMatches` entries are the membership list). Everything else is the
+ * same as a request by code, including the neutral `unknown_code` for a blocked pair; a target who is not in the match gets
+ * it too, so this cannot be used to probe whether a uid exists.
+ */
+export async function sendFriendRequestToUid(deps: Deps, uid: string, raw: unknown): Promise<SendRequestResult> {
+  const data = asObject(raw);
+  const targetUid = reqId(data, 'targetUid');
+  const matchId = reqId(data, 'matchId');
+  const me = await requireProfile(deps, uid);
+  if (targetUid === uid) return fail('failed-precondition', 'self');
+  if (!(await exists(deps.db, `userMatches/${uid}/${matchId}`))) return fail('permission-denied', 'not_a_member');
+  if (!(await exists(deps.db, `userMatches/${targetUid}/${matchId}`))) return fail('not-found', 'unknown_code');
+  return requestBetween(deps, uid, me, targetUid);
+}
+
+/** Shared by both ways of asking: blocks, existing friendship, a crossing request, the pending cap, then the write. */
+async function requestBetween(deps: Deps, uid: string, me: UserRecord, target: string): Promise<SendRequestResult> {
   // A blocked pair looks exactly like an unknown code, so a block never reveals itself.
   if (await isBlockedEither(deps.db, uid, target)) return fail('not-found', 'unknown_code');
   if (await exists(deps.db, `friends/${uid}/${target}`)) return fail('already-exists', 'already_friends');

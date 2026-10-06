@@ -23,6 +23,16 @@ signal ownership(owned: bool)
 signal price(text: String)
 ## The end of a purchase / restore attempt (see Outcome).
 signal outcome(kind: int)
+## The purchase token of the owned full game. Emitted just BEFORE `ownership(true)` so a listener that reacts to the
+## unlock already has it. Online play sends it to the server (`verifyPurchase`) to set the server-side full flag.
+signal purchase_token(token: String)
+
+var _owned_token: String = ""
+
+
+## The purchase token of the owned `full_unlock` purchase, or "" when none is known (nothing owned, or not queried yet).
+func owned_token() -> String:
+	return _owned_token
 
 
 func backend_name() -> String:

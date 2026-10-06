@@ -41,6 +41,16 @@ func send_request(friend_code: String) -> NetResult:
 	return await _fn.call_function("sendFriendRequest", {"code": code})
 
 
+## Sends a friend request to a player met in a shared match (the "Add friend" button on a name in a lobby or a battle).
+## Both players must be members of `match_id`. Same `value` as `send_request`. Reasons: `unknown_code` (also for a blocked
+## pair, and for a target who is not in the match), `not_a_member` (you are not), `already_friends`, `too_many_requests`,
+## `self`.
+func request_by_uid(target_uid: String, match_id: String) -> NetResult:
+	if target_uid == "" or match_id == "":
+		return NetResult.failure(NetError.Code.INVALID, "bad_targetUid" if target_uid == "" else "bad_matchId")
+	return await _fn.call_function("sendFriendRequestToUid", {"targetUid": target_uid, "matchId": match_id})
+
+
 func respond(from_uid: String, accept: bool) -> NetResult:
 	return await _fn.call_function("respondFriendRequest", {"fromUid": from_uid, "accept": accept})
 

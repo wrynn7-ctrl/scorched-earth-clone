@@ -141,6 +141,16 @@ describe('rules: friends, requests, blocks, codes (written only by functions)', 
     await assertFails(set(ref(as('bob'), 'friendRequests/cat/bob'), { name: 'BOB', at: 2 }));
   });
 
+  it('refuses a client-written friend request even between two members of the same match (only the callable may)', async () => {
+    await seed({
+      'userMatches/host/m1': { updated: 1, yourTurn: false, status: 'lobby' },
+      'userMatches/cat/m1': { updated: 1, yourTurn: false, status: 'lobby' },
+    });
+    await assertFails(set(ref(as('host'), 'friendRequests/cat/host'), { name: 'HOST', at: 2 }));
+    await assertFails(set(ref(as('host'), 'sentRequests/host/cat'), true));
+    await assertFails(set(ref(as('cat'), 'friends/cat/host'), { since: 2 }));
+  });
+
   it('does not let clients read or write friend codes, to stop enumeration', async () => {
     await assertFails(get(ref(as('bob'), 'friendCodes/BOBCODE22')));
     await assertFails(get(ref(as('bob'), 'friendCodes')));

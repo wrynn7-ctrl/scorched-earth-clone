@@ -44,7 +44,7 @@ describe('deployment manifest', () => {
     const callables = names.filter((n) => manifest.endpoints[n]?.callableTrigger);
     assert.deepEqual(callables.sort(), [
       'block', 'createMatch', 'deleteMyData', 'ensureProfile', 'invite', 'joinMatch', 'leaveMatch', 'removeFriend',
-      'reportName', 'respondFriendRequest', 'sendFriendRequest', 'startMatch', 'unblock', 'updateLobby', 'verifyPurchase',
+      'reportName', 'respondFriendRequest', 'sendFriendRequest', 'sendFriendRequestToUid', 'startMatch', 'unblock', 'updateLobby', 'verifyPurchase',
     ].sort());
   });
 

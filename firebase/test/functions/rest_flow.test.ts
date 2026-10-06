@@ -115,7 +115,8 @@ describe('REST client flow (what M7-N will do)', () => {
     );
     denied(await rest(bob, 'PATCH', `matches/${matchId}`, { 'actions/7': { kind: 'pass', tank: 1 }, 'meta/actionCount': 8 }), 'play after the end');
     await eventually(async () => (await value(`matchCodes/${code}`)) === null, 'code expired');
-    assert.equal((await db.ref(`userMatches/${bob.uid}/${matchId}/status`).get()).val(), 'over');
+    // The code is expired before the lists are updated (two writes in one trigger), so wait for the list too.
+    await eventually(async () => (await db.ref(`userMatches/${bob.uid}/${matchId}/status`).get()).val() === 'over', 'bob list shows over');
   });
 
   it('lets a client use its own data over REST: name, protocol, push token, lists, dismissals', async () => {

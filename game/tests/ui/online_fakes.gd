@@ -95,7 +95,16 @@ class FakeAccount:
 		_push = push
 
 	func refresh_profile() -> NetResult:
+		sc.rec("refresh_profile")
 		return NetResult.success(profile)
+
+	func verify_purchase(purchase_token: String) -> NetResult:
+		sc.rec("verify_purchase", [purchase_token])
+		var r: NetResult = sc.reply("verify_purchase", {"full": true})
+		if r.ok:
+			profile["full"] = true
+			profile_changed.emit(profile)
+		return r
 
 
 class FakeFriends:
@@ -110,6 +119,10 @@ class FakeFriends:
 	func send_request(code: String) -> NetResult:
 		sc.rec("send_request", [code])
 		return sc.reply("send_request", {"status": "sent", "name": "ANNA"})
+
+	func request_by_uid(target_uid: String, match_id: String) -> NetResult:
+		sc.rec("request_by_uid", [target_uid, match_id])
+		return sc.reply("request_by_uid", {"status": "sent", "name": "ANNA"})
 
 	func respond(from_uid: String, accept: bool) -> NetResult:
 		sc.rec("respond", [from_uid, accept])

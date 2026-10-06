@@ -39,6 +39,8 @@ class Hub extends RefCounted:
 	signal changed
 	signal status_changed(status: int)
 	signal price_changed(text: String)
+	## The purchase token of the owned full game became known (see Entitlement.purchase_token()).
+	signal token_changed(token: String)
 
 
 ## Test hook: -1 = ask the engine, 0 = behave as a release build, 1 = behave as a debug build.
@@ -57,6 +59,7 @@ static var _loaded: bool = false
 static var _purchased: bool = false
 static var _debug_full: bool = false
 static var _price: String = ""
+static var _token: String = ""
 static var _status: int = Status.IDLE
 static var _message_key: String = ""
 static var _watcher: Node = null
@@ -98,6 +101,19 @@ static func status_message_key() -> String:
 	return _message_key
 
 
+## The purchase token of the owned `full_unlock` purchase ("" when not owned, or the store has not told us yet). Online play
+## sends it to the server so the server-side `full` flag (needed to host) can be set. Cached with the unlock, so it is there
+## right after launch; a store query refreshes it. Not available for the debug override (nothing was bought), except that
+## the fake store hands out its own test token in debug builds.
+static func purchase_token() -> String:
+	_ensure_loaded()
+	if _token != "" and _purchased:
+		return _token
+	if _backend != null and is_full():
+		return _backend.owned_token()
+	return ""
+
+
 ## The store's localized price once known ("" until then).
 static func price_text() -> String:
 	return _price
@@ -117,6 +133,7 @@ static func start() -> void:
 		_backend.ownership.connect(_on_ownership)
 		_backend.price.connect(_on_price)
 		_backend.outcome.connect(_on_outcome)
+		_backend.purchase_token.connect(_on_token)
 		_backend.start()
 		_add_watcher()
 	_backend.refresh()
@@ -173,6 +190,15 @@ static func _on_ownership(owned: bool) -> void:
 		_set_status(Status.IDLE, "")  # the store no longer knows a pending payment (cancelled or expired)
 
 
+static func _on_token(token: String) -> void:
+	_ensure_loaded()
+	if token == "" or token == _token:
+		return
+	_token = token
+	_save()
+	_hub.token_changed.emit(token)
+
+
 static func _on_price(text: String) -> void:
 	if text != _price:
 		_price = text
@@ -204,6 +230,8 @@ static func _set_purchased(owned: bool) -> void:
 		return
 	var before: bool = is_full()
 	_purchased = owned
+	if not owned:
+		_token = ""  # a refund or an expired Play Pass takes the token with it
 	_save()
 	if is_full() != before:
 		_hub.changed.emit()
@@ -235,6 +263,8 @@ static func _ensure_loaded() -> void:
 		return
 	var full: Variant = cfg.get_value(SECTION, "full", false)
 	_purchased = full as bool if typeof(full) == TYPE_BOOL else false
+	var token: Variant = cfg.get_value(SECTION, "token", "")
+	_token = token as String if typeof(token) == TYPE_STRING and _purchased else ""
 	var dbg: Variant = cfg.get_value(SECTION, "debug_full", false)
 	_debug_full = dbg as bool if typeof(dbg) == TYPE_BOOL else false
 
@@ -244,6 +274,7 @@ static func _save() -> void:
 		return
 	var cfg := ConfigFile.new()
 	cfg.set_value(SECTION, "full", _purchased)
+	cfg.set_value(SECTION, "token", _token)
 	cfg.set_value(SECTION, "debug_full", _debug_full)
 	cfg.save(cache_path)
 
@@ -314,6 +345,7 @@ static func forget_for_tests() -> void:
 	_purchased = false
 	_debug_full = false
 	_price = ""
+	_token = ""
 	_status = Status.IDLE
 	_message_key = ""
 	debug_build_override = -1
@@ -330,3 +362,4 @@ static func set_backend_for_tests(backend: BillingBackend) -> void:
 	_backend.ownership.connect(_on_ownership)
 	_backend.price.connect(_on_price)
 	_backend.outcome.connect(_on_outcome)
+	_backend.purchase_token.connect(_on_token)

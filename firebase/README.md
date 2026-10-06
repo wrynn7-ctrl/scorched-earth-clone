@@ -141,6 +141,7 @@ short reason as the message (see the end of this section).
 |---|---|---|
 | `ensureProfile` | `{protocol?: int}` | `{friendCode, name, nameHidden, full, protocol, serverTime}`. Call it on every start: creates the profile and friend code on first use, stores the protocol |
 | `sendFriendRequest` | `{code}` (8 chars, any case) | `{status: "sent"\|"friends", name, friendUid?}`. A request that crosses an existing one becomes a friendship |
+| `sendFriendRequestToUid` | `{targetUid, matchId}` (both players must be members of that match) | same as `sendFriendRequest`: `{status: "sent"\|"friends", name, friendUid?}`. Used by "Add friend" on a name in a lobby or battle |
 | `respondFriendRequest` | `{fromUid, accept: bool}` | `{status: "accepted"\|"declined"}` |
 | `removeFriend` | `{friendUid}` | `{removed: true}` |
 | `block` | `{targetUid}` | `{blocked: true}`. Removes friendship, requests and invites both ways |
@@ -173,7 +174,7 @@ Error reasons a client can show or act on (`status`: reason): INVALID_ARGUMENT: 
 `bad_wind_max`, `bad_start_money`, `bad_mode`, `bad_teams`, `bad_timers` (`bad_liveSec`, `bad_asyncHours`, `bad_asyncTimeout`),
 `love_needs_two_humans`, `love_has_no_teams`, `num_tanks_mismatch`, `no_human_seat`, `bad_reason` and similar `bad_<field>`.
 NOT_FOUND: `unknown_code` (also for a blocked pair, so a block never shows), `unknown_match`, `unknown_user`, `no_request`,
-`not_a_member`. PERMISSION_DENIED: `full_required`, `not_host`, `not_friends`, `not_a_member`. FAILED_PRECONDITION: `no_profile`,
+`not_a_member`. (`sendFriendRequestToUid`: a blocked pair, or a target who is not in the match, gets `unknown_code`; a caller who is not in the match gets PERMISSION_DENIED `not_a_member`.) PERMISSION_DENIED: `full_required`, `not_host`, `not_friends`, `not_a_member`. FAILED_PRECONDITION: `no_profile`,
 `protocol_mismatch` (details `{hostProtocol, yourProtocol}`: ask the player to update), `not_joinable`, `not_in_lobby`,
 `seats_not_filled`, `seat_taken`, `own_code`, `self`. ALREADY_EXISTS: `already_friends`, `already_in_match`, `token_used`.
 RESOURCE_EXHAUSTED: `match_full`, `not_enough_seats`, `too_many_matches` (40), `too_many_requests` (50 waiting).

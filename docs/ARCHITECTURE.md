@@ -912,7 +912,8 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
   - Input is enabled only on my turn, with nothing playing or sending.
   - A shop visit is sent at READY as chunked `submit_many`.
   - The tree is never paused online.
-- **Known gaps (follow-up M7-G):**
-  - "Add friend" from a lobby or battle needs a uid-based request callable (members of a shared match only).
-  - A full owner's purchase token must be sent to `verifyPurchase` so the server-side `full` flag (needed to host)
-    is set.
+- **M7-G (done):**
+  - `sendFriendRequestToUid({targetUid, matchId})` serves members of a shared match. A non-member target or a
+    blocked pair gets `unknown_code`.
+  - `Entitlement.purchase_token()` → `NetAccount.sync_full(token)` → `verifyPurchase` runs in the background when the
+    Online screen opens. A non-blocking RETRY strip shows on failure.

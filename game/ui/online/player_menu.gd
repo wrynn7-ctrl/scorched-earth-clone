@@ -5,9 +5,10 @@ extends OverlayPanel
 ## send anything, and a report first asks why (a short reason list). The menu makes the calls itself and tells the
 ## screen what happened through `done`, so every screen shares one implementation.
 ##
-## `info` = {uid, name, friend (bool), in_match (bool)}; `friend_code` (optional) lets ADD FRIEND send a request. A
-## player met in a lobby or a match is known by uid only, and the backend takes friend requests by code, so then the
-## button explains how to add them (ask for their code) instead of failing silently.
+## `info` = {uid, name, friend (bool), in_match (bool)}. ADD FRIEND sends a request by uid when the menu knows the match
+## the two players share (`info.match_id`, else the `match_id` property, else the lobby or battle screen the menu sits in:
+## the backend accepts a uid request only between members of one match). Otherwise it uses `info.friend_code`, and when it
+## has neither it explains how to add the player (ask for their friend code) instead of failing silently.
 
 ## What happened: "blocked", "reported", "requested", "muted" or "unmuted". The screen refreshes its lists.
 signal done(kind: String, uid: String)
@@ -23,6 +24,8 @@ enum Step { MENU, REASON, CONFIRM_BLOCK, CONFIRM_REPORT }
 
 var net: NetSession = null
 var info: Dictionary = {}
+## The match both players are in; set by a screen that knows it (optional, see `shared_match_id`).
+var match_id: String = ""
 var _step: int = Step.MENU
 var _reason: String = ""
 var _busy: bool = false
@@ -166,17 +169,42 @@ func _refresh_menu() -> void:
 	_hint.visible = false
 
 
+## The match this menu's player shares with me, or "" when unknown: `info.match_id`, the `match_id` property, or the
+## nearest ancestor that is a lobby (`match_id`) or an online battle (`om`).
+func shared_match_id() -> String:
+	var explicit: String = info.get("match_id", match_id) as String
+	if explicit != "":
+		return explicit
+	var node: Node = get_parent()
+	while node != null:
+		var id: Variant = node.get("match_id")
+		if typeof(id) == TYPE_STRING and (id as String) != "":
+			return id as String
+		var running: Variant = node.get("om")
+		if running is OnlineMatch and (running as OnlineMatch).match_id != "":
+			return (running as OnlineMatch).match_id
+		node = node.get_parent()
+	return ""
+
+
 func _on_add() -> void:
 	var code: String = info.get("friend_code", "") as String
-	if code == "":
-		# Known by uid only: the backend takes requests by friend code.
+	var uid: String = player_uid()
+	var shared: String = shared_match_id()
+	var by_uid: bool = uid != "" and shared != ""
+	if not by_uid and code == "":
+		# Neither a shared match nor a code: nothing the backend could accept.
 		_hint.text = tr("NET_PM_ADD_HINT")
 		_hint.visible = true
 		return
 	if _busy or net == null:
 		return
 	_busy = true
-	var r: NetResult = await net.friends.send_request(code)
+	var r: NetResult
+	if by_uid:
+		r = await net.friends.request_by_uid(uid, shared)
+	else:
+		r = await net.friends.send_request(code)
 	_busy = false
 	if r.ok:
 		toast.emit(tr("NET_REQUEST_SENT") % (r.dict().get("name", "") as String))
