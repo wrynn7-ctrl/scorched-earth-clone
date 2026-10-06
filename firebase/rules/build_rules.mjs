@@ -82,10 +82,15 @@ const holderOnline = and(
   `root.child('matches').child($mid).child('presence').child(${turnOf('uid')}).exists()`,
   `now - root.child('matches').child($mid).child('presence').child(${turnOf('uid')}).val() < ${PRESENCE_FRESH_MS}`,
 );
-/** A timeout entry is allowed after the hard deadline, or after the live deadline while the holder is online. */
+/**
+ * A timeout entry comes in two kinds (ARCHITECTURE 52):
+ *  - `async: 1`  after the hard deadline: the AI plays the turn (or the match ends);
+ *  - without it  a live skip, after the live deadline and only while the turn holder's heartbeat is fresh.
+ */
 const timeoutDue = or(
-  `now > ${turnOf('deadline')}`,
+  and(`newData.hasChild('async')`, `now > ${turnOf('deadline')}`),
   and(
+    `!newData.hasChild('async')`,
     `${META}.child('turn').child('liveDeadline').exists()`,
     `now > ${turnOf('liveDeadline')}`,
     holderOnline,
@@ -142,14 +147,16 @@ const ENTRY_KINDS = {
   auto_shop: ['tank', 'level'],
   timeout: ['tank'],
 };
-const ENTRY_FIELDS = ['tank', 'angle', 'power', 'weapon', 'dx', 'item', 'qty', 'level'];
+// Fields a kind may carry in addition (all optional).
+const OPTIONAL_FIELDS = { timeout: ['async'] };
+const ENTRY_FIELDS = ['tank', 'angle', 'power', 'weapon', 'dx', 'item', 'qty', 'level', 'async'];
 const entryShape = oneLine(
   or(
     ...Object.entries(ENTRY_KINDS).map(([kind, fields]) =>
       and(
         `${eKind} == '${kind}'`,
         `newData.hasChildren([${['kind', ...fields].map((f) => `'${f}'`).join(', ')}])`,
-        ...ENTRY_FIELDS.filter((f) => !fields.includes(f)).map((f) => `!newData.hasChild('${f}')`),
+        ...ENTRY_FIELDS.filter((f) => !fields.includes(f) && !(OPTIONAL_FIELDS[kind] ?? []).includes(f)).map((f) => `!newData.hasChild('${f}')`),
       ),
     ),
   ),
@@ -164,6 +171,7 @@ const actionFields = {
   item: { '.validate': isWord('newData') },
   qty: { '.validate': intBetween('newData', 1, MAX_QTY) },
   level: { '.validate': intBetween('newData', 1, 4) }, // CPU level: CTRL_EASY..CTRL_EXPERT
+  async: { '.validate': intBetween('newData', 1, 1) }, // timeout entries only: written after the hard deadline
   $other: { '.validate': false },
 };
 

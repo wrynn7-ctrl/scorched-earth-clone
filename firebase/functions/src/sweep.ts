@@ -105,7 +105,8 @@ async function timeoutTurn(deps: Deps, matchId: string, meta: Meta, result: Swee
   const turn = meta.turn;
   if (!turn) return false;
   const count = meta.actionCount;
-  const entry = { kind: 'timeout', tank: turn.tank };
+  // `async: 1` marks a hard-deadline timeout: the AI plays the turn (or the match ends), unlike a live skip (ARCHITECTURE 52).
+  const entry = { kind: 'timeout', tank: turn.tank, async: 1 };
   const written = await deps.db.ref(`matches/${matchId}/actions/${count}`).transaction((current: unknown) => (current === null ? entry : undefined));
   if (!written.committed) {
     const there = written.snapshot.val() as { kind?: string; tank?: number } | null;
