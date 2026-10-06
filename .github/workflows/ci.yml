@@ -109,7 +109,7 @@ jobs:
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"  # firebase-tools emulators require Java 21+
 
       # firebase-tools downloads the database emulator jar on first use; keep it between runs.
       - name: Cache Firebase emulators
