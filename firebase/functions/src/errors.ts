@@ -17,7 +17,7 @@ export function asObject(value: unknown, what = 'data'): Fields {
 export function reqString(data: Fields, key: string, maxLength = 128): string {
   const value = data[key];
   if (typeof value !== 'string' || value.length === 0 || value.length > maxLength) fail('invalid-argument', `bad_${key}`);
-  return value as string;
+  return value;
 }
 
 export function optString(data: Fields, key: string, maxLength = 128): string | undefined {
@@ -39,11 +39,11 @@ export function optInt(data: Fields, key: string, lo: number, hi: number): numbe
   const value = data[key];
   if (value === undefined) return undefined;
   if (!isInt(value, lo, hi)) fail('invalid-argument', `bad_${key}`);
-  return value as number;
+  return value;
 }
 
 export function reqBool(data: Fields, key: string): boolean {
   const value = data[key];
   if (typeof value !== 'boolean') fail('invalid-argument', `bad_${key}`);
-  return value as boolean;
+  return value;
 }

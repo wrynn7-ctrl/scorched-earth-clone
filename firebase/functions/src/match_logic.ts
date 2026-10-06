@@ -38,7 +38,7 @@ export function parseTimers(raw: unknown): Timers {
   if (!(liveSec === 0 || isInt(liveSec, 10, 600))) return fail('invalid-argument', 'bad_liveSec');
   if (!isInt(asyncHours, 1, 168)) return fail('invalid-argument', 'bad_asyncHours');
   if (asyncTimeout !== 'auto' && asyncTimeout !== 'end') return fail('invalid-argument', 'bad_asyncTimeout');
-  return { liveSec: liveSec as number, asyncHours, asyncTimeout };
+  return { liveSec: liveSec, asyncHours, asyncTimeout };
 }
 
 export function parseSeatSpecs(raw: unknown): SeatSpec[] {

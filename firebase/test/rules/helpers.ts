@@ -41,12 +41,13 @@ export function testEnv(): RulesTestEnvironment {
 
 /** The database as a signed-in user. */
 export function as(uid: string): Database {
-  return testEnv().authenticatedContext(uid).database();
+  // rules-unit-testing types its handle as the compat SDK, but it is the same object the modular functions accept.
+  return testEnv().authenticatedContext(uid).database() as unknown as Database;
 }
 
 /** The database with no sign-in. */
 export function anonymous(): Database {
-  return testEnv().unauthenticatedContext().database();
+  return testEnv().unauthenticatedContext().database() as unknown as Database;
 }
 
 /** Write seed data as the server (rules off). */

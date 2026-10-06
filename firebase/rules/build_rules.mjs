@@ -383,12 +383,16 @@ const rules = {
   },
 };
 
-// Rules JSON must not contain `undefined`; a stray key would be dropped silently, so fail loudly instead.
-const text = `${JSON.stringify(rules, (key, value) => (value === undefined ? (() => { throw new Error(`undefined at ${key}`); })() : value), 2)}\n`;
+// Rules JSON must not contain `undefined` (JSON.stringify would drop the key silently), so fail loudly instead.
+function failOnUndefined(key, value) {
+  if (value === undefined) throw new Error(`undefined rule at "${key}"`);
+  return value;
+}
+const text = `${JSON.stringify(rules, failOnUndefined, 2)}\n`;
 const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'database.rules.json');
 
 if (process.argv.includes('--check')) {
-  let current = '';
+  let current;
   try {
     current = readFileSync(target, 'utf8');
   } catch {

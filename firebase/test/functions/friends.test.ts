@@ -1,6 +1,6 @@
 // Friend requests, friendships, blocks and name reports (ARCHITECTURE section 44), including blocks in both directions.
 import assert from 'node:assert/strict';
-import { befriend, CallError, db, eventually, fcmFor, hostLobby, newUser, settle, signUp, value, type TestUser } from './harness';
+import { befriend, type CallError, db, eventually, fcmFor, hostLobby, newUser, settle, signUp, value, type TestUser } from './harness';
 
 const code = async (user: TestUser): Promise<string> => (await user.profile()).friendCode as string;
 const status = (s: string) => (e: CallError) => e.status === s;

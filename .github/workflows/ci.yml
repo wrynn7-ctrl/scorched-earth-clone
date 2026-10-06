@@ -88,6 +88,47 @@ jobs:
             esac
           done
 
+  # Online backend (ARCHITECTURE section 43): lint, typecheck, then the rules and functions tests against the local Firebase
+  # emulators (project "demo-craterline": fully offline, no credentials, no real Firebase project). Independent of the Godot jobs.
+  firebase:
+    name: Firebase (rules + functions + emulators)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            firebase/package-lock.json
+            firebase/functions/package-lock.json
+
+      # The database emulator is a Java program.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # firebase-tools downloads the database emulator jar on first use; keep it between runs.
+      - name: Cache Firebase emulators
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('firebase/package-lock.json') }}
+          restore-keys: |
+            firebase-emulators-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund --prefix firebase
+          npm ci --no-audit --no-fund --prefix firebase/functions
+
+      # Static checks (generated files up to date, typecheck, eslint, build), rules tests, functions tests.
+      - name: Firebase tests
+        run: tools/firebase/test.sh
+
   android-debug:
     name: Android debug APK
     needs: [test, test-coverage]
@@ -121,9 +162,20 @@ jobs:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper/dists
-          key: gradle-${{ runner.os }}-apk-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg') }}
+          key: gradle-${{ runner.os }}-apk-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg', 'tools/plugins/pin.env', 'android_plugins/**/*.gradle', 'android_plugins/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-apk-
+
+      - name: Firebase config (optional)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android_plugins/google-services.json
+            echo "Firebase config written: push is built in"
+          else
+            echo "No GOOGLE_SERVICES_JSON secret: push is built as a stub"
+          fi
 
       # Installs the export templates and the pinned Android SDK pieces if the runner image lacks them,
       # writes the Godot editor settings, installs the Gradle build template (game/android, generated), exports,
@@ -176,9 +228,20 @@ jobs:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper/dists
-          key: gradle-${{ runner.os }}-aab-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg', 'tools/android/fetch_bundletool.sh') }}
+          key: gradle-${{ runner.os }}-aab-${{ hashFiles('tools/android/common.sh', 'tools/billing/pin.env', 'game/export_presets.cfg', 'tools/android/fetch_bundletool.sh', 'tools/plugins/pin.env', 'android_plugins/**/*.gradle', 'android_plugins/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-aab-
+
+      - name: Firebase config (optional)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android_plugins/google-services.json
+            echo "Firebase config written: push is built in"
+          else
+            echo "No GOOGLE_SERVICES_JSON secret: push is built as a stub"
+          fi
 
       # Exports the AAB, checks the layout, the (debug) signature, the billing classes and runs `bundletool validate`.
       - name: Build release AAB (Gradle)
@@ -196,7 +259,7 @@ jobs:
 
   publish-dev-release:
     name: Publish dev-latest pre-release
-    needs: android-debug
+    needs: [android-debug, firebase]
     # Pushes to the dev branch only (never pull requests, never other branches).
     if: github.event_name == 'push' && github.ref == 'refs/heads/claude/artillery-game-android-69i6of'
     runs-on: ubuntu-24.04

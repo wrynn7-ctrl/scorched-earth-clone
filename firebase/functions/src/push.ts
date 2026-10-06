@@ -2,7 +2,7 @@
 // at _test/fcm/{pushId}; the tests read it back. In production FcmSender sends through Firebase Cloud Messaging.
 import type { Database } from 'firebase-admin/database';
 import { getFcm } from './admin';
-import { isEmulator } from './config';
+import { isEmulator, PUSH_CHANNEL_ID } from './config';
 import { read } from './rtdb';
 
 export interface PushMessage {
@@ -34,6 +34,7 @@ export class RecordingSender implements PushSender {
       body: message.body,
       data: message.data,
       collapseKey: message.collapseKey ?? null,
+      channelId: PUSH_CHANNEL_ID,
       at: this.now(),
     });
   }
@@ -52,7 +53,13 @@ export class FcmSender implements PushSender {
       tokens: list,
       notification: { title: message.title, body: message.body },
       data: message.data,
-      android: { priority: 'high', collapseKey: message.collapseKey, ttl: 24 * 3600 * 1000 },
+      android: {
+        priority: 'high',
+        collapseKey: message.collapseKey,
+        ttl: 24 * 3600 * 1000,
+        // The "Turns" channel the game creates; `tag` makes a newer notification for the same match replace the older one.
+        notification: { channelId: PUSH_CHANNEL_ID, ...(message.collapseKey ? { tag: message.collapseKey } : {}) },
+      },
     });
     const removals: Record<string, null> = {};
     result.responses.forEach((response, index) => {

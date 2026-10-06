@@ -145,6 +145,7 @@ export interface FcmRecord {
   body: string;
   data: Record<string, string>;
   collapseKey: string | null;
+  channelId: string;
   at: number;
 }
 

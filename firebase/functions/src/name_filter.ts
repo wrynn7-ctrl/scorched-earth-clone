@@ -56,13 +56,7 @@ const LATIN_RANGES: readonly (readonly [number, number])[] = [
   [0x2215, 0x2215],
 ];
 
-interface Blocklist {
-  SUBSTRINGS: string[];
-  WORDS: string[];
-  PREFIXES: string[];
-  SUFFIXES: string[];
-}
-const LISTS = blocklist as Blocklist;
+const LISTS: { SUBSTRINGS: string[]; WORDS: string[]; PREFIXES: string[]; SUFFIXES: string[] } = blocklist;
 
 const accentMap = new Map<string, string>();
 for (const [letter, chars] of Object.entries(ACCENTS)) {

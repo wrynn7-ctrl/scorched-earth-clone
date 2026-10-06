@@ -30,8 +30,13 @@ export class StubVerifier implements PurchaseVerifier {
 export interface PlayConfig {
   packageName: string;
   productId: string;
-  /** Service-account key JSON text from Secret Manager. Empty or "-" means: use the function's own runtime service account. */
-  serviceAccountJson: string;
+  /**
+   * Optional service-account key JSON. Normally empty: the function then calls Google as its own runtime service account
+   * (Application Default Credentials), which the owner invites in Play Console (docs/FIREBASE_SETUP.md section 8), so no key
+   * file exists anywhere. Setting the PLAY_SERVICE_ACCOUNT_JSON environment variable overrides that (for example from a
+   * Secret Manager secret mapped to an environment variable); it is never read from the repository.
+   */
+  serviceAccountJson?: string;
 }
 
 interface PlayProduct {
@@ -40,21 +45,28 @@ interface PlayProduct {
   orderId?: string;
 }
 
+/** The part of google-auth-library's client this file uses (a seam for tests). */
+export interface PlayHttp {
+  getClient(): Promise<{ request<T>(options: { url: string; method?: 'GET' | 'POST'; data?: unknown }): Promise<{ data: T }> }>;
+}
+
 const PLAY_BASE = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
 const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 
 /** Google Play Developer API (androidpublisher v3) `purchases.products`. */
 export class PlayVerifier implements PurchaseVerifier {
-  private readonly auth: GoogleAuth;
+  private readonly http: PlayHttp;
 
-  constructor(private readonly config: PlayConfig) {
-    const key = config.serviceAccountJson.trim();
-    const credentials = key === '' || key === '-' ? undefined : (JSON.parse(key) as Record<string, unknown>);
-    this.auth = new GoogleAuth({ scopes: [PLAY_SCOPE], ...(credentials ? { credentials } : {}) });
+  constructor(
+    private readonly config: PlayConfig,
+    http?: PlayHttp,
+  ) {
+    const key = (config.serviceAccountJson ?? '').trim();
+    this.http = http ?? new GoogleAuth({ scopes: [PLAY_SCOPE], ...(key === '' ? {} : { credentials: JSON.parse(key) as Record<string, unknown> }) });
   }
 
   async verify(purchaseToken: string): Promise<PurchaseResult> {
-    const client = await this.auth.getClient();
+    const client = await this.http.getClient();
     const base = `${PLAY_BASE}/${encodeURIComponent(this.config.packageName)}/purchases/products/${encodeURIComponent(this.config.productId)}/tokens/${encodeURIComponent(purchaseToken)}`;
     let product: PlayProduct;
     try {

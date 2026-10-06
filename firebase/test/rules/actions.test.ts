@@ -76,6 +76,11 @@ describe('rules: action log - who may append', () => {
     await assertFails(update(ref(as('host')), { [`matches/${MID}`]: null }));
   });
 
+  it('refuses to write over an entry that already sits in the next slot (a half-finished server timeout)', async () => {
+    await seed({ [`matches/${MID}/actions/${count}`]: { kind: 'timeout', tank: 0 } });
+    await assertFails(update(ref(as('host')), append(count, [fire(0)])));
+  });
+
   it('requires consecutive indices: no gap, no skipped slot, no phantom count', async () => {
     await assertFails(update(ref(as('host')), { [`matches/${MID}/actions/${count + 1}`]: fire(0), [`matches/${MID}/meta/actionCount`]: count + 2 }));
     await assertFails(update(ref(as('host')), { [`matches/${MID}/actions/${count}`]: fire(0), [`matches/${MID}/meta/actionCount`]: count + 2 }));

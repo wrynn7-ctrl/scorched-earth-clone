@@ -1,7 +1,7 @@
 // createMatch, updateLobby, joinMatch, leaveMatch, startMatch, invite (ARCHITECTURE section 45).
 import assert from 'node:assert/strict';
 import { CODE_ALPHABET } from '../../functions/src/config';
-import { befriend, CallError, callWith, db, eventually, fcmFor, hostLobby, newUser, settle, signUp, value, type TestUser } from './harness';
+import { befriend, type CallError, callWith, db, eventually, fcmFor, hostLobby, newUser, settle, signUp, value, type TestUser } from './harness';
 
 const status = (s: string) => (e: CallError) => e.status === s;
 const reason = (s: string, r: string) => (e: CallError) => e.status === s && e.reason === r;
@@ -13,7 +13,7 @@ interface Seat {
   level?: number;
 }
 const seatsOf = async (matchId: string): Promise<Seat[]> => (await value<Seat[]>(`matches/${matchId}/meta/seats`)) ?? [];
-const metaOf = async (matchId: string): Promise<Record<string, any>> => (await value<Record<string, any>>(`matches/${matchId}/meta`)) ?? {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+const metaOf = async (matchId: string): Promise<Record<string, any>> => (await value<Record<string, any>>(`matches/${matchId}/meta`)) ?? {};  
 
 describe('functions: createMatch', () => {
   it('lets only a full owner host', async () => {
@@ -441,6 +441,13 @@ describe('functions: leaveMatch', () => {
     await assert.rejects(host.call('leaveMatch', { matchId }), reason('NOT_FOUND', 'not_a_member'));
     await assert.rejects((await newUser()).call('leaveMatch', { matchId }), reason('NOT_FOUND', 'not_a_member'));
     await assert.rejects(host.call('leaveMatch', {}), status('INVALID_ARGUMENT'));
+  });
+
+  it('clears a list entry whose match no longer exists', async () => {
+    const user = await newUser();
+    await db.ref(`userMatches/${user.uid}/gone`).set({ updated: 1, yourTurn: false, status: 'over' });
+    assert.deepEqual(await user.call('leaveMatch', { matchId: 'gone' }), { status: 'abandoned' });
+    assert.equal(await value(`userMatches/${user.uid}/gone`), null);
   });
 });
 

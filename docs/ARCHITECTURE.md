@@ -862,3 +862,27 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
 - Godot net tests run two or more headless clients against the emulator: create, join, play to the end in live and
   async modes, a disconnect mid-turn, catch-up, a concurrent shop, CPU and timeout markers, a shared-phone seat, teams,
   Love, and a tampered entry → "disputed". Fingerprints must match on every client.
+
+## 51. M7-B as built (binding amendments to §44–§46; details in `firebase/README.md`)
+- **Turn markers:**
+  - `meta/turn.tank = -1` means "needs resolve". `startMatch` always sets it, because the first tank comes from the
+    RNG, and the first client resolves it.
+  - `-2` means the shop phase, with `uid "any"`.
+  - `turn` has `deadline` (the async hard deadline, from server time) and an optional `liveDeadline`. A `timeout` entry
+    is allowed after `deadline`, or after `liveDeadline` while the holder is present.
+  - `turn.index` increases by 1 on every write.
+- **Log appends:** one update writes at most 16 entries. Entries after the first may only be CPU `auto` /
+  `auto_shop` or the writer's own shop entries. Losing a race returns permission denied: refetch, replay, retry.
+- **Membership:** the rules use the server-written `userMatches/{uid}/{matchId}`. Clients read `meta`, `actions`, `fp`,
+  `msgs`, `lastMsg` and `presence/{uid}` separately (there is no read on `matches/{id}`). The message rate limit is
+  `lastMsg/{uid}`, written as a server timestamp in the same update.
+- **Social graph:** friends, requests, blocks, invites, reports and match creation and joining are **callable-only**
+  (the rules refuse client writes). A blocked pair gets `unknown_code`, so a block never shows. The callables are
+  `ensureProfile`, `sendFriendRequest`, `respondFriendRequest`, `removeFriend`, `block`, `unblock`, `reportName`,
+  `createMatch`, `updateLobby`, `joinMatch`, `leaveMatch`, `startMatch`, `invite`, `verifyPurchase` and
+  `deleteMyData` (plus the emulator-only `testSetFull`).
+- **Leaving or deleting:** the player's seats become CPU Normal. If no human is left, the match is abandoned.
+- **Housekeeping:** lobbies expire after 24 h and idle matches after 14 days; finished matches are deleted after 30
+  days. Caps: 40 matches and 50 pending requests per player.
+- **Region:** `europe-west1` (one constant). Push uses a notification plus `data {type, matchId}` on channel `turns`.
+- **Shop timeouts are client-written** (the sweep only abandons a shop stuck for 14 days).

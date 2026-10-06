@@ -1,6 +1,6 @@
 // Entry point: every deployed function is exported from here. Handlers live in the other files and take a `Deps`.
 // See firebase/README.md for the list of callables, their arguments and the paths a client reads and writes.
-import { defineSecret, defineString } from 'firebase-functions/params';
+import { defineString } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { deleteMyData as deleteMyDataHandler } from './account';
 import { isEmulator, MAX_INSTANCES, REGION } from './config';
@@ -55,25 +55,24 @@ export const invite = authed(inviteHandler);
 
 export const deleteMyData = authed((deps, uid) => deleteMyDataHandler(deps, uid));
 
-// Purchase verification. The Play settings are deploy-time parameters; the service-account key is a Secret Manager secret
-// (set with `firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON`). Nothing secret is in the repository.
+// Purchase verification. The Play settings are deploy-time parameters (defaults in config.ts). The function calls Google Play
+// as its own runtime service account, so there is no key and no secret to deploy; see PlayConfig in purchase.ts.
 const playPackage = defineString('PLAY_PACKAGE_NAME', { default: PLAY_DEFAULTS.packageName });
 const playProduct = defineString('PLAY_PRODUCT_ID', { default: PLAY_DEFAULTS.productId });
-const playServiceAccount = defineSecret('PLAY_SERVICE_ACCOUNT_JSON');
 
-export const verifyPurchase = onCall({ ...callOptions, secrets: [playServiceAccount] }, async (request) => {
+export const verifyPurchase = onCall(callOptions, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'sign_in_required');
   const verifier = chooseVerifier(() => ({
     packageName: playPackage.value(),
     productId: playProduct.value(),
-    serviceAccountJson: playServiceAccount.value(),
+    serviceAccountJson: process.env.PLAY_SERVICE_ACCOUNT_JSON ?? '',
   }));
   return verifyPurchaseHandler(defaultDeps(), uid, request.data, verifier);
 });
 
 /**
-* Emulator only: marks a user as a full owner so tests can host without a purchase. It is not even exported (so never
+ * Emulator only: marks a user as a full owner so tests can host without a purchase. It is not even exported (so never
  * deployed) outside the emulator, and refuses to run there too if the guard is somehow bypassed.
  */
 export const testSetFull = isEmulator()

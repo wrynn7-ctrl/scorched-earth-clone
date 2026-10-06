@@ -40,7 +40,6 @@ import {
   type UserRecord,
 } from './rtdb';
 
-type Updates = Record<string, unknown>;
 
 /** Drops `undefined` values: the Realtime Database refuses them. */
 function plain<T>(value: T): T {
@@ -123,21 +122,18 @@ export function yourTurnFor(uid: string, status: MatchStatus, turn: Turn | undef
  */
 export async function syncMatch(deps: Deps, matchId: string, meta: Meta, newMembers: readonly string[] = []): Promise<void> {
   const now = deps.now();
-  const updates: Updates = {};
   const hostName = hostNameOf(meta);
-  for (const uid of humanUids(meta.seats)) {
-    if (!newMembers.includes(uid) && !(await exists(deps.db, `userMatches/${uid}/${matchId}`))) continue;
-    const entry: UserMatchEntry = {
-      updated: now,
-      yourTurn: yourTurnFor(uid, meta.status, meta.turn),
-      status: meta.status,
-      hostName,
-    };
-    updates[`userMatches/${uid}/${matchId}`] = entry;
-  }
-  const due = nextDue(meta, now);
-  updates[`sweepQueue/${matchId}`] = due;
-  await deps.db.ref().update(updates);
+  await Promise.all(
+    humanUids(meta.seats).map((uid) => {
+      const entry: UserMatchEntry = { updated: now, yourTurn: yourTurnFor(uid, meta.status, meta.turn), status: meta.status, hostName };
+      const ref = deps.db.ref(`userMatches/${uid}/${matchId}`);
+      if (newMembers.includes(uid)) return ref.set(entry);
+      // Update an existing entry only. The first pass of a transaction sees no data, so it answers "null" (a no-op when the
+      // entry really is missing, a retry with the real value when it is not).
+      return ref.transaction((current: UserMatchEntry | null) => (current === null ? null : entry));
+    }),
+  );
+  await deps.db.ref(`sweepQueue/${matchId}`).set(nextDue(meta, now));
 }
 
 /** Everything that follows a match ending: the code expires, members' lists show the result, deletion is scheduled. */
@@ -328,8 +324,9 @@ export function seatsToCpu(meta: Meta, uid: string, anonymous = false): Meta {
 export async function leaveMatch(deps: Deps, uid: string, raw: unknown): Promise<LeaveResult> {
   const matchId = reqId(asObject(raw), 'matchId');
   if (!(await exists(deps.db, `userMatches/${uid}/${matchId}`))) return fail('not-found', 'not_a_member');
-  const meta = await requireMeta(deps, matchId);
-  const result = await leaveWithMeta(deps, uid, matchId, meta);
+  const meta = await readMeta(deps.db, matchId);
+  // A list entry whose match is gone (deleted after the retention period) is simply cleared.
+  const result: LeaveResult = meta ? await leaveWithMeta(deps, uid, matchId, meta) : { status: 'abandoned' };
   await deps.db.ref(`userMatches/${uid}/${matchId}`).remove();
   return result;
 }

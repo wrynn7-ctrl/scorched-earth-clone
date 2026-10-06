@@ -1,7 +1,7 @@
 // ensureProfile and the name re-check trigger (ARCHITECTURE section 44).
 import assert from 'node:assert/strict';
 import { CODE_ALPHABET } from '../../functions/src/config';
-import { callWith, CallError, db, eventually, newUser, signUp, value } from './harness';
+import { callWith, type CallError, db, eventually, newUser, signUp, value } from './harness';
 
 describe('functions: ensureProfile', () => {
   it('creates the profile: friend code, name PLAYER, protocol, not full', async () => {

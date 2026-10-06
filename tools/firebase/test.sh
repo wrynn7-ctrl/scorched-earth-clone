@@ -44,6 +44,12 @@ install_if_missing() {
 install_if_missing "$FB" firebase
 install_if_missing "$FB/functions" tsc
 
+# The purchase function declares a Secret Manager secret; the emulator reads local overrides from this git-ignored file
+# (without it the emulator only prints a warning). "-" means "use the runtime service account", which the emulator never needs.
+if [ ! -e "$FB/functions/.secret.local" ]; then
+  printf 'PLAY_SERVICE_ACCOUNT_JSON=-\n' > "$FB/functions/.secret.local"
+fi
+
 emulators_exec() {
   local only="$1" script="$2"
   (cd "$FB" && ./node_modules/.bin/firebase emulators:exec --project "$PROJECT" --only "$only" "npm run $script")

@@ -43,6 +43,9 @@ export const RETENTION_MS = 30 * DAY;
 /** "Online" means a heartbeat younger than this (ARCHITECTURE section 45, same as the rules). */
 export const PRESENCE_FRESH_MS = 75 * SECOND;
 
+/** Android notification channel created by the push plugin (android_plugins/push, CHANNEL_ID). */
+export const PUSH_CHANNEL_ID = 'turns';
+
 // Turn markers in meta/turn.tank (ARCHITECTURE section 46).
 export const TURN_NEEDS_RESOLVE = -1;
 export const TURN_SHOP = -2;
