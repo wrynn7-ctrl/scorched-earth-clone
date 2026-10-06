@@ -51,7 +51,7 @@ const WIDE = (text: string): string =>
 export function buildCorpus(blocklist: Lists, size = CORPUS_SIZE, seedValue = CORPUS_SEED): string[] {
   const next = mulberry32(seedValue);
   const int = (lo: number, hi: number): number => lo + Math.floor(next() * (hi - lo + 1));
-  const pick = <T>(items: readonly T[]): T => items[int(0, items.length - 1)] as T;
+  const pick = <T>(items: readonly T[]): T => items[int(0, items.length - 1)];
   const words = [...blocklist.SUBSTRINGS, ...blocklist.WORDS];
   const out: string[] = [];
 

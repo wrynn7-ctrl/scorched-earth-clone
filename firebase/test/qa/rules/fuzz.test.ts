@@ -36,7 +36,7 @@ class Rand {
     return this.next() < p;
   }
   pick<T>(items: readonly T[]): T {
-    return items[this.int(0, items.length - 1)] as T;
+    return items[this.int(0, items.length - 1)];
   }
 }
 
@@ -299,7 +299,7 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
       continue;
     }
     if (rest.startsWith('fp/')) {
-      const parts = rest.split('/');
+      const parts: string[] = rest.split('/');
       if (parts[2] !== actor) bad(`fingerprint written for ${String(parts[2])} by ${actor}`);
       if (!member) bad('fingerprint by a non-member');
       if (at(after, `${base}/actions/${String(parts[1])}`) === undefined) bad('fingerprint for a missing entry');
@@ -342,7 +342,7 @@ function judge(before: Obj, after: Obj, actor: string | null, win: Window): Verd
         else if (d.removed.includes(p)) continue;
         else if (!(typeof value === 'object' && value !== null && typeof (value as Obj)[hash] === 'string')) bad('fcm token malformed');
         else {
-          const tokens = Object.keys((at(after, `users/${actor}/fcm`) ?? {}) as Obj).length;
+          const tokens = Object.keys((at(after, `users/${actor}/fcm`) ?? {})).length;
           if (tokens > 5) v.tags.push('fcm_flood');
         }
       } else bad(`users/${actor}/${String(field)} written`);
@@ -428,14 +428,13 @@ function genScene(r: Rand): Scene {
   const seats = r.pick(SEAT_LAYOUTS);
   const now = Date.now();
   const mode = r.int(0, 9);
-  let tank = r.int(0, seats.length - 1);
   let turn: Obj;
   const deadline = r.chance(0.35) ? now - r.int(1, 5000) : now + HOUR;
   if (mode === 0) turn = { tank: -1, uid: 'any', deadline: 0, index: 3 };
   else if (mode === 1) turn = { tank: -2, uid: 'any', deadline, index: 3 };
   else {
-    tank = r.int(0, seats.length - 1);
-    const seat = seats[tank] as Seat;
+    const tank = r.int(0, seats.length - 1);
+    const seat = seats[tank];
     turn = { tank, uid: seat.kind === 'cpu' ? 'cpu' : seat.uid, deadline, index: 3 };
     if (r.chance(0.4) && seat.kind === 'human') turn.liveDeadline = now + r.int(-3000, 40000);
   }
@@ -475,7 +474,7 @@ function validAppend(r: Rand, scene: Scene, actor: string | null): Obj {
   const cpuSeats = scene.seats.flatMap((s, i) => (s.kind === 'cpu' ? [i] : []));
   const mine = scene.seats.flatMap((s, i) => (s.kind === 'human' && s.uid === actor ? [i] : []));
   const entries: Obj[] = [];
-  const lvl = (tank: number): number => (scene.seats[tank] as Seat).level ?? 2;
+  const lvl = (tank: number): number => (scene.seats[tank]).level ?? 2;
   const aim = (tank: number): Obj => r.pick([
     { kind: 'fire', tank, angle: r.int(0, 1800), power: r.int(1, 1000), weapon: 'pulse_missile' },
     { kind: 'pass', tank },
@@ -483,25 +482,25 @@ function validAppend(r: Rand, scene: Scene, actor: string | null): Obj {
     { kind: 'use_item', tank, item: 'shield' },
   ]);
   if (turnTank >= 0) {
-    const seat = scene.seats[turnTank] as Seat;
+    const seat = scene.seats[turnTank];
     if (seat.kind === 'cpu') entries.push({ kind: 'auto', tank: turnTank, level: lvl(turnTank) });
     else if (seat.uid === actor && r.chance(0.8)) entries.push(aim(turnTank));
     else entries.push(r.chance(0.5) ? { kind: 'timeout', tank: turnTank, async: 1 } : { kind: 'timeout', tank: turnTank });
   } else if (turnTank === -1 && cpuSeats.length > 0) {
-    entries.push({ kind: 'auto', tank: cpuSeats[0] as number, level: lvl(cpuSeats[0] as number) });
+    entries.push({ kind: 'auto', tank: cpuSeats[0], level: lvl(cpuSeats[0]) });
   } else if (turnTank === -2) {
     if (mine.length > 0 && r.chance(0.8)) {
       for (const t of mine) {
         if (r.chance(0.5)) entries.push({ kind: 'buy', tank: t, item: 'shield', qty: r.int(1, 3) });
         entries.push({ kind: 'ready', tank: t });
       }
-    } else if (cpuSeats.length > 0) entries.push({ kind: 'auto_shop', tank: cpuSeats[0] as number, level: lvl(cpuSeats[0] as number) });
+    } else if (cpuSeats.length > 0) entries.push({ kind: 'auto_shop', tank: cpuSeats[0], level: lvl(cpuSeats[0]) });
     else entries.push({ kind: 'timeout', tank: mine[0] ?? 0, async: 1 });
   } else entries.push(aim(r.int(0, scene.seats.length - 1)));
-  const first = entries[0] as Obj;
+  const first = entries[0];
   const followCpu = cpuSeats.length > 0 && !SHOP.includes(first.kind as string) && first.kind !== 'auto_shop';
   for (let i = r.chance(0.5) && followCpu ? r.int(1, 3) : 0; i > 0; i -= 1) {
-    entries.push({ kind: 'auto', tank: r.pick(cpuSeats), level: lvl(cpuSeats[0] as number) });
+    entries.push({ kind: 'auto', tank: r.pick(cpuSeats), level: lvl(cpuSeats[0]) });
   }
   const out: Obj = {};
   entries.forEach((e, i) => {
@@ -567,7 +566,7 @@ function genUpdate(r: Rand, scene: Scene, actor: string | null): Obj {
       const k = r.chance(0.08) ? r.int(15, 19) : r.int(1, 3);
       const entries: Obj[] = [];
       for (let i = 0; i < k; i += 1) {
-        const prefer = i === 0 ? (turnTank >= 0 ? turnTank : null) : scene.seats.findIndex((s) => s.kind === 'cpu');
+        const prefer: number = i === 0 ? (turnTank >= 0 ? turnTank : -1) : scene.seats.findIndex((s) => s.kind === 'cpu');
         entries.push(genEntry(r, scene.seats, prefer >= 0 ? prefer : null));
       }
       const start = scene.count + (r.chance(0.9) ? 0 : r.pick([-1, 1, 2]));

@@ -4,7 +4,8 @@
 import { bug } from '../bug';
 import assert from 'node:assert/strict';
 import { befriend, hostLobby } from '../../functions/harness';
-import { inParallel, newUser, outcome, rawCall, reasonOf, rest, type TestUser } from './qa_harness';
+import { callWith } from '../../functions/harness';
+import { inParallel, newUser, outcome, rawCall, reasonOf, rest, unsignedToken, type TestUser } from './qa_harness';
 
 const CLEAN = new Set(['OK', 'INVALID_ARGUMENT', 'NOT_FOUND', 'PERMISSION_DENIED', 'FAILED_PRECONDITION', 'ALREADY_EXISTS', 'RESOURCE_EXHAUSTED', 'UNAUTHENTICATED']);
 
@@ -185,6 +186,28 @@ describe('QA functions: wrong types and odd strings on every callable', function
       assert.ok(Date.now() - started < 8000);
       assert.match(got, /^(INVALID_ARGUMENT|NOT_FOUND)/);
     }
+  });
+
+  it('rejects tokens that are not a JWT at all, for callables and for the database', async () => {
+    for (const junk of ['not.a.token', 'x', '', 'Bearer', 'a.b.c', `${'A'.repeat(5000)}.${'B'.repeat(5000)}.C`]) {
+      if (junk === '') continue; // an empty header is the same as signed out
+      assert.equal(await outcome(callWith('ensureProfile', {}, junk)), 'UNAUTHENTICATED', junk.slice(0, 20));
+      const r = await rest(junk, 'GET', `users/${me.uid}/name`);
+      assert.ok([400, 401, 403].includes(r.status), `database answered HTTP ${r.status} to a junk token`);
+    }
+    assert.equal(await outcome(callWith('ensureProfile', {}, null)), 'UNAUTHENTICATED');
+  });
+
+  // Information, not a bug: the Auth and Database emulators hand out and accept UNSIGNED tokens and do not check `exp`, so a forged
+  // or expired token (claiming any uid) is accepted here. A real project verifies the signature and expiry, so those two attacks
+  // (a forged token, a stale token) cannot be tested against the emulators; this test pins the emulator behaviour so that it is
+  // noticed if that ever changes.
+  it('documents: the emulators accept an unsigned token for any uid and ignore expiry (a real project does not)', async () => {
+    const forged = unsignedToken(me.uid);
+    const expired = unsignedToken(me.uid, { exp: Math.floor(Date.now() / 1000) - 7200 });
+    assert.equal(await outcome(callWith('ensureProfile', {}, forged)), 'OK');
+    assert.equal(await outcome(callWith('ensureProfile', {}, expired)), 'OK');
+    assert.equal((await rest(expired, 'GET', `users/${me.uid}/name`)).status, 200);
   });
 
   it('survives non-standard request bodies with a 4xx answer, not a crash', async () => {

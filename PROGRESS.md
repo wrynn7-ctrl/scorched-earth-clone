@@ -115,7 +115,9 @@
 | M7-U Online UI: name setup, Your matches, Friends, Join/Host, lobby, in-match status/timers, quick messages, player menu, settings | show-ui-dev | ✅ reviewed (1,439 show+ui+net+qa tests incl. two-phone UI flow vs emulator) |
 | M7-R Android: FCM plugin, Google sign-in plugin, share sheet + deep links, FIREBASE_SETUP.md | release-eng | ✅ reviewed (APK +1.5 MB; builds with/without Firebase; Kotlin untested on device; CI steps applied) |
 | M7-G Gaps: add-friend by uid for match members; send purchase token to verifyPurchase | backend-dev | ✅ reviewed (106 rules + 170 functions + 88 net + 660 ui tests) |
-| M7-Q QA: multi-client emulator scenarios, disconnects, tampering | qa-tester | 🟡 in progress |
+| M7-Q QA: multi-client emulator scenarios, disconnects, tampering | qa-tester | ✅ reviewed (rules attacks + 3,000-write fuzz, 20 chaos matches, 2,000-name parity; 7 medium + ~10 low) |
+| M7-QF-B Backend/net fixes for M7-Q | backend-dev | 🟡 in progress |
+| M7-QF-U UI fixes for M7-Q (back button with confirm, stale lobby ids, UI-flow test race) | show-ui-dev | 🟡 in progress |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.

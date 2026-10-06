@@ -8,6 +8,14 @@ import { inParallel, newUser, reasonOf, rest, sleep, type TestUser } from './qa_
 
 const HOUR = 3600 * 1000;
 type Seat = { kind: string; uid?: string; name?: string };
+/** True when `text` holds a control, zero-width, direction-changing, BOM or surrogate character. */
+function unprintable(text: string): boolean {
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    if (c < 0x20 || (c >= 0x7f && c <= 0x9f) || (c >= 0x200b && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) || (c >= 0x2060 && c <= 0x206f) || c === 0xfeff || (c >= 0xd800 && c <= 0xdfff)) return true;
+  }
+  return false;
+}
 const seatsOf = async (id: string): Promise<Seat[]> => (await value<Seat[]>(`matches/${id}/meta/seats`)) ?? [];
 
 describe('QA functions: joining and starting', function () {
@@ -17,14 +25,14 @@ describe('QA functions: joining and starting', function () {
     const host = await newUser({ full: true, name: 'Host' });
     const [g1, g2, g3] = await inParallel(3, () => newUser());
     const lobby = await hostLobby(host, [{ kind: 'human', mine: true }, { kind: 'human' }, { kind: 'cpu' }]);
-    await (g1 as TestUser).call('joinMatch', { code: lobby.code });
-    assert.equal(await reasonOf((g2 as TestUser).call('joinMatch', { code: lobby.code })), 'RESOURCE_EXHAUSTED:match_full');
+    await (g1).call('joinMatch', { code: lobby.code });
+    assert.equal(await reasonOf((g2).call('joinMatch', { code: lobby.code })), 'RESOURCE_EXHAUSTED:match_full');
     await host.call('startMatch', { matchId: lobby.matchId });
-    assert.equal(await reasonOf((g3 as TestUser).call('joinMatch', { code: lobby.code })), 'FAILED_PRECONDITION:not_joinable');
-    assert.equal(await reasonOf((g3 as TestUser).call('joinMatch', { code: 'ZZZZZZ' })), 'NOT_FOUND:unknown_code');
-    assert.equal(await reasonOf((g3 as TestUser).call('joinMatch', { code: 'ZZZZZ0' })), 'INVALID_ARGUMENT:bad_code');
+    assert.equal(await reasonOf((g3).call('joinMatch', { code: lobby.code })), 'FAILED_PRECONDITION:not_joinable');
+    assert.equal(await reasonOf((g3).call('joinMatch', { code: 'ZZZZZZ' })), 'NOT_FOUND:unknown_code');
+    assert.equal(await reasonOf((g3).call('joinMatch', { code: 'ZZZZZ0' })), 'INVALID_ARGUMENT:bad_code');
     // the joined player can still "join" again (a re-open), and takes no second seat
-    const again = await (g1 as TestUser).call<{ alreadyJoined: boolean; seats: number[] }>('joinMatch', { code: lobby.code });
+    const again = await (g1).call<{ alreadyJoined: boolean; seats: number[] }>('joinMatch', { code: lobby.code });
     assert.deepEqual([again.alreadyJoined, again.seats], [true, [1]]);
   });
 
@@ -164,7 +172,7 @@ describe('QA functions: joining and starting', function () {
     const late = await newUser();
     const lobby = await hostLobby(host, [{ kind: 'human', mine: true }, { kind: 'human' }, { kind: 'human' }]);
     await g.call('joinMatch', { code: lobby.code });
-    assert.equal(((await host.call('leaveMatch', { matchId: lobby.matchId })) as { status: string }).status, 'abandoned');
+    assert.equal((await host.call<{ status: string }>('leaveMatch', { matchId: lobby.matchId })).status, 'abandoned');
     assert.equal(await reasonOf(late.call('joinMatch', { code: lobby.code })), 'NOT_FOUND:unknown_code');
     assert.equal(await value(`matches/${lobby.matchId}/meta/status`), 'abandoned');
     await settle(800);
@@ -190,12 +198,12 @@ describe('QA functions: names through the real triggers', function () {
       const want = checkName(raw).name;
       let stored = '';
       for (let i = 0; i < 40; i += 1) {
-        stored = ((await value<string>(`users/${u.uid}/name`)) ?? '') as string;
+        stored = ((await value<string>(`users/${u.uid}/name`)) ?? '');
         if (stored === want) break;
         await sleep(100);
       }
       if (stored !== want) problems.push(`${JSON.stringify(raw)} -> stored ${JSON.stringify(stored)}, filter says ${JSON.stringify(want)}`);
-      if (/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯﻿\ud800-\udfff]/.test(stored)) problems.push(`${JSON.stringify(raw)} stored unprintable ${JSON.stringify(stored)}`);
+      if (unprintable(stored)) problems.push(`${JSON.stringify(raw)} stored unprintable ${JSON.stringify(stored)}`);
     }
     assert.deepEqual(problems, []);
   });
@@ -266,7 +274,7 @@ describe('QA functions: the sweep racing a client write at the same log index', 
   async function checkConsistent(id: string, count: number): Promise<{ kind: string; turnTank: number }> {
     const meta = (await value<Record<string, any>>(`matches/${id}/meta`)) as Record<string, any>;
     const actions = (await value<unknown[]>(`matches/${id}/actions`)) ?? [];
-    const entries = Array.isArray(actions) ? actions : Object.values(actions as Record<string, unknown>);
+    const entries = Array.isArray(actions) ? actions : Object.values(actions);
     assert.equal(entries.length, meta.actionCount, 'actionCount equals the number of entries');
     assert.equal(meta.actionCount, count + 1, 'exactly one entry was appended');
     assert.equal(meta.turn.index, 2, 'the turn index moved exactly once');

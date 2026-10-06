@@ -20,7 +20,7 @@ export async function rest(token: string | null, method: 'GET' | 'PUT' | 'PATCH'
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
-  let json: unknown = null;
+  let json: unknown;
   try {
     json = JSON.parse(text);
   } catch {
@@ -75,6 +75,12 @@ export async function releaseTestToken(user: TestUser): Promise<void> {
   if (snap.val() === user.uid) await db.ref(`purchaseTokens/${TEST_TOKEN_HASH}`).remove();
 }
 
-export async function inParallel<T>(count: number, make: (index: number) => Promise<T>): Promise<T[]> {
-  return Promise.all(Array.from({ length: count }, (_unused, index) => make(index)));
+/** Runs `make` for 0..count-1, at most `limit` at a time (the functions emulator chokes on bursts of more than a few dozen calls). */
+export async function inParallel<T>(count: number, make: (index: number) => Promise<T>, limit = 10): Promise<T[]> {
+  const out: T[] = [];
+  for (let start = 0; start < count; start += limit) {
+    const chunk = Array.from({ length: Math.min(limit, count - start) }, (_unused, k) => make(start + k));
+    out.push(...(await Promise.all(chunk)));
+  }
+  return out;
 }

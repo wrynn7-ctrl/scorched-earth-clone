@@ -228,7 +228,7 @@ describe('QA rules: the turn marker and who may move it', () => {
 
   it('documents what the rules cannot know: the holder may re-write the turn for himself (clients dispute it)', async () => {
     // Contract: full validation is client-side. A holder can set the turn to himself again, but it costs a legal action and
-    // every client then calls the match disputed ("turn_tank"); checked in game/tests/net/qa_*.
+    // every client then calls the match disputed ("turn_tank"); checked in game/tests/net/test_qa_tamper.gd.
     await assertSucceeds(update(ref(as('host')), append(count, [{ kind: 'move', tank: 0, dx: 5 }], NEXT(0, 'host'))));
   });
 
@@ -384,7 +384,7 @@ describe('QA rules: status, settings and seats after the start', () => {
   });
 
   // Informational: "over" is accepted together with any legal action even though the simulation is not over. The rules
-  // cannot check that; the client side is checked in game/tests/net/qa_edge_flows.gd.
+  // cannot check that; the client side is checked in game/tests/net/test_qa_tamper.gd.
   it('documents: a holder can end the match early with a legal action plus status over', async () => {
     await assertSucceeds(update(ref(as('host')), { ...append(count, [fire(0)]), [M('meta/status')]: 'over' }));
   });
