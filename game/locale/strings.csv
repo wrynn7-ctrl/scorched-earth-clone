@@ -247,7 +247,7 @@ UNLOCK_F_THEMES,All 5 terrain themes
 UNLOCK_F_SKINS,Import your own images as tank skins
 UNLOCK_F_ROUNDS,Long matches: 10 and 20 rounds
 UNLOCK_F_RULES,Custom starting money and wind
-UNLOCK_F_ONLINE,Host online matches (coming soon)
+UNLOCK_F_ONLINE,Host online matches with your friends
 UNLOCK_BUY,UNLOCK
 UNLOCK_BUY_FMT,UNLOCK  %s
 UNLOCK_BUY_PENDING,PURCHASE PENDING
@@ -407,3 +407,258 @@ OVERLAY_TEAM_MATCH_WINNER,TEAM %s WINS THE MATCH
 HUD_SUDDEN_DEATH,SUDDEN DEATH
 HUD_SUDDEN_NEXT_FMT,NEXT DRAIN -%d HP
 DMG_SUDDEN_FMT,-%d drain
+TITLE_ONLINE,ONLINE
+NET_BACK,BACK
+NET_CLOSE,CLOSE
+NET_RETRY,RETRY
+NET_TAB_MATCHES,MATCHES
+NET_TAB_FRIENDS,FRIENDS
+NET_TAB_JOIN,JOIN
+NET_TAB_HOST,HOST
+NET_HOST_LOCKED,Hosting online matches needs the full game
+NET_GATE_CONNECTING,CONNECTING
+NET_GATE_CONNECTING_TEXT,Signing in to the online service…
+NET_GATE_OFFLINE,NO CONNECTION
+NET_GATE_OFFLINE_TEXT,Online play needs an internet connection. Check your connection and try again.
+NET_GATE_UPDATE,PLEASE UPDATE THE GAME
+NET_GATE_UPDATE_TEXT,This version can't play with the online service any more. Update Craterline from the store and come back.
+NET_GATE_SETUP,ONLINE IS NOT AVAILABLE
+NET_GATE_SETUP_TEXT,The online service isn't set up yet. Try again later.
+NET_GATE_NAME,CHOOSE YOUR ONLINE NAME
+NET_GATE_NAME_TEXT,Friends and opponents see this name. Up to 12 characters. You can change it in Settings.
+NET_GATE_NAME_OK,CONTINUE
+NET_GATE_OPENING,OPENING MATCH
+NET_GATE_OPENING_TEXT,Loading the match…
+NET_NAME_PLACEHOLDER,YOUR NAME
+NET_CONFIRM_YES,YES
+CONFIRM_OK,OK
+UNLOCK_CTX_HOST,Hosting an online match needs the full game. Anyone can join a match.
+NET_PM_ADD_FRIEND,ADD FRIEND
+NET_PM_BLOCK,BLOCK
+NET_PM_REPORT,REPORT NAME
+NET_PM_MUTE,MUTE MESSAGES
+NET_PM_UNMUTE,UNMUTE MESSAGES
+NET_PM_ADD_HINT,"To add this player, ask for their friend code and enter it under FRIENDS."
+NET_PM_BLOCK_Q,Block %s?
+NET_PM_BLOCK_NOTE,"You will not see each other's invites or requests, and they are removed from your friends."
+NET_PM_REPORT_WHY,Why report %s?
+NET_PM_REPORT_Q,Report the name of %s?
+NET_PM_REPORT_NOTE,The owner reviews reports. Names reported by several players are hidden.
+NET_PM_REPORT_SEND,REPORT
+NET_PM_BLOCKED,%s is blocked.
+NET_PM_REPORTED,Thanks. The name was reported.
+NET_PM_MUTED,%s is muted.
+NET_PM_UNMUTED,%s is unmuted.
+NET_REPORT_OFFENSIVE,Offensive name
+NET_REPORT_IMPERSONATION,Pretends to be someone else
+NET_REPORT_OTHER,Something else
+NET_SIGNED_IN_AS,Signed in as %s
+NET_INVITES,INVITES (%d)
+NET_YOUR_MATCHES,YOUR MATCHES
+NET_NO_MATCHES,"No matches yet. Join one with a code, accept an invite or host your own."
+NET_STATUS_YOUR_TURN,YOUR TURN
+NET_STATUS_WAITING,WAITING
+NET_STATUS_LOBBY,LOBBY
+NET_STATUS_ABANDONED,ABANDONED
+NET_STATUS_OVER,FINISHED
+NET_MATCH_OF,%s's match
+NET_UNKNOWN_HOST,A player
+NET_BADGE_LOVE,LOVE
+NET_BADGE_TEAMS,TEAMS
+NET_REMOVE_SHORT,REMOVE
+NET_JOIN_SHORT,JOIN
+NET_DISMISS,DISMISS
+NET_INVITE_FROM,%s invited you
+NET_MY_CODE,YOUR FRIEND CODE
+NET_COPY,COPY
+NET_CODE_COPIED,Code copied
+NET_ADD_FRIEND,ADD A FRIEND
+NET_FRIEND_CODE_HINT,FRIEND CODE
+NET_ADD,ADD
+NET_NOW_FRIENDS,You are now friends with %s
+NET_REQUEST_SENT,Request sent to %s
+NET_REQUESTS,FRIEND REQUESTS (%d)
+NET_ACCEPT,ACCEPT
+NET_DECLINE,DECLINE
+NET_FRIENDS,FRIENDS (%d)
+NET_NO_FRIENDS,"No friends yet. Share your code, or enter a friend's code above."
+NET_INVITE,INVITE
+NET_INVITED,INVITED
+NET_INVITE_SENT,Invite sent
+NET_REMOVE,REMOVE
+NET_BLOCK,BLOCK
+NET_UNBLOCK,UNBLOCK
+NET_BLOCKED,BLOCKED (%d)
+NET_BLOCKED_PLAYER,Blocked player
+NET_CONFIRM_REMOVE,Remove %s from your friends?
+NET_CONFIRM_BLOCK,Block %s? They are removed from your friends and cannot send you requests or invites.
+NET_JOIN_CAPTION,Enter the 6-character code of a match
+NET_JOIN_PLACEHOLDER,MATCH CODE
+NET_JOIN,JOIN
+NET_JOIN_HINT,"Codes use the letters A to Z and the digits 2 to 9 (no 0, 1, O or I)."
+NET_ADD_PHONE_SEAT,+ ANOTHER PLAYER ON THIS PHONE
+NET_REMOVE_SEAT,X
+NET_REMOVE_SEAT_TIP,Remove this player
+NET_HOST_CAPTION,Host an online match
+NET_HOST_ABOUT,"Pick the kind of match, then set up the players, rules and timers in the lobby and invite your friends."
+NET_MODE_CLASSIC,CLASSIC
+NET_MODE_LOVE,LOVE EDITION
+NET_CREATE_LOBBY,CREATE LOBBY
+NET_ERR_UNKNOWN_CODE,No match or player with that code.
+NET_ERR_BAD_CODE,That code isn't valid. Check the letters and digits.
+NET_ERR_MATCH_FULL,That match is full.
+NET_ERR_NOT_ENOUGH_SEATS,Not enough free seats for everyone on this phone.
+NET_ERR_NOT_JOINABLE,That match has already started or is closed.
+NET_ERR_ALREADY_IN_MATCH,You are already in that match.
+NET_ERR_OWN_CODE,That is your own code.
+NET_ERR_ALREADY_FRIENDS,You are already friends.
+NET_ERR_TOO_MANY_REQUESTS,That player has too many waiting requests.
+NET_ERR_TOO_MANY_MATCHES,You have too many matches. Finish or dismiss one first.
+NET_ERR_FULL_REQUIRED,Hosting needs the full game on this account.
+NET_ERR_NOT_HOST,Only the host can do that.
+NET_ERR_NOT_FRIENDS,You can only invite friends.
+NET_ERR_NOT_A_MEMBER,You are not in that match.
+NET_ERR_SEATS_NOT_FILLED,Not every player has joined yet.
+NET_ERR_NOT_IN_LOBBY,The match has already started.
+NET_ERR_GOOGLE_LINKED,That Google account is already used by another player.
+NET_ERR_SEAT_TAKEN,A player already sits there.
+NET_ERR_BAD_TEAMS,The teams are not valid.
+NET_ERR_LOVE_TWO,Love Edition needs exactly two human players.
+NET_ERR_LOVE_NO_TEAMS,Love Edition has no teams.
+NET_ERR_UNKNOWN_USER,That player could not be found.
+NET_ERR_NO_REQUEST,That request is gone.
+NET_ERR_SERVER_SETUP,Online play isn't set up on the server yet.
+NET_ERR_NO_GOOGLE_ACCOUNT,No Google account on this device.
+NET_ERR_GOOGLE_CONFIG,Google sign-in is not set up in this build.
+NET_ERR_GOOGLE_UNAVAILABLE,Google sign-in is not available on this device.
+NET_ERR_CONTENTION,Too many players acted at once. Please try again.
+NET_ERR_MATCH_OVER,The match is over.
+NET_ERR_OFFLINE,No connection. Try again in a moment.
+NET_ERR_SERVER,The online service had a problem. Try again later.
+NET_ERR_SIGN_IN,You are signed out. Open Online again.
+NET_ERR_PERMISSION,Not allowed.
+NET_ERR_NOT_FOUND,Not found.
+NET_ERR_UPDATE,Please update the game.
+NET_ERR_NAME_BLOCKED,That name isn't allowed. Try another.
+NET_ERR_NAME_EMPTY,Please type a name.
+NET_ERR_RATE_LIMITED,Slow down a little.
+NET_ERR_DISPUTED,This match is disputed.
+NET_ERR_UNAVAILABLE,Not available here.
+NET_ERR_NOT_STARTED,The match has not started yet.
+NET_ERR_GENERIC,Something went wrong.
+NET_AGO_NOW,just now
+NET_AGO_MIN,%d min ago
+NET_AGO_HOUR,%d h ago
+NET_AGO_DAY,%d d ago
+NET_LOBBY_LEAVE,LEAVE
+NET_LOBBY_CLOSE,CLOSE LOBBY
+NET_LOBBY_LEAVE_Q,Leave this lobby? Your seat becomes free again.
+NET_LOBBY_CLOSE_Q,Close this lobby? Everyone who joined is sent back.
+NET_LOBBY_CLOSED,The host closed the lobby.
+NET_LOBBY_CODE,MATCH CODE
+NET_LOBBY_SHARE,SHARE
+NET_LOBBY_INVITE,INVITE FRIENDS
+NET_LOBBY_SEATS,PLAYERS (%d of %d joined)
+NET_LOBBY_OPEN_SEAT,Waiting for a player…
+NET_LOBBY_HUMAN,HUMAN
+NET_LOBBY_YOU,YOU
+NET_LOBBY_THIS_PHONE,THIS PHONE
+NET_LOBBY_ADD_CPU,+ ADD CPU
+NET_LOBBY_ADD_PLAYER,+ ADD PLAYER
+NET_LOBBY_PLAY_HERE,PLAY HERE
+NET_LOBBY_REMOVE_SEAT_TIP,Remove this seat
+NET_LOBBY_RULES,RULES
+NET_LOBBY_START,START
+NET_LOBBY_NEED_PLAYERS,Waiting for %d more player(s) to join
+NET_LOBBY_WAIT_HOST,Waiting for the host to start…
+NET_RULE_ROUNDS,Rounds
+NET_RULE_MONEY,Money
+NET_RULE_WIND,Wind
+NET_RULE_THEME,Terrain
+NET_RULE_LIVE,Live timer
+NET_RULE_ASYNC,Away timer
+NET_RULE_TIMEOUT,On timeout
+NET_RULE_SECONDS,%d s
+NET_RULE_HOURS,%d h
+NET_RULE_TIMEOUT_AUTO,AI PLAYS
+NET_RULE_TIMEOUT_END,END MATCH
+NET_RULE_LOVE_NOTE,"Love Edition: two players, one round."
+NET_RULE_JOINER_NOTE,Only the host can change the rules.
+NET_INVITE_TITLE,INVITE FRIENDS
+NET_INVITE_NONE,"No friends yet. Add friends on the Friends tab, or share the code."
+NET_SHARE_TITLE,Craterline
+NET_SHARE_TEXT,Join my Craterline match with the code {code} or tap {link}
+NET_SHARE_COPIED,Invite copied. Paste it into a message.
+NET_CONN_LIVE,LIVE
+NET_CONN_WAITING,Waiting for %s
+NET_CONN_RECONNECTING,Reconnecting…
+NET_CONN_OFFLINE,"Offline, actions queued"
+NET_CONN_CLOSED,Disconnected
+NET_CONN_SENDING,Sending…
+NET_WAIT_TITLE,Waiting for %s…
+NET_WAIT_AWAY,%s is away. You get a notification when it is your turn.
+NET_WAIT_RESOLVE,Getting the next turn ready…
+NET_WAIT_SHOP,Waiting for the others to finish shopping…
+NET_MSG_TITLE,QUICK MESSAGE
+NET_MSG_WAIT,Next message in %d s
+NET_MSG_BUTTON,Quick message
+MSG_NICE_SHOT,Nice shot!
+MSG_OOPS,Oops!
+MSG_SO_CLOSE,So close!
+MSG_GG,GG
+MSG_YOUR_TURN,Your turn!
+MSG_LAUGH,Laughing
+MSG_WOW,Surprised
+MSG_CLAP,Applause
+NET_BACK_TO_ONLINE,BACK TO ONLINE
+NET_PAUSE_LEAVE,LEAVE MATCH
+NET_PAUSE_END,END MATCH FOR ALL
+NET_LEAVE_Q,"Leave this match? Your tanks are played by the computer from now on, and the match leaves your list."
+NET_END_Q,End this match for everyone? It cannot be resumed.
+NET_DISPUTE_TITLE,MATCH DISPUTED
+NET_DISPUTE_TEXT,"The copies of the game on the players' phones no longer agree about this match, so play has stopped. No result is lost: the match stays in your list until you leave it."
+NET_DISPUTE_LEAVE,LEAVE
+NET_ABANDONED_TITLE,MATCH ENDED
+NET_ABANDONED_TEXT,"The match was ended, so there is nothing more to play."
+NET_OVER_BACK,BACK
+NET_UPDATE_TITLE,PLEASE UPDATE THE GAME
+NET_UPDATE_TEXT,This match was made with a different version of Craterline. Update the game from the store to play it.
+NET_BATTLE_SENDING,Sending your move…
+NET_BATTLE_QUEUED,You are offline. Your move is sent when the connection is back.
+NET_BATTLE_RESEND,Your move could not be sent. Try again.
+NET_PAUSE_PLAYERS,PLAYERS
+NET_PLAYERS_TITLE,PLAYERS
+NET_PLAYERS_ONLINE,ONLINE
+NET_PLAYERS_AWAY,AWAY
+NET_SET_TITLE,ONLINE ACCOUNT
+NET_SET_ONLINE,Online account
+NET_SET_OPEN,OPEN
+NET_SET_NAME,Online name
+NET_SET_SAVE,SAVE
+NET_SET_NOT_SIGNED_IN,Not signed in yet.
+NET_SET_NAME_SAVED,Name saved.
+NET_SET_GOOGLE,Google account
+NET_SET_GOOGLE_SIGN_IN,SIGN IN WITH GOOGLE
+NET_SET_GOOGLE_LINKED,LINKED: %s
+NET_SET_UNAVAILABLE,UNAVAILABLE
+NET_SET_GOOGLE_DONE,Google account linked. Your online account now survives a new phone.
+NET_SET_GOOGLE_TAKEN,That Google account already has a Craterline account.
+NET_SET_GOOGLE_RESTORE_CAPTION,Use that account
+NET_SET_GOOGLE_RESTORE,USE THAT ACCOUNT
+NET_SET_GOOGLE_RESTORED,Signed in to your existing account.
+NET_SET_NOTIFY,Notifications
+NET_SET_NOTIFY_ALLOW,ALLOW
+NET_SET_NOTIFY_ON,ON
+NET_SET_NOTIFY_DENIED,Notifications are off. You can turn them on in the phone's settings.
+NET_SET_DELETE,My online data
+NET_SET_DELETE_BUTTON,DELETE…
+NET_SET_DELETE_Q1,"Delete all your online data? Your name, friends, requests, invites and online matches are removed."
+NET_SET_DELETE_Q2,This cannot be undone. Really delete your online account?
+NET_SET_DELETE_CONTINUE,CONTINUE
+NET_SET_DELETE_YES,DELETE EVERYTHING
+NET_SET_DELETED,Your online data is deleted.
+NET_SET_DELETED_NOTE,You are signed out. Opening ONLINE again starts a new account.
+NET_LOBBY_SHOW_RULES,RULES
+NET_LOBBY_SHOW_PLAYERS,PLAYERS
+NET_PUSH_CHANNEL,Turns
+NET_PUSH_CHANNEL_DESC,"Your turn, invites and finished matches in online games"

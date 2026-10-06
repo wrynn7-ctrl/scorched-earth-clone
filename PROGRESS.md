@@ -112,8 +112,9 @@
 | M7 contract (ARCHITECTURE §43–§50) | lead | ✅ written |
 | M7-B Firebase backend: emulator project, data model, rules, functions (friend codes, requests, blocks, reports, names, invites, matches, timeouts, FCM mock, delete data, purchase stub) + tests + CI job | backend-dev | ✅ reviewed (264 emulator tests: 101 rules + 163 functions) |
 | M7-N Godot net client: auth, RTDB REST + streaming, NetReplay (auto/timeout markers), optimistic append, presence, friends/invites API; multi-client tests vs emulator | backend-dev | ✅ reviewed (80 net tests; replay equivalent to offline; async-timeout flag follow-up in progress) |
-| M7-U Online UI: name setup, Your matches, Friends, Join/Host, lobby, in-match status/timers, quick messages, player menu, settings | show-ui-dev | 🟡 in progress |
+| M7-U Online UI: name setup, Your matches, Friends, Join/Host, lobby, in-match status/timers, quick messages, player menu, settings | show-ui-dev | ✅ reviewed (1,439 show+ui+net+qa tests incl. two-phone UI flow vs emulator) |
 | M7-R Android: FCM plugin, Google sign-in plugin, share sheet + deep links, FIREBASE_SETUP.md | release-eng | ✅ reviewed (APK +1.5 MB; builds with/without Firebase; Kotlin untested on device; CI steps applied) |
+| M7-G Gaps: add-friend by uid for match members; send purchase token to verifyPurchase | backend-dev | 🟡 in progress |
 | M7-Q QA: multi-client emulator scenarios, disconnects, tampering | qa-tester | ⬜ end |
 
 ## Decisions / notes

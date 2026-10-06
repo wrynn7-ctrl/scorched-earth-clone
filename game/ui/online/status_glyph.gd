@@ -17,6 +17,7 @@ func _init(shape: int = Kind.DOT, tint: Color = NeonPalette.GOOD) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	custom_minimum_size = Vector2.ONE * UiScale.dp(size_dp)
+	OnlineKit.min_size(self, size_dp, size_dp)  # OnlineKit.apply() keeps it in step with the screen
 
 
 func set_glyph(shape: int, tint: Color) -> void:

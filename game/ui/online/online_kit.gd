@@ -24,7 +24,9 @@ static func label(text: String, font_dp: float = 14.0, color: Color = NeonPalett
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	else:
-		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		# Never trimmed: a trimmed label in a row that does not expand collapses to nothing and the text vanishes.
+		# Names are at most 12 characters, so rows stay inside the screen.
+		l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return l
 
 
@@ -33,7 +35,7 @@ static func button(text: String, min_w_dp: float = 96.0, font_dp: float = 14.0, 
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.clip_text = true
+	b.clip_text = false  # the button grows to its words: a clipped label ("NORMA") is worse than a wider one
 	b.set_meta(META_FONT, font_dp)
 	b.set_meta(META_DENSE, dense)
 	b.set_meta(META_MIN, Vector2(min_w_dp, UiScale.MIN_TOUCH_DP))
@@ -97,6 +99,7 @@ static func badge(text: String, color: Color) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", sb)
 	var l: Label = label(text, 10.0, color, false, true)
 	l.name = "Text"
+	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING  # a badge is short: never trimmed away
 	p.add_child(l)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p

@@ -9,6 +9,8 @@ signal title_pressed
 var _title: Label = null
 var _sub: Label = null
 var _table: StatTable = null
+var _new_match: Button = null
+var _title_button: Button = null
 
 
 func _init() -> void:
@@ -23,6 +25,22 @@ func _init() -> void:
 	end_container()
 	_buttons[0].name = "NewMatch"
 	_buttons[1].name = "Title"
+	_new_match = _buttons[0]
+	_title_button = _buttons[1]
+
+
+## An online match: no NEW MATCH, and the other button says where it goes (the Online home).
+func set_online(on: bool) -> void:
+	_new_match.visible = not on
+	_title_button.text = tr("NET_BACK_TO_ONLINE") if on else tr("OVERLAY_TITLE")
+
+
+func get_title_button() -> Button:
+	return _title_button
+
+
+func get_new_match_button() -> Button:
+	return _new_match
 
 
 ## order: tank ids best first (Simulation.standings). rows: [{id, wins, damage, kills}].

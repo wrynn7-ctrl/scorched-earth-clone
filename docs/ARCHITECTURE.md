@@ -902,3 +902,17 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
   - `async: 1` is written after the hard (async) deadline, by the sweep or a client. It means the AI plays the turn
     at level 2 (or the match ends if `asyncTimeout = "end"`).
   - Without it, it's a live skip: a pass, or ready in the shop.
+
+## 53. M7-U as built (online UI)
+- **Screens:** `game/ui/online/` (OnlineScreen gate and tabs, LobbyScreen with the pure `LobbyModel`, FriendPicker,
+  PlayerMenu, OnlineSettings) and `game/show/online/` (`OnlineBattleController extends BattleController`, overlay,
+  turn ring, quick messages).
+- **Online battle:** it keeps a display fork of the match's NetReplay and applies each log entry right before playing
+  its timeline. Catch-up plays in instant mode.
+  - Input is enabled only on my turn, with nothing playing or sending.
+  - A shop visit is sent at READY as chunked `submit_many`.
+  - The tree is never paused online.
+- **Known gaps (follow-up M7-G):**
+  - "Add friend" from a lobby or battle needs a uid-based request callable (members of a shared match only).
+  - A full owner's purchase token must be sent to `verifyPurchase` so the server-side `full` flag (needed to host)
+    is set.

@@ -44,6 +44,7 @@ const CONTEXT_KEYS: Dictionary = {
 	"item": "UNLOCK_CTX_ITEM",
 	"skin": "UNLOCK_CTX_SKIN",
 	"save": "UNLOCK_CTX_SAVE",
+	"host": "UNLOCK_CTX_HOST",
 }
 ## How long "Contacting the store…" may show before we stop promising a price (seconds).
 static var loading_timeout_sec: float = 5.0

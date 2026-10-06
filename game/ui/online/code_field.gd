@@ -14,7 +14,9 @@ var _fitting: bool = false
 func _init(length: int = DeepLinks.MATCH_CODE_LENGTH) -> void:
 	name = "CodeField"
 	max_chars = length
-	max_length = length
+	# The field itself takes a longer text so a pasted "ABC-234" or "abc 234" is cleaned instead of cut short; the
+	# filter then keeps `length` valid characters.
+	max_length = 32
 	select_all_on_focus = false
 	context_menu_enabled = false
 	virtual_keyboard_enabled = DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD)

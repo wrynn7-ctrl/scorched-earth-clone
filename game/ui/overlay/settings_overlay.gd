@@ -19,6 +19,8 @@ var _version_btn: Button = null
 var _diag: DiagnosticsOverlay = null
 var _unlock: UnlockScreen = null
 var _full_btn: Button = null
+var _online_btn: Button = null
+var _online: OnlineSettings = null
 var _version_taps: int = 0
 var _last_tap_ms: int = 0
 ## "Sfx" / "Music" -> the volume slider, its value label and its ON/OFF button.
@@ -94,6 +96,10 @@ func _init() -> void:
 	_full_btn = add_cycle(tr("SET_FULL_GAME"), tr("SET_RESTORE"), _on_restore_pressed)
 	_full_btn.name = "Restore"
 	_btn_dp[_full_btn] = [190.0, 13.0]
+	# Online account (name, Google, notifications, delete my data): its own panel, not shown during a match.
+	_online_btn = add_cycle(tr("NET_SET_ONLINE"), tr("NET_SET_OPEN"), _on_online_pressed)
+	_online_btn.name = "OnlineAccount"
+	_btn_dp[_online_btn] = [190.0, 13.0]
 	end_container()
 	# BACK and the (hidden-diagnostics) version number share a row to keep the panel short.
 	begin_row()
@@ -111,6 +117,8 @@ func _init() -> void:
 	_unlock = UnlockScreen.new()
 	_unlock.closed.connect(_sync)  # a restore may have unlocked the game
 	add_child(_unlock)
+	_online = OnlineSettings.new()
+	add_child(_online)
 	_sync()
 
 
@@ -158,6 +166,8 @@ func _refit_settings_next_frame() -> void:
 
 
 func close() -> void:
+	if _online.is_open():
+		_online.close()
 	if _diag.is_open():
 		_diag.close()
 	if _unlock.is_open():
@@ -187,6 +197,24 @@ func get_diagnostics() -> DiagnosticsOverlay:
 
 func get_unlock_screen() -> UnlockScreen:
 	return _unlock
+
+
+func get_online_settings() -> OnlineSettings:
+	return _online
+
+
+func get_online_button() -> Button:
+	return _online_btn
+
+
+## Online account settings are for the title: during a match the row is hidden (deleting the account under a running
+## match would only confuse it).
+func set_in_match(on: bool) -> void:
+	_online_btn.get_parent().visible = not on
+
+
+func _on_online_pressed() -> void:
+	_online.open_panel()
 
 
 func get_restore_button() -> Button:

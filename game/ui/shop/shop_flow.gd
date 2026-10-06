@@ -21,6 +21,9 @@ var _tab: int = 0
 var _select: String = ""
 ## What the CPUs bought when this flow opened: [{tank, level, items}] (see CpuShop.run).
 var _cpu_buys: Array[Dictionary] = []
+## Online (ARCHITECTURE section 48): only the seats this phone holds shop (the others shop on their own phones and the
+## computers' visits are in the match log). Empty = the local flow above, every human on this device.
+var _online_seats: PackedInt32Array = PackedInt32Array()
 
 
 func _init() -> void:
@@ -53,6 +56,7 @@ func _ready() -> void:
 ## specific player and `skip_handover` jumps straight into their shop (screenshots, tests).
 func open(state: MatchState, submit: Callable, start_player: int = -1, skip_handover: bool = false,
 		tab: int = 0, select_id: String = "") -> void:
+	_online_seats = PackedInt32Array()
 	_state = state
 	_submit = submit
 	_tab = tab
@@ -64,10 +68,42 @@ func open(state: MatchState, submit: Callable, start_player: int = -1, skip_hand
 	if _player < 0:
 		all_ready.emit()
 		return
-	if skip_handover or not CpuShop.needs_handover(state):
+	if skip_handover or not _needs_handover():
 		_show_shop()
 	else:
 		_show_handover()
+
+
+## Online: shop for `seats` (the tanks this phone plays) on `state`, a private copy; `submit` records the actions on that
+## copy (the battle sends them to the match when the last seat is ready). No computer shopping here, and hand-overs only
+## when this phone holds two or more seats.
+func open_online(state: MatchState, submit: Callable, seats: Array[int]) -> void:
+	_online_seats = PackedInt32Array(seats)
+	_state = state
+	_submit = submit
+	_tab = 0
+	_select = ""
+	_cpu_buys = []
+	_screen.setup(state, submit)
+	visible = true
+	_player = first_unready()
+	if _player < 0:
+		all_ready.emit()
+		return
+	if _needs_handover():
+		_show_handover()
+	else:
+		_show_shop()
+
+
+func is_online() -> bool:
+	return not _online_seats.is_empty()
+
+
+func _needs_handover() -> bool:
+	if not _online_seats.is_empty():
+		return _online_seats.size() >= 2
+	return CpuShop.needs_handover(_state)
 
 
 func close() -> void:
@@ -81,6 +117,11 @@ func close() -> void:
 ## The lowest human player id that has not pressed READY, or -1 when everyone has (computer
 ## players never get a shop screen; CpuShop readies them).
 func first_unready() -> int:
+	if not _online_seats.is_empty():
+		for id: int in _online_seats:
+			if not _state.tanks[id].ready:
+				return id
+		return -1
 	for t: TankState in _state.tanks:
 		if not t.ready and not CpuShop.is_cpu(_state, t.id):
 			return t.id
@@ -161,7 +202,7 @@ func _on_ready() -> void:
 		all_ready.emit()
 		return
 	_player = next
-	if CpuShop.needs_handover(_state):
+	if _needs_handover():
 		_show_handover()
 	else:
 		_show_shop()

@@ -53,6 +53,8 @@ var _power: PowerPanel = null
 var _top_row: HBoxContainer = null
 var _speed_btn: Button = null
 var _pause_btn: Button = null
+## Buttons other screens add next to pause (the online quick message button).
+var _extra_top: Array[Button] = []
 var _money: MoneyLabel = null
 var _tray: VBoxContainer = null
 var _tray_row: HBoxContainer = null
@@ -269,6 +271,9 @@ func apply_scale() -> void:
 	_pause_btn.custom_minimum_size = bsz
 	_speed_btn.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
 	_pause_btn.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
+	for extra: Button in _extra_top:
+		extra.custom_minimum_size = bsz
+		extra.add_theme_font_size_override("font_size", UiScale.hud_font(15.0))
 	_tray.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	_tray_row.add_theme_constant_override("separation", roundi(UiScale.dp(6.0)))
 	for n: Node in [_wind, _angle_panel, _banner, _fire, _power, _money, _moves, _weapon_chip, _items, _popup, _sudden_tag]:
@@ -479,6 +484,19 @@ func set_speed(speed: float) -> void:
 
 func get_speed_button() -> Button:
 	return _speed_btn
+
+
+## Puts another square touch button in the top row, right after pause (online: quick messages).
+func add_top_button(b: Button) -> void:
+	b.focus_mode = Control.FOCUS_NONE
+	_extra_top.append(b)
+	_top_row.add_child(b)
+	if is_inside_tree():
+		apply_scale()
+
+
+func get_top_row() -> HBoxContainer:
+	return _top_row
 
 
 func get_pause_button() -> Button:

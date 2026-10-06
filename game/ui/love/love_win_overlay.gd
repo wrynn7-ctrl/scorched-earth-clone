@@ -81,6 +81,12 @@ func show_win(winner: int, _winner_x: float = 0.5) -> void:
 		apply_scale()
 
 
+## An online match: no REMATCH, and the other button goes back to the Online home.
+func set_online(on: bool) -> void:
+	_buttons[0].visible = not on
+	_buttons[1].text = tr("NET_BACK_TO_ONLINE") if on else tr("OVERLAY_TITLE")
+
+
 func get_title_text() -> String:
 	return _title.text
 

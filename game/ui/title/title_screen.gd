@@ -24,6 +24,8 @@ var _glow_b: Label = null
 var _logo: Label = null
 var _subtitle: Label = null
 var _start: Button = null
+var _online: Button = null
+var _primary_row: HBoxContainer = null
 var _continue: Button = null
 var _settings: Button = null
 var _skins: Button = null
@@ -64,6 +66,7 @@ func _ready() -> void:
 	apply_scale()  # again: the pills row may have changed the stack's height
 	_start_pulse()
 	_start_drift()
+	_connect_online_routes()
 	ShotHook.attach(self)
 	if ShotArgs.open_unlock:
 		open_unlock("")
@@ -72,6 +75,10 @@ func _ready() -> void:
 	if ShotArgs.open_diag:
 		for i: int in range(SettingsOverlay.DIAG_TAPS):
 			_settings_overlay.tap_version()
+
+
+func _exit_tree() -> void:
+	_disconnect_online_routes()
 
 
 func _build() -> void:
@@ -121,6 +128,11 @@ func _build() -> void:
 	_subtitle.add_theme_stylebox_override("normal", plate)
 	_box.add_child(_subtitle)
 
+	# START (a match on this device) and ONLINE (friends, ARCHITECTURE section 48) side by side.
+	_primary_row = HBoxContainer.new()
+	_primary_row.name = "PrimaryRow"
+	_primary_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_box.add_child(_primary_row)
 	_start = Button.new()
 	_start.name = "Start"
 	_start.text = tr("TITLE_START")
@@ -128,7 +140,14 @@ func _build() -> void:
 	_start.focus_mode = Control.FOCUS_NONE
 	_start.pressed.connect(start_game)
 	_start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_box.add_child(_start)
+	_primary_row.add_child(_start)
+	_online = Button.new()
+	_online.name = "Online"
+	_online.text = tr("TITLE_ONLINE")
+	_online.focus_mode = Control.FOCUS_NONE
+	_online.pressed.connect(open_online)
+	_online.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_primary_row.add_child(_online)
 
 	_row = HBoxContainer.new()
 	_row.name = "SecondaryRow"
@@ -232,8 +251,11 @@ func _apply_stack(sep_dp: float, logo_dp: float) -> void:
 func _apply_buttons() -> void:
 	_subtitle.add_theme_font_size_override("font_size", UiScale.font(15.0))
 	_row.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
+	_primary_row.add_theme_constant_override("separation", roundi(UiScale.dp(12.0)))
 	_start.custom_minimum_size = Vector2(UiScale.dp(220.0), UiScale.dp(68.0))
 	_start.add_theme_font_size_override("font_size", UiScale.font(26.0))
+	_online.custom_minimum_size = Vector2(UiScale.dp(190.0), UiScale.dp(68.0))
+	_online.add_theme_font_size_override("font_size", UiScale.font(22.0))
 	for b: Button in [_continue, _settings, _skins]:
 		b.custom_minimum_size = Vector2(UiScale.dp(150.0), UiScale.touch())
 		b.add_theme_font_size_override("font_size", UiScale.font(15.0))
@@ -447,6 +469,47 @@ func _on_unlock_closed() -> void:
 
 func get_skins_button() -> Button:
 	return _skins
+
+
+func get_online_button() -> Button:
+	return _online
+
+
+## ONLINE: the Online home (sign-in, friends, matches). It asks nothing before it opens; a save is not touched.
+func open_online() -> void:
+	OnlineHub.go_online(get_tree())
+
+
+## A craterline://join link or a notification tap that started the game, or arrives while the title shows, opens the
+## Online home, which then follows it (OnlineHub keeps what was asked).
+func _connect_online_routes() -> void:
+	OnlineHub.start_services()
+	if OnlineHub.links != null and not OnlineHub.links.join_requested.is_connected(_on_join_link):
+		OnlineHub.links.join_requested.connect(_on_join_link)
+	if OnlineHub.push != null and not OnlineHub.push.notification_opened.is_connected(_on_push_tap):
+		OnlineHub.push.notification_opened.connect(_on_push_tap)
+	OnlineHub.collect_pending()
+	if OnlineHub.has_route():
+		open_online.call_deferred()
+
+
+func _disconnect_online_routes() -> void:
+	if OnlineHub.links != null and OnlineHub.links.join_requested.is_connected(_on_join_link):
+		OnlineHub.links.join_requested.disconnect(_on_join_link)
+	if OnlineHub.push != null and OnlineHub.push.notification_opened.is_connected(_on_push_tap):
+		OnlineHub.push.notification_opened.disconnect(_on_push_tap)
+
+
+func _on_join_link(code: String) -> void:
+	OnlineHub.pending_join_code = code
+	open_online()
+
+
+func _on_push_tap(payload: Dictionary) -> void:
+	var id: String = PushService.match_id_of(payload)
+	if id != "":
+		OnlineHub.pending_match_id = id
+		open_online()
 
 
 ## SKINS: the Skin Studio (private, on-device tank looks).

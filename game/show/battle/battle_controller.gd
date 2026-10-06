@@ -395,6 +395,7 @@ func _build_support_nodes() -> void:
 	_settings_overlay.closed.connect(_on_settings_closed)
 	_overlay_layer.add_child(_settings_overlay)
 	_settings_overlay.get_unlock_screen().set_in_match(true)
+	_settings_overlay.set_in_match(true)
 	_diag = DiagnosticsOverlay.new()
 	_diag.closed.connect(_on_diag_closed)
 	_overlay_layer.add_child(_diag)

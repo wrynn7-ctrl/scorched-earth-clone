@@ -70,7 +70,7 @@ func test_it_shows_the_title_the_showcase_and_the_three_buttons() -> void:
 	assert_eq(features.size(), 8)
 	var all: String = "\n".join(features)
 	for needle: String in ["8 tanks", "Hard and Expert", "21 weapons", "Singularity Seed", "Riptide Anchor", "5 terrain themes",
-			"images", "10 and 20 rounds", "money and wind", "coming soon"]:
+			"images", "10 and 20 rounds", "money and wind", "Host online matches"]:
 		assert_string_contains(all, needle)
 	assert_eq(u.get_buy_button().text, "UNLOCK", "no price known yet")
 	assert_eq(u.get_restore_button().text, "RESTORE PURCHASE")

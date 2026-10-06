@@ -106,6 +106,29 @@ func match_entries() -> Array:
 	return _list
 
 
+## The matches in the order the list shows them: your turn first, then waiting, then open lobbies, then finished and
+## abandoned ones; newest change first inside each group. (`NetMatches` already sorts, this keeps the page right for any
+## list it is handed, e.g. after a local dismiss.)
+static func ordered(list: Array) -> Array:
+	var out: Array = list.duplicate()
+	out.sort_custom(func(a: Variant, b: Variant) -> bool:
+		var ga: int = _group_of(a as Dictionary)
+		var gb: int = _group_of(b as Dictionary)
+		if ga != gb:
+			return ga < gb
+		return (a as Dictionary).get("updated", 0) as int > (b as Dictionary).get("updated", 0) as int)
+	return out
+
+
+static func _group_of(d: Dictionary) -> int:
+	var status: String = d.get("status", "")
+	if status == NetProtocol.STATUS_PLAYING:
+		return 0 if d.get("yourTurn", false) == true else 1
+	if status == NetProtocol.STATUS_LOBBY:
+		return 2
+	return 3
+
+
 ## Reads the meta of matches whose badge is not known yet (a few per pass, one after the other).
 func _fetch_meta() -> void:
 	if _fetching:
@@ -177,7 +200,7 @@ func _render() -> void:
 			_box.add_child(_invite_row(inv as Dictionary))
 	if not _list.is_empty():
 		_box.add_child(_section(tr("NET_YOUR_MATCHES")))
-		for e: Variant in _list:
+		for e: Variant in ordered(_list):
 			_box.add_child(_match_row(e as Dictionary))
 	if _list.is_empty() and invites.is_empty():
 		_empty = OnlineKit.label(tr("NET_NO_MATCHES"), 15.0, NeonPalette.TEXT_DIM, true)

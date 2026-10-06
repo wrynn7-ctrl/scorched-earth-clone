@@ -11,6 +11,7 @@ static var google: GoogleSignIn = null
 static var share: ShareService = null
 static var links: DeepLinks = null
 static var _started: bool = false
+static var _asked_push: bool = false
 
 ## A deep link or notification waiting for an online screen: join this code / open this match.
 static var pending_join_code: String = ""
@@ -22,9 +23,17 @@ static var match_to_play: OnlineMatch = null
 ## Where the battle returns to (the Online home); kept here so tests can look at it.
 const ONLINE_SCENE: String = "res://ui/online/online_screen.tscn"
 const LOBBY_SCENE: String = "res://ui/online/lobby_screen.tscn"
-const BATTLE_SCENE: String = "res://show/battle/battle_scene.tscn"
+const TITLE_SCENE: String = "res://ui/title/title_screen.tscn"
+const BATTLE_SCENE: String = "res://show/online/online_battle_scene.tscn"
 ## The lobby (match id) the lobby scene shows, set before changing scenes.
 static var lobby_to_show: String = ""
+## Scene changes the online screens asked for (newest last). With `intercept_navigation` set (tests) nothing really
+## changes: the request is only recorded.
+static var nav_log: Array[String] = []
+static var intercept_navigation: bool = false
+## Tests: called with the OnlineMatch every time a screen hands one to the battle (so a test with several simulated phones
+## can tell whose it is).
+static var on_play: Callable = Callable()
 
 
 ## The session, created on first use. `NetSession.create()` talks to the emulators unless the build says otherwise.
@@ -70,11 +79,15 @@ static func reset() -> void:
 	share = null
 	links = null
 	_started = false
+	_asked_push = false
 	pending_join_code = ""
 	pending_match_id = ""
 	open_lobby_id = ""
 	match_to_play = null
 	lobby_to_show = ""
+	nav_log = []
+	intercept_navigation = false
+	on_play = Callable()
 
 
 ## True once something asked an online screen to do something (a link, a tap on a notification).
@@ -128,17 +141,44 @@ static func set_muted(player_uid: String, on: bool) -> void:
 	SettingsStore.save()
 
 
+## Asks for the notification permission the first time the player creates or joins a match (Android 13+ shows the
+## system dialog; everywhere else this does nothing). Never twice per run, and never when push is unavailable.
+static func ask_push_permission_once() -> void:
+	if _asked_push or push == null or not push.available:
+		return
+	_asked_push = true
+	if not push.has_permission():
+		push.request_permission()
+
+
 ## Hands a freshly opened match to the battle scene and goes there.
 static func play(tree: SceneTree, om: OnlineMatch) -> void:
 	match_to_play = om
 	open_lobby_id = ""
-	Transition.go(tree, BATTLE_SCENE)
+	if on_play.is_valid():
+		on_play.call(om)
+	_go(tree, BATTLE_SCENE)
 
 
 static func go_online(tree: SceneTree) -> void:
-	Transition.go(tree, ONLINE_SCENE)
+	_go(tree, ONLINE_SCENE)
+
+
+static func go_title(tree: SceneTree) -> void:
+	_go(tree, TITLE_SCENE)
 
 
 static func go_lobby(tree: SceneTree, match_id: String) -> void:
 	lobby_to_show = match_id
-	Transition.go(tree, LOBBY_SCENE)
+	_go(tree, LOBBY_SCENE)
+
+
+static func _go(tree: SceneTree, scene: String) -> void:
+	nav_log.append(scene)
+	if not intercept_navigation:
+		Transition.go(tree, scene)
+
+
+## The last scene asked for ("" when none).
+static func last_scene() -> String:
+	return nav_log[nav_log.size() - 1] if not nav_log.is_empty() else ""
