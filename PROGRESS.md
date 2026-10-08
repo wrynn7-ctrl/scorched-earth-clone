@@ -125,8 +125,8 @@
 ## Rename
 | Task | Agent | Status |
 |---|---|---|
-| RENAME-R Package id, build, deep links, CI artifacts, firebase params, docs | release-eng | 🟡 in progress |
-| RENAME-U Title logo (neon + ember), app icon, all user-visible strings | show-ui-dev | 🟡 in progress |
+| RENAME-R Package id, build, deep links, CI artifacts, firebase params, docs | release-eng | ✅ reviewed (APK: com.wrynn7.charredhorizons, label "Charred Horizons", adaptive icon, charredhorizons://join) |
+| RENAME-U Title logo (neon + ember), app icon, all user-visible strings | show-ui-dev | ✅ reviewed (1,033 show+ui tests) |
 
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
