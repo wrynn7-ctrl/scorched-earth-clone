@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Craterline's Android plugins (android_plugins/: push, Google sign-in, share + deep links) with Gradle and installs
+# Builds Charred Horizons' Android plugins (android_plugins/: push, Google sign-in, share + deep links) with Gradle and installs
 # the AARs into game/addons/craterline_android/bin (generated, git-ignored). Called by tools/android/common.sh, so both
 # tools/build_android_debug.sh and tools/build_android_release.sh always ship fresh plugins.
 #

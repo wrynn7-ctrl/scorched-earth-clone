@@ -1,6 +1,6 @@
 class_name DeepLinks
 extends RefCounted
-## craterline://join/CODE links (docs/ARCHITECTURE.md section 49), and the match-code rules they depend on.
+## charredhorizons://join/CODE links (docs/ARCHITECTURE.md section 49), and the match-code rules they depend on.
 ##
 ## Android hands a link to the game through the CraterlineShare plugin. A link that OPENED the game is kept until
 ## `take_pending_code()` is called (call it once the online screens are ready). A link that arrives while the game is
@@ -13,7 +13,7 @@ extends RefCounted
 ## Match codes (section 45) are 6 characters, friend codes (section 44) 8, from this alphabet: no 0/O/1/I.
 const CODE_ALPHABET: String = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const MATCH_CODE_LENGTH: int = 6
-const SCHEME: String = "craterline"
+const SCHEME: String = "charredhorizons"
 const JOIN_HOST: String = "join"
 const MAX_URL_LENGTH: int = 256
 
@@ -86,7 +86,7 @@ static func _engine_bridge() -> Object:
 
 # --- parsing (pure, static, easy to test) ---------------------------------------------------------
 
-## "craterline://join/ABC234" -> "ABC234". Anything else (wrong scheme or host, bad code, extra path) -> "".
+## "charredhorizons://join/ABC234" -> "ABC234". Anything else (wrong scheme or host, bad code, extra path) -> "".
 ## The scheme is case-insensitive, a trailing slash, query or fragment is ignored, the code may be lower case.
 static func parse_join_link(url: String) -> String:
 	var text: String = url.strip_edges()
@@ -107,7 +107,7 @@ static func parse_join_link(url: String) -> String:
 	return normalize_code(rest, MATCH_CODE_LENGTH, false)
 
 
-## "craterline://join/ABC234", or "" if the code is not a valid match code.
+## "charredhorizons://join/ABC234", or "" if the code is not a valid match code.
 static func build_join_link(code: String) -> String:
 	var normalized: String = normalize_code(code, MATCH_CODE_LENGTH)
 	if normalized == "":

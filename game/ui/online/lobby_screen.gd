@@ -801,7 +801,7 @@ func copy_code() -> void:
 	show_toast(tr("NET_CODE_COPIED"))
 
 
-## The Android share sheet ("Join my Craterline match: CODE"); the clipboard where there is none.
+## The Android share sheet ("Join my Charred Horizons match: CODE"); the clipboard where there is none.
 func share_code() -> void:
 	var code: String = str(_meta.get("code", ""))
 	if code == "" or OnlineHub.share == null:

@@ -7,8 +7,8 @@
 #   3. Android SDK: platform-tools + build-tools (+ cmdline-tools, platform), licenses accepted
 #   4. Godot editor settings: SDK path, JDK path, committed debug keystore
 #   5. Gradle build template in game/android (generated, git-ignored), billing plugin checked against its pins,
-#      Craterline Android plugins (android_plugins/: push, Google sign-in, share) built into game/addons/craterline_android/bin
-#   6. godot --headless --export-debug "Android" -> build/craterline-debug.apk, then apksigner verify
+#      Charred Horizons Android plugins (android_plugins/: push, Google sign-in, share) built into game/addons/craterline_android/bin
+#   6. godot --headless --export-debug "Android" -> build/charredhorizons-debug.apk, then apksigner verify
 #
 # Prints the APK path and size on stdout's last lines; progress goes to stderr. The first run downloads Gradle, the
 # Android Gradle Plugin and the Play Billing library (a few hundred MB, cached in ~/.gradle); later runs take about a minute.
@@ -22,7 +22,7 @@ set -euo pipefail
 
 TOOL_NAME="build_android_debug"
 PRESET="Android"
-OUT_NAME="craterline-debug.apk"
+OUT_NAME="charredhorizons-debug.apk"
 
 # shellcheck source=android/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/android/common.sh"
@@ -51,7 +51,7 @@ unzip -p "${OUT_APK}" AndroidManifest.xml | strings -e l | grep -q 'org.godoteng
 log "billing plugin and Play Billing library present in the APK"
 unzip -l "${OUT_APK}" | grep -i billing | sed 's/^/  /' >&2 || true
 
-# Craterline's own plugins (push, Google sign-in, share + deep links), see android_plugins/ and docs/FIREBASE_SETUP.md.
+# Charred Horizons' own plugins (push, Google sign-in, share + deep links), see android_plugins/ and docs/FIREBASE_SETUP.md.
 MANIFEST_TMP="$(mktemp)"
 CLEANUP_PATHS+=("${MANIFEST_TMP}")
 unzip -p "${OUT_APK}" AndroidManifest.xml | { strings -e l; strings; } >"${MANIFEST_TMP}"

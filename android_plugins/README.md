@@ -1,13 +1,13 @@
 # android_plugins
 
-Craterline's own Godot Android plugins (Kotlin, one Gradle project, three modules). Overview and how they reach the game:
-`docs/BUILD.md` ("The Craterline Android plugins"). Firebase and Google setup: `docs/FIREBASE_SETUP.md`.
+Charred Horizons' own Godot Android plugins (Kotlin, one Gradle project, three modules). Overview and how they reach the game:
+`docs/BUILD.md` ("The Charred Horizons Android plugins"). Firebase and Google setup: `docs/FIREBASE_SETUP.md`.
 
 | Module | Godot singleton | Source |
 |---|---|---|
 | `push/` | `CraterlinePush` | `src/main` (plugin, shared), `src/fcm` (real Firebase code, used when `google-services.json` exists), `src/nofcm` (stub) |
 | `signin/` | `CraterlineGoogleSignIn` | `src/main` |
-| `share/` | `CraterlineShare` (share sheet, `craterline://` links) | `src/main` |
+| `share/` | `CraterlineShare` (share sheet, `charredhorizons://` links) | `src/main` |
 
 Build: `tools/plugins/build_plugins.sh` (also run by `tools/build_android_debug.sh` and `_release.sh`). Versions:
 `tools/plugins/pin.env`. Gradle wrapper (Gradle 8.11.1, checksum pinned): `./gradlew`.

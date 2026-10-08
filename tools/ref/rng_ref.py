@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reference implementation of the Craterline RNG (docs/ARCHITECTURE.md section 3).
+"""Reference implementation of the Charred Horizons RNG (docs/ARCHITECTURE.md section 3).
 
 SplitMix32 seeding + xoshiro128** + fork + unbiased range_int. Prints the golden values that
 game/tests/core/test_rng.gd and test_fixed_math.gd compare against.

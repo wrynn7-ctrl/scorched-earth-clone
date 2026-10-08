@@ -10,9 +10,9 @@ extends RefCounted
 
 # ---------------------------------------------------------------------------------------------------------------
 # OWNER / LEAD: PRODUCTION VALUES GO HERE (docs/FIREBASE_SETUP.md). Empty means "no real project yet".
-#   project_id       the Firebase project id, e.g. "craterline-12345"
+#   project_id       the Firebase project id, e.g. "charredhorizons-12345"
 #   api_key          the "Web API key" of the project (Project settings > General); public, not a secret
-#   database_url     the Realtime Database URL, e.g. "https://craterline-12345-default-rtdb.europe-west1.firebasedatabase.app"
+#   database_url     the Realtime Database URL, e.g. "https://charredhorizons-12345-default-rtdb.europe-west1.firebasedatabase.app"
 #   web_client_id    the OAuth *web application* client id used for Google sign-in (Authentication > Google)
 #   functions_region must equal REGION in firebase/functions/src/config.ts ("europe-west1")
 # ---------------------------------------------------------------------------------------------------------------

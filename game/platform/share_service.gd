@@ -1,6 +1,6 @@
 class_name ShareService
 extends RefCounted
-## The Android share sheet for "Join my Craterline match: CODE" (docs/ARCHITECTURE.md section 49), through the
+## The Android share sheet for "Join my Charred Horizons match: CODE" (docs/ARCHITECTURE.md section 49), through the
 ## CraterlineShare plugin. On desktop, in tests and in builds without the plugin `available` is false and
 ## `share_or_copy` falls back to the clipboard, so the UI always has something sensible to do.
 ##

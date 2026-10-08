@@ -1,13 +1,13 @@
 extends GutTest
 ## ShareService: invite text, the share sheet through ShareFake, and the clipboard fallback.
 
-const TEMPLATE: String = "Join my Craterline match: {code}\n{link}"
+const TEMPLATE: String = "Join my Charred Horizons match: {code}\n{link}"
 
 
 func test_invite_text_fills_code_and_link() -> void:
-	assert_eq(ShareService.invite_text(TEMPLATE, "abc234"), "Join my Craterline match: ABC234\ncraterline://join/ABC234")
+	assert_eq(ShareService.invite_text(TEMPLATE, "abc234"), "Join my Charred Horizons match: ABC234\ncharredhorizons://join/ABC234")
 	assert_eq(ShareService.invite_text("Code {code}", "K7M2QX"), "Code K7M2QX")
-	assert_eq(ShareService.invite_text("{link}", "K7M2QX"), "craterline://join/K7M2QX")
+	assert_eq(ShareService.invite_text("{link}", "K7M2QX"), "charredhorizons://join/K7M2QX")
 
 
 func test_invite_text_refuses_bad_codes() -> void:
@@ -43,7 +43,7 @@ func test_share_invite_result_codes() -> void:
 	var fake: ShareFake = ShareFake.new()
 	var share: ShareService = ShareService.new(fake)
 	assert_eq(share.share_invite("Invite", TEMPLATE, "abc234"), ShareService.Result.SHARED)
-	assert_eq(fake.last_text, "Join my Craterline match: ABC234\ncraterline://join/ABC234")
+	assert_eq(fake.last_text, "Join my Charred Horizons match: ABC234\ncharredhorizons://join/ABC234")
 	assert_eq(share.share_invite("Invite", TEMPLATE, "bad"), ShareService.Result.FAILED, "invalid code: nothing shared")
 	assert_eq(fake.share_calls, 1)
 

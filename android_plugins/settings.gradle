@@ -1,4 +1,4 @@
-// Craterline Android plugins for Godot 4.7: push (FCM), Google sign-in (Credential Manager), share + deep links.
+// Charred Horizons Android plugins for Godot 4.7: push (FCM), Google sign-in (Credential Manager), share + deep links.
 // Built by tools/plugins/build_plugins.sh; all versions come from tools/plugins/pin.env.
 pluginManagement {
     // The block cannot see script variables, so it reads the pin file itself.

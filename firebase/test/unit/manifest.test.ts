@@ -21,7 +21,7 @@ const functionsDir = join(__dirname, '..', '..', 'functions');
 const manifestPath = join(functionsDir, 'lib', 'manifest.test-output.json');
 
 function discover(): Manifest {
-  const env: NodeJS.ProcessEnv = { ...process.env, FUNCTIONS_MANIFEST_OUTPUT_PATH: manifestPath, GCLOUD_PROJECT: 'craterline-prod-check' };
+  const env: NodeJS.ProcessEnv = { ...process.env, FUNCTIONS_MANIFEST_OUTPUT_PATH: manifestPath, GCLOUD_PROJECT: 'charredhorizons-prod-check' };
   delete env.FUNCTIONS_EMULATOR;
   delete env.FIREBASE_DATABASE_EMULATOR_HOST;
   execFileSync(join(functionsDir, 'node_modules', '.bin', 'firebase-functions'), ['.'], { cwd: functionsDir, env, stdio: 'pipe', timeout: 60000 });

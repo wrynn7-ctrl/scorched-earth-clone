@@ -6,6 +6,11 @@ extends CanvasLayer
 
 const SHADER: Shader = preload("res://show/sky.gdshader")
 
+const EMBER_SUN_TOP: Color = Color(1.0, 0.86, 0.30)
+const EMBER_SUN_BASE: Color = Color(1.0, 0.16, 0.12)
+const EMBER_HALO: Color = Color(1.0, 0.34, 0.10)
+const EMBER_HORIZON: Color = Color(1.0, 0.24, 0.20)
+
 @export var moon: bool = false:
 	set(v):
 		moon = v
@@ -77,6 +82,18 @@ func apply_theme(id: String) -> void:
 func set_scroll_speed(speed: float) -> void:
 	if _material != null:
 		_material.set_shader_parameter("scroll_speed", speed)
+
+
+## Warms the default sky toward embers (hot yellow sun, red-orange sun base, orange halo, a hotter horizon glow).
+## `amount` 0 = the normal look. The title uses it; call it after the sky is in the tree and not after apply_theme.
+func set_ember_tint(amount: float) -> void:
+	if _material == null:
+		return
+	var k: float = clampf(amount, 0.0, 1.0)
+	_material.set_shader_parameter("sun_col_a", EMBER_SUN_TOP.lerp(Color(1.0, 0.92, 0.35), 1.0 - k))
+	_material.set_shader_parameter("sun_col_b", EMBER_SUN_BASE.lerp(Color(1.0, 0.2, 0.55), 1.0 - k))
+	_material.set_shader_parameter("halo_col", EMBER_HALO.lerp(Color(1.0, 0.3, 0.6), 1.0 - k))
+	_material.set_shader_parameter("sky_low", EMBER_HORIZON.lerp(Color(1.0, 0.22, 0.52), 1.0 - k))
 
 
 func get_theme_id() -> String:

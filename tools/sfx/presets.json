@@ -1,5 +1,5 @@
 {
-  "_comment": "Craterline sound presets (heavy sci-fi, docs/ARCHITECTURE.md 33a). Format: header of gen_sfx.py. Regenerate: python3 tools/sfx/gen_sfx.py, then python3 tools/sfx/check_sfx.py",
+  "_comment": "Charred Horizons sound presets (heavy sci-fi, docs/ARCHITECTURE.md 33a). Format: header of gen_sfx.py. Regenerate: python3 tools/sfx/gen_sfx.py, then python3 tools/sfx/check_sfx.py",
   "sounds": {
     "fire_light": {"seed": 11, "peak_db": -3.0, "layers": [
       {"type": "noise", "mode": "hp", "f0": 3500, "f1": 1200, "tau": 0.012, "attack": 0.0004, "decay": 0.036, "gain": 0.45},

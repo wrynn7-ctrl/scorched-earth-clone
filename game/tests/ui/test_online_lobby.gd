@@ -393,7 +393,7 @@ func test_share_code_uses_the_share_sheet_with_the_code_in_the_text() -> void:
 	s.share_code()
 	assert_eq(fake.share_calls, 1)
 	assert_string_contains(fake.last_text, "ABC234")
-	assert_string_contains(fake.last_text, "craterline://join/ABC234")
+	assert_string_contains(fake.last_text, "charredhorizons://join/ABC234")
 
 
 func test_share_falls_back_to_the_clipboard_with_a_message() -> void:

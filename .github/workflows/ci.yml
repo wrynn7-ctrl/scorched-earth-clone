@@ -206,8 +206,8 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: craterline-debug-apk
-          path: build/craterline-debug.apk
+          name: charredhorizons-debug-apk
+          path: build/charredhorizons-debug.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -270,8 +270,8 @@ jobs:
       - name: Upload AAB artifact (not published anywhere)
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: craterline-release-aab-debug-signed
-          path: build/craterline-release.aab
+          name: charredhorizons-release-aab-debug-signed
+          path: build/charredhorizons-release.aab
           if-no-files-found: error
           retention-days: 14
 
@@ -287,7 +287,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: craterline-debug-apk
+          name: charredhorizons-debug-apk
           path: dist
 
       - name: Create or update the dev-latest pre-release
@@ -297,20 +297,20 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           TAG=dev-latest
-          APK=dist/craterline-debug.apk
+          APK=dist/charredhorizons-debug.apk
           test -s "$APK"
           SHORT="${SHA:0:7}"
           NOW="$(date -u '+%Y-%m-%d %H:%M UTC')"
-          TITLE="Latest test build (dev)"
+          TITLE="Charred Horizons: latest test build (dev)"
           printf '%s\n' \
-            "Debug build of the dev branch, signed with the public debug key (installs over the previous test build)." \
+            "Charred Horizons debug build of the dev branch (package com.wrynn7.charredhorizons), signed with the public debug key (installs over the previous test build)." \
             "" \
             "- Commit: ${SHA} (${SHORT})" \
             "- Built: ${NOW}" \
             "- Branch: ${GITHUB_REF_NAME}" \
             "- Workflow run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
             "" \
-            "Download \`craterline-debug.apk\` below. See docs/INSTALL_ON_PHONE.md for install steps." \
+            "Download \`charredhorizons-debug.apk\` below. See docs/INSTALL_ON_PHONE.md for install steps." \
             > "$RUNNER_TEMP/notes.md"
 
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then

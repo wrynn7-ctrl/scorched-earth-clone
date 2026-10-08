@@ -11,7 +11,7 @@ shows "Store unavailable" on a phone (that is correct and safe). Nothing here ne
 | Product ID | `full_unlock` (exactly this, lower case; it is `Entitlement.PRODUCT_ID` in `game/platform/entitlement.gd`) |
 | Product type | One-time product (Play calls it "in-app product"), **non-consumable**: bought once, owned forever |
 | Suggested price | $3.99 (you can change it any time; the game shows whatever Play says, in the player's currency) |
-| Package name | `com.wrynn7.craterline` (must be final before the first upload, see `docs/BUILD.md`) |
+| Package name | `com.wrynn7.charredhorizons` (final, it can never change after the first upload, see `docs/BUILD.md`) |
 
 What the player gets is listed in `docs/ARCHITECTURE.md` section 32 and on the Unlock screen.
 

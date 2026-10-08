@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic heavy sci-fi sound generator for Craterline (docs/ARCHITECTURE.md section 33a).
+"""Deterministic heavy sci-fi sound generator for Charred Horizons (docs/ARCHITECTURE.md section 33a).
 
 Reads tools/sfx/presets.json and writes 16-bit mono 44.1 kHz WAV files into game/assets/sfx/.
 Pure standard library (no numpy), so it runs anywhere Python 3.8+ does.

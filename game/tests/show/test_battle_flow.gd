@@ -317,7 +317,7 @@ func test_title_screen_instantiates_and_start_opens_the_setup() -> void:
 	var t: TitleScreen = (load(TITLE) as PackedScene).instantiate()
 	add_child_autofree(t)
 	await wait_process_frames(2)
-	assert_eq(t.get_logo_text(), "CRATERLINE")
+	assert_eq(t.get_logo_text(), "CHARRED HORIZONS")
 	assert_false(t.get_continue_button().visible, "no save, no CONTINUE")
 	assert_true(t.get_start_button().custom_minimum_size.y >= UiScale.touch())
 	assert_gte(t.get_settings_button().custom_minimum_size.y, UiScale.touch() - 0.01)

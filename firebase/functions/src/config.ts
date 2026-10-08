@@ -69,7 +69,7 @@ export const MODE_LOVE = 1;
 export const PROTOCOL_MAX = 1_000_000;
 
 // Purchase verification. Both are Firebase parameters, so they are set at deploy time, not in the code.
-export const DEFAULT_PLAY_PACKAGE = 'com.wrynn7.craterline'; // game/export_presets.cfg package/unique_name
+export const DEFAULT_PLAY_PACKAGE = 'com.wrynn7.charredhorizons'; // game/export_presets.cfg package/unique_name
 export const DEFAULT_PLAY_PRODUCT = 'full_unlock'; // Entitlement.PRODUCT_ID
 /** The one purchase token the emulator accepts (the real Play API is never called there). */
 export const TEST_PURCHASE_TOKEN = 'test-full';

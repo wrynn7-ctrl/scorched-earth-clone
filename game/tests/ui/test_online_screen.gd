@@ -219,7 +219,7 @@ func test_a_failed_open_goes_back_to_the_pages_with_a_toast() -> void:
 func test_a_join_link_while_the_screen_is_open_fills_the_join_tab() -> void:
 	var s: OnlineScreen = _screen()
 	await settle()
-	OnlineHub.links._on_link("craterline://join/K7M2QX")
+	OnlineHub.links._on_link("charredhorizons://join/K7M2QX")
 	await settle()
 	assert_eq(s.current_tab(), OnlineScreen.Tab.JOIN)
 	assert_eq((s.get_tab_page(OnlineScreen.Tab.JOIN) as JoinTab).code(), "K7M2QX")

@@ -1,5 +1,5 @@
 keys,en
-APP_TITLE,Craterline
+APP_TITLE,Charred Horizons
 HUD_ANGLE,ANGLE
 HUD_POWER,POWER
 HUD_FIRE,FIRE
@@ -32,7 +32,7 @@ EMBLEM_CROSS,Cross
 EMBLEM_CHEVRON,Chevron
 HUD_SPEED_FMT,%dx
 HUD_PAUSE_ICON,II
-TITLE_LOGO,CRATERLINE
+TITLE_LOGO,CHARRED HORIZONS
 TITLE_SUBTITLE,2 PLAYERS · PASS AND PLAY
 TITLE_ROUNDS,ROUNDS
 TITLE_START,START
@@ -421,7 +421,7 @@ NET_GATE_CONNECTING_TEXT,Signing in to the online service…
 NET_GATE_OFFLINE,NO CONNECTION
 NET_GATE_OFFLINE_TEXT,Online play needs an internet connection. Check your connection and try again.
 NET_GATE_UPDATE,PLEASE UPDATE THE GAME
-NET_GATE_UPDATE_TEXT,This version can't play with the online service any more. Update Craterline from the store and come back.
+NET_GATE_UPDATE_TEXT,This version can't play with the online service any more. Update Charred Horizons from the store and come back.
 NET_GATE_SETUP,ONLINE IS NOT AVAILABLE
 NET_GATE_SETUP_TEXT,The online service isn't set up yet. Try again later.
 NET_GATE_NAME,CHOOSE YOUR ONLINE NAME
@@ -586,8 +586,8 @@ NET_RULE_LOVE_NOTE,"Love Edition: two players, one round."
 NET_RULE_JOINER_NOTE,Only the host can change the rules.
 NET_INVITE_TITLE,INVITE FRIENDS
 NET_INVITE_NONE,"No friends yet. Add friends on the Friends tab, or share the code."
-NET_SHARE_TITLE,Craterline
-NET_SHARE_TEXT,Join my Craterline match with the code {code} or tap {link}
+NET_SHARE_TITLE,Charred Horizons
+NET_SHARE_TEXT,Join my Charred Horizons match with the code {code} or tap {link}
 NET_SHARE_COPIED,Invite copied. Paste it into a message.
 NET_CONN_LIVE,LIVE
 NET_CONN_WAITING,Waiting for %s
@@ -622,7 +622,7 @@ NET_ABANDONED_TITLE,MATCH ENDED
 NET_ABANDONED_TEXT,"The match was ended, so there is nothing more to play."
 NET_OVER_BACK,BACK
 NET_UPDATE_TITLE,PLEASE UPDATE THE GAME
-NET_UPDATE_TEXT,This match was made with a different version of Craterline. Update the game from the store to play it.
+NET_UPDATE_TEXT,This match was made with a different version of Charred Horizons. Update the game from the store to play it.
 NET_BATTLE_SENDING,Sending your move…
 NET_BATTLE_QUEUED,You are offline. Your move is sent when the connection is back.
 NET_BATTLE_RESEND,Your move could not be sent. Try again.
@@ -642,7 +642,7 @@ NET_SET_GOOGLE_SIGN_IN,SIGN IN WITH GOOGLE
 NET_SET_GOOGLE_LINKED,LINKED: %s
 NET_SET_UNAVAILABLE,UNAVAILABLE
 NET_SET_GOOGLE_DONE,Google account linked. Your online account now survives a new phone.
-NET_SET_GOOGLE_TAKEN,That Google account already has a Craterline account.
+NET_SET_GOOGLE_TAKEN,That Google account already has a Charred Horizons account.
 NET_SET_GOOGLE_RESTORE_CAPTION,Use that account
 NET_SET_GOOGLE_RESTORE,USE THAT ACCOUNT
 NET_SET_GOOGLE_RESTORED,Signed in to your existing account.

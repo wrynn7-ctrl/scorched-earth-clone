@@ -97,7 +97,7 @@ func test_innocent_names_with_blocked_letters_inside_pass() -> void:
 	for w: String in ["Scunthorpe", "Cassie", "Dickens", "Assess", "Assassin", "Class", "Pass", "Bass", "Grass", "Mass Effect",
 			"Penistone", "Cockburn", "Hancock", "Peacock", "Analyst", "Titan", "Shiitake", "Spice", "Niger", "Nigeria",
 			"Raccoon", "Cocoon", "Hello", "Classic", "Dickson", "Therapist", "Grape", "Drape", "Pakistan", "Assam",
-			"As", "Passion", "Cumin", "Cumbria", "Titus", "Essex", "Button", "Butler", "Anna", "Max", "Zoe", "Craterline"]:
+			"As", "Passion", "Cumin", "Cumbria", "Titus", "Essex", "Button", "Butler", "Anna", "Max", "Zoe", "Charred"]:
 		assert_true(NameFilter.is_allowed(w), "%s is fine" % w)
 
 

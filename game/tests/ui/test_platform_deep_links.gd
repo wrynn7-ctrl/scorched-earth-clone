@@ -1,5 +1,5 @@
 extends GutTest
-## craterline://join/CODE parsing, the code alphabet (section 45: no 0/O/1/I), and exactly-once delivery of links that
+## charredhorizons://join/CODE parsing, the code alphabet (section 45: no 0/O/1/I), and exactly-once delivery of links that
 ## start the game or arrive while it runs, using ShareFake in place of the Android plugin.
 
 var _got: Array[String] = []
@@ -16,51 +16,51 @@ func _collect(code: String) -> void:
 # --- parsing --------------------------------------------------------------------------------
 
 func test_valid_links() -> void:
-	assert_eq(DeepLinks.parse_join_link("craterline://join/ABC234"), "ABC234")
-	assert_eq(DeepLinks.parse_join_link("craterline://join/K7M2QX"), "K7M2QX")
-	assert_eq(DeepLinks.parse_join_link("  craterline://join/ABC234  "), "ABC234", "surrounding spaces are ignored")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/ABC234"), "ABC234")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/K7M2QX"), "K7M2QX")
+	assert_eq(DeepLinks.parse_join_link("  charredhorizons://join/ABC234  "), "ABC234", "surrounding spaces are ignored")
 
 
 func test_link_tolerances() -> void:
-	assert_eq(DeepLinks.parse_join_link("CRATERLINE://JOIN/ABC234"), "ABC234", "scheme and host are case-insensitive")
-	assert_eq(DeepLinks.parse_join_link("craterline://join/abc234"), "ABC234", "a lower-case code is upper-cased")
-	assert_eq(DeepLinks.parse_join_link("craterline://join/ABC234/"), "ABC234", "trailing slash")
-	assert_eq(DeepLinks.parse_join_link("craterline://join/ABC234?utm=x"), "ABC234", "query ignored")
-	assert_eq(DeepLinks.parse_join_link("craterline://join/ABC234#frag"), "ABC234", "fragment ignored")
+	assert_eq(DeepLinks.parse_join_link("CHARREDHORIZONS://JOIN/ABC234"), "ABC234", "scheme and host are case-insensitive")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/abc234"), "ABC234", "a lower-case code is upper-cased")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/ABC234/"), "ABC234", "trailing slash")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/ABC234?utm=x"), "ABC234", "query ignored")
+	assert_eq(DeepLinks.parse_join_link("charredhorizons://join/ABC234#frag"), "ABC234", "fragment ignored")
 
 
 func test_invalid_links() -> void:
 	var bad: Array[String] = [
 		"",
 		"   ",
-		"craterline://join/",
-		"craterline://join",
-		"craterline://join/ABC23",       # too short
-		"craterline://join/ABC2345",     # too long
-		"craterline://join/ABC 234",     # space inside
-		"craterline://join/ABC-234",
-		"craterline://join/ABC23O",      # O is not in the alphabet
-		"craterline://join/ABC231",      # 1 is not in the alphabet
-		"craterline://join/ABC230",      # 0 is not in the alphabet
-		"craterline://join/ABCI23",      # I is not in the alphabet
-		"craterline://join/ABC234/extra",
-		"craterline://join//ABC234",
-		"craterline://friend/ABC234",    # another host
-		"craterline:///join/ABC234",
-		"craterline:join/ABC234",
+		"charredhorizons://join/",
+		"charredhorizons://join",
+		"charredhorizons://join/ABC23",       # too short
+		"charredhorizons://join/ABC2345",     # too long
+		"charredhorizons://join/ABC 234",     # space inside
+		"charredhorizons://join/ABC-234",
+		"charredhorizons://join/ABC23O",      # O is not in the alphabet
+		"charredhorizons://join/ABC231",      # 1 is not in the alphabet
+		"charredhorizons://join/ABC230",      # 0 is not in the alphabet
+		"charredhorizons://join/ABCI23",      # I is not in the alphabet
+		"charredhorizons://join/ABC234/extra",
+		"charredhorizons://join//ABC234",
+		"charredhorizons://friend/ABC234",    # another host
+		"charredhorizons:///join/ABC234",
+		"charredhorizons:join/ABC234",
 		"https://join/ABC234",
-		"https://craterline.example/join/ABC234",
-		"craterlinex://join/ABC234",
+		"https://charredhorizons.example/join/ABC234",
+		"charredhorizonsx://join/ABC234",
 		"ABC234",
-		"craterline://join/ÄBC234",
-		"craterline://join/ABC234\u0000",
+		"charredhorizons://join/ÄBC234",
+		"charredhorizons://join/ABC234\u0000",
 	]
 	for url: String in bad:
 		assert_eq(DeepLinks.parse_join_link(url), "", "rejected: %s" % url.c_escape())
 
 
 func test_overlong_input_is_rejected_quickly() -> void:
-	var long_url: String = "craterline://join/" + "A".repeat(100000)
+	var long_url: String = "charredhorizons://join/" + "A".repeat(100000)
 	assert_eq(DeepLinks.parse_join_link(long_url), "")
 
 
@@ -102,7 +102,7 @@ func test_is_valid_code() -> void:
 
 
 func test_build_join_link_round_trips() -> void:
-	assert_eq(DeepLinks.build_join_link("abc234"), "craterline://join/ABC234")
+	assert_eq(DeepLinks.build_join_link("abc234"), "charredhorizons://join/ABC234")
 	assert_eq(DeepLinks.parse_join_link(DeepLinks.build_join_link("K7M2QX")), "K7M2QX")
 	assert_eq(DeepLinks.build_join_link("ABC1"), "", "an invalid code makes no link")
 
@@ -120,7 +120,7 @@ func test_unavailable_without_plugin_does_nothing() -> void:
 
 func test_launch_link_waits_for_a_handler() -> void:
 	var fake: ShareFake = ShareFake.new()
-	fake.simulate_launch_link("craterline://join/ABC234")
+	fake.simulate_launch_link("charredhorizons://join/ABC234")
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
 	assert_true(links.available)
@@ -135,7 +135,7 @@ func test_running_link_is_emitted_to_a_connected_handler_once() -> void:
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
 	links.join_requested.connect(_collect)
-	fake.simulate_link("craterline://join/ABC234")
+	fake.simulate_link("charredhorizons://join/ABC234")
 	assert_eq(_got, ["ABC234"] as Array[String])
 	assert_false(links.has_pending(), "a handled link does not wait in the slot")
 	links.poll()
@@ -146,7 +146,7 @@ func test_running_link_without_handler_waits() -> void:
 	var fake: ShareFake = ShareFake.new()
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
-	fake.simulate_link("craterline://join/ABC234")
+	fake.simulate_link("charredhorizons://join/ABC234")
 	assert_eq(links.take_pending_code(), "ABC234")
 
 
@@ -155,8 +155,8 @@ func test_junk_links_are_dropped() -> void:
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
 	links.join_requested.connect(_collect)
-	fake.simulate_link("craterline://join/NOPE")
-	fake.simulate_link("craterline://friend/ABC234")
+	fake.simulate_link("charredhorizons://join/NOPE")
+	fake.simulate_link("charredhorizons://friend/ABC234")
 	fake.simulate_link("")
 	assert_eq(_got.size(), 0)
 	assert_false(links.has_pending())
@@ -166,8 +166,8 @@ func test_later_link_replaces_an_unclaimed_one() -> void:
 	var fake: ShareFake = ShareFake.new()
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
-	fake.simulate_link("craterline://join/ABC234")
-	fake.simulate_link("craterline://join/K7M2QX")
+	fake.simulate_link("charredhorizons://join/ABC234")
+	fake.simulate_link("charredhorizons://join/K7M2QX")
 	assert_eq(links.take_pending_code(), "K7M2QX", "the newest link wins")
 
 
@@ -175,6 +175,6 @@ func test_poll_picks_up_a_link_that_arrived_while_paused() -> void:
 	var fake: ShareFake = ShareFake.new()
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
-	fake.simulate_launch_link("craterline://join/ABC234")  # kept by the plugin, no signal
+	fake.simulate_launch_link("charredhorizons://join/ABC234")  # kept by the plugin, no signal
 	links.poll()
 	assert_eq(links.take_pending_code(), "ABC234")

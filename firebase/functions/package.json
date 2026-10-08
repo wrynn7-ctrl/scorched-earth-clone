@@ -1,7 +1,7 @@
 {
   "name": "craterline-functions",
   "private": true,
-  "description": "Craterline Cloud Functions (firebase-functions v2, TypeScript, Node 22).",
+  "description": "Charred Horizons Cloud Functions (firebase-functions v2, TypeScript, Node 22).",
   "main": "lib/index.js",
   "engines": {
     "node": "22"

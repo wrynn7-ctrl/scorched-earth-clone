@@ -48,7 +48,7 @@ describe('functions: onTurnChange', () => {
     await setTurn(matchId, 1, bob.uid, 1);
     await eventually(async () => (await fcmFor(bob.uid)).length === 1, 'turn push');
     const [push] = await fcmFor(bob.uid);
-    assert.equal(push?.title, 'Craterline');
+    assert.equal(push?.title, 'Charred Horizons');
     assert.equal(push?.body, "Your turn in Hana's match");
     assert.deepEqual(push?.data, { type: 'turn', matchId });
     assert.equal(push?.collapseKey, `turn_${matchId}`);

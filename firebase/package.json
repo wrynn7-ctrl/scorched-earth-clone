@@ -1,7 +1,7 @@
 {
   "name": "craterline-firebase",
   "private": true,
-  "description": "Craterline online backend: Realtime Database rules, Cloud Functions and their emulator tests (see README.md).",
+  "description": "Charred Horizons online backend: Realtime Database rules, Cloud Functions and their emulator tests (see README.md).",
   "engines": {
     "node": ">=22"
   },

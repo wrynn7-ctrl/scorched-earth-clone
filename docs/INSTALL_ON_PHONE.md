@@ -1,4 +1,4 @@
-# Installing Craterline test builds on your Samsung phone
+# Installing Charred Horizons test builds on your Samsung phone
 
 Test builds are not on Google Play yet, so you install them by hand from a file (an "APK"). It takes about two minutes
 the first time and about thirty seconds for every update after that. It works on Android 8 or newer.
@@ -10,10 +10,14 @@ Tip: open that page on the phone and add it to your browser bookmarks or Home sc
 
 ## First install
 
+> **Renamed game.** The game used to be called "Craterline". The new build is **Charred Horizons** and installs as a
+> separate app (new package id `com.wrynn7.charredhorizons`), so it does not replace the old one. You can uninstall the
+> old "Craterline" test app. Its saved data does not carry over.
+
 1. **Open the page** above in the browser on your phone (Chrome or Samsung Internet).
    - When I checked, the repository was public, so no login is needed. If it is ever made private, log in to GitHub in
      that same browser first, otherwise the page shows "404 Not Found".
-2. Scroll to **Assets** and tap **craterline-debug.apk**. If the browser says "This type of file can harm your device",
+2. Scroll to **Assets** and tap **charredhorizons-debug.apk**. If the browser says "This type of file can harm your device",
    tap **Download anyway** (or **OK**). Wait until the download finishes.
 3. Tap **Open** in the download notification (or open the **My Files** app, then **Downloads**, then tap the file).
 4. The first time, the phone says it is not allowed to install apps from this source:
@@ -37,17 +41,17 @@ then **Play Protect > Settings (the gear) > Scan apps with Play Protect** and sw
 
 ## Installing an update (keeps your data)
 
-1. Open the same page again and download **craterline-debug.apk** again. The file always has the same name, and it
+1. Open the same page again and download **charredhorizons-debug.apk** again. The file always has the same name, and it
    always holds the newest build (the page lists the build time and commit).
 2. Open it and tap **Update** (or **Install**). **Do not uninstall the old version first.** Every test build is signed with
    the same key, so the new one installs right on top and keeps your saved data.
 3. If Android ever says **"App not installed as package conflicts with an existing package"**, the old copy was made
-   with a different key (for example, one built on someone else's computer). Uninstall Craterline once, then install
+   with a different key (for example, one built on someone else's computer). Uninstall Charred Horizons once, then install
    again. Saved test data is lost in that case, which does not matter for test builds.
 
 ## Good to know
 - These are **debug** builds for testing: they are a bit slower and bigger than the final game will be (the file is about 160 MB;
   the download takes a minute on Wi-Fi). Since milestone M5 they are made with a Gradle build so that in-app purchases can work
   later; installing them works exactly as before. See `docs/BUILD.md`.
-- The app is called **Craterline** and has a placeholder icon for now.
+- The app is called **Charred Horizons** and has a placeholder icon for now.
 - Deleting the downloaded APK file after installing is fine; the app stays.

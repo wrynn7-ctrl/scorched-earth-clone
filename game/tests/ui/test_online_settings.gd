@@ -90,7 +90,7 @@ func test_a_google_account_that_is_already_used_offers_to_switch_to_it() -> void
 	var p: OnlineSettings = await _panel()
 	p.sign_in_google()
 	await settle(3)
-	assert_string_contains(p.get_hint_text(), "already has a Craterline account")
+	assert_string_contains(p.get_hint_text(), "already has a Charred Horizons account")
 	assert_true(p.get_google_restore_button().get_parent().visible)
 	p.restore_with_google()
 	await settle(3)

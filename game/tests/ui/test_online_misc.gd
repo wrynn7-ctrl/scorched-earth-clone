@@ -50,7 +50,7 @@ func test_a_join_link_while_the_title_shows_goes_online_with_the_code() -> void:
 	OnlineHub.set_services(PushService.new(PushFake.new()), GoogleSignIn.new(GoogleSignInFake.new()), ShareService.new(fake), DeepLinks.new(fake))
 	var t: TitleScreen = _title()
 	await settle(2)
-	fake.simulate_link("craterline://join/K7M2QX")
+	fake.simulate_link("charredhorizons://join/K7M2QX")
 	assert_eq(OnlineHub.pending_join_code, "K7M2QX")
 	assert_eq(OnlineHub.last_scene(), OnlineHub.ONLINE_SCENE)
 	assert_not_null(t)
@@ -58,7 +58,7 @@ func test_a_join_link_while_the_title_shows_goes_online_with_the_code() -> void:
 
 func test_a_link_that_started_the_game_opens_online_by_itself() -> void:
 	var fake: ShareFake = ShareFake.new()
-	fake.simulate_launch_link("craterline://join/ABC234")
+	fake.simulate_launch_link("charredhorizons://join/ABC234")
 	var links: DeepLinks = DeepLinks.new(fake)
 	links.start()
 	OnlineHub.set_services(PushService.new(PushFake.new()), GoogleSignIn.new(GoogleSignInFake.new()), ShareService.new(fake), links)

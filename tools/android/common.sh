@@ -180,10 +180,10 @@ else
   INSTALL_FLAG=(--install-android-build-template)
 fi
 
-# ---- 6. Billing plugin, Craterline plugins + project import -------------------------------------------------------
+# ---- 6. Billing plugin, Charred Horizons plugins + project import -------------------------------------------------------
 "${ROOT}/tools/setup_billing_plugin.sh" >&2 || die "Google Play Billing plugin check failed (see above)"
 # Push (FCM), Google sign-in, share + deep links: built from android_plugins/ with Gradle, AARs go to game/addons/craterline_android/bin.
-"${ROOT}/tools/plugins/build_plugins.sh" >&2 || die "Craterline Android plugins build failed (see above)"
+"${ROOT}/tools/plugins/build_plugins.sh" >&2 || die "Charred Horizons Android plugins build failed (see above)"
 
 mkdir -p "${BUILD_DIR}"
 LOG="$(mktemp)"
@@ -217,7 +217,7 @@ export_android() {
 }
 
 # verify_craterline_plugins <dex file> <manifest text file> <archive> <resources entry in the archive>
-# Shared by both build scripts: proves the Craterline plugins really are inside the finished package.
+# Shared by both build scripts: proves the Charred Horizons plugins really are inside the finished package.
 #   dex file       all classes*.dex of the package, concatenated (class descriptors are plain text in there)
 #   manifest text  the package's AndroidManifest.xml (binary or protobuf) run through `strings`
 # FCM expectations follow what the plugin build recorded in plugins.cfg: with google-services.json the Firebase
@@ -234,19 +234,19 @@ verify_craterline_plugins() {
   for cls in CraterlinePush CraterlineGoogleSignIn CraterlineShare; do
     grep -a -q "org.godotengine.plugin.v2.${cls}" "${manifest}" || die "plugin meta-data for ${cls} is missing from the manifest"
   done
-  # The craterline://join/CODE link: an exported alias with a VIEW filter for scheme craterline, host join.
+  # The charredhorizons://join/CODE link: an exported alias with a VIEW filter for scheme charredhorizons, host join.
   grep -a -q 'CraterlineDeepLink' "${manifest}" || die "deep-link activity-alias is missing from the manifest"
   # (protobuf strings can have one stray printable byte after them, so match the start of the line only)
-  grep -a -q '^craterline' "${manifest}" && grep -a -q '^join' "${manifest}" || die "craterline://join intent filter is missing from the manifest"
+  grep -a -q '^charredhorizons' "${manifest}" && grep -a -q '^join' "${manifest}" || die "charredhorizons://join intent filter is missing from the manifest"
   if [[ "${fcm}" == "true" ]]; then
     grep -a -q 'Lcom/google/firebase/messaging/FirebaseMessaging;' "${dex}" || die "Firebase Messaging classes are missing (push was built with google-services.json)"
     grep -a -q 'Lcom/wrynn7/craterline/plugin/push/CraterlinePushService;' "${dex}" || die "CraterlinePushService is missing"
     # (no `grep -q` after `unzip -p`: grep would exit early and pipefail would report unzip's SIGPIPE as a failure)
     unzip -p "${archive}" "${res_entry}" | grep -a 'google_app_id' >/dev/null || die "generated Firebase resources (google_app_id) are missing"
-    log "Craterline plugins present: push (Firebase Messaging BUILT IN), Google sign-in, share + deep links"
+    log "Charred Horizons plugins present: push (Firebase Messaging BUILT IN), Google sign-in, share + deep links"
   else
     # (firebase-encoders and FirebaseException ride along with Play services for sign-in; FirebaseApp and Messaging must not.)
     ! grep -a -q -E 'Lcom/google/firebase/(FirebaseApp|messaging/FirebaseMessaging);' "${dex}" || die "Firebase Messaging classes found although the push plugin was built as a stub"
-    log "Craterline plugins present: push (stub, no Firebase code), Google sign-in, share + deep links"
+    log "Charred Horizons plugins present: push (stub, no Firebase code), Google sign-in, share + deep links"
   fi
 }

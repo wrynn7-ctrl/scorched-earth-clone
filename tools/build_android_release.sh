@@ -7,7 +7,7 @@
 # It proves that the release pipeline works end to end (release templates, R8/resource shrinking, the billing plugin,
 # the AAB format) before the real keystore exists. Shared setup lives in tools/android/common.sh.
 #
-# Output: build/craterline-release.aab. Checks: jarsigner verify + certificate = committed debug key, bundle layout
+# Output: build/charredhorizons-release.aab. Checks: jarsigner verify + certificate = committed debug key, bundle layout
 # (unzip), the billing plugin inside the base module, and, when it can be fetched, `bundletool validate`.
 #
 # When real signing is added (M8), pass the secrets through the environment, never through files in the repo:
@@ -17,7 +17,7 @@ set -euo pipefail
 
 TOOL_NAME="build_android_release"
 PRESET="Android Release"
-OUT_NAME="craterline-release.aab"
+OUT_NAME="charredhorizons-release.aab"
 
 # shellcheck source=android/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/android/common.sh"
@@ -70,7 +70,7 @@ grep -a -q 'Lcom/android/billingclient/api/BillingClient;' "${BASE_DEX_TMP}/all.
   || die "Play Billing library classes are missing from the AAB"
 log "billing plugin and Play Billing library classes present in the AAB"
 
-# Craterline's own plugins: the bundle's manifest and resources are protobuf, but their strings are plain UTF-8.
+# Charred Horizons' own plugins: the bundle's manifest and resources are protobuf, but their strings are plain UTF-8.
 unzip -p "${OUT_AAB}" base/manifest/AndroidManifest.xml | strings >"${BASE_DEX_TMP}/manifest.txt"
 verify_craterline_plugins "${BASE_DEX_TMP}/all.dex" "${BASE_DEX_TMP}/manifest.txt" "${OUT_AAB}" base/resources.pb
 

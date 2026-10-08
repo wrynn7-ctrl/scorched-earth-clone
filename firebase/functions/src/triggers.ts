@@ -30,7 +30,7 @@ export async function handleTurnChange(deps: Deps, matchId: string, before: Turn
   if (!(await isAway(deps, matchId, holder))) return { pushed: false };
   const hostName = meta.seats.find((s) => s.uid === meta.hostUid)?.name ?? 'PLAYER';
   const pushed = await notifyUser(deps.db, deps.sender, holder, {
-    title: 'Craterline',
+    title: 'Charred Horizons',
     body: `Your turn in ${hostName}'s match`,
     data: { type: 'turn', matchId },
     collapseKey: `turn_${matchId}`,
@@ -41,7 +41,7 @@ export async function handleTurnChange(deps: Deps, matchId: string, before: Turn
 export async function handleInvite(deps: Deps, toUid: string, matchId: string, invite: { fromName?: string } | null): Promise<boolean> {
   if (!invite) return false;
   return notifyUser(deps.db, deps.sender, toUid, {
-    title: 'Craterline',
+    title: 'Charred Horizons',
     body: `${invite.fromName ?? 'A friend'} invited you to a match`,
     data: { type: 'invite', matchId },
     collapseKey: `invite_${matchId}`,
@@ -53,7 +53,7 @@ export async function handleFriendAdded(deps: Deps, uid: string, friendUid: stri
   if (!entry || entry.by !== friendUid) return false;
   const friend = await read<UserRecord>(deps.db, `users/${friendUid}`);
   return notifyUser(deps.db, deps.sender, uid, {
-    title: 'Craterline',
+    title: 'Charred Horizons',
     body: `${displayName(friend)} accepted your friend request`,
     data: { type: 'friend', friendUid },
     collapseKey: `friend_${friendUid}`,
@@ -74,7 +74,7 @@ export async function handleStatusChange(deps: Deps, matchId: string, before: st
     seen.add(seat.uid);
     if (!(await isAway(deps, matchId, seat.uid))) continue;
     const pushed = await notifyUser(deps.db, deps.sender, seat.uid, {
-      title: 'Craterline',
+      title: 'Charred Horizons',
       body: `The match in ${meta.seats.find((s) => s.uid === meta.hostUid)?.name ?? 'PLAYER'}'s game is over`,
       data: { type: 'over', matchId },
       collapseKey: `over_${matchId}`,

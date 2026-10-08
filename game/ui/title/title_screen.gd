@@ -14,6 +14,8 @@ const LOGO_SHADER: Shader = preload("res://ui/title/logo_gradient.gdshader")
 ## Secret (ARCHITECTURE section 37): this many taps on the logo within LOVE_WINDOW_MS reveal the Love Edition button.
 const LOVE_TAPS: int = 7
 const LOVE_WINDOW_MS: int = 3000
+## How far the title's sun and horizon lean toward ember colours (0 = the plain synthwave sky).
+const EMBER_SKY_TINT: float = 0.85
 const LOVE_PINK: Color = Color(1.0, 0.42, 0.68)
 
 var _sky: NeonSky = null
@@ -21,7 +23,9 @@ var _box: VBoxContainer = null
 var _logo_holder: Control = null
 var _glow_a: Label = null
 var _glow_b: Label = null
+var _edge: Label = null
 var _logo: Label = null
+var _sparks: EmberSparks = null
 var _subtitle: Label = null
 var _start: Button = null
 var _online: Button = null
@@ -57,6 +61,7 @@ func _init() -> void:
 func _ready() -> void:
 	get_tree().set_quit_on_go_back(true)
 	apply_scale()
+	_sky.set_ember_tint(EMBER_SKY_TINT)
 	LayoutWatch.attach(self, apply_scale)
 	refresh_continue()
 	Entitlement.start()  # connects to the store (price, what is owned) in the background
@@ -101,8 +106,12 @@ func _build() -> void:
 	_logo_holder.mouse_filter = Control.MOUSE_FILTER_STOP
 	_logo_holder.gui_input.connect(_on_logo_input)
 	_box.add_child(_logo_holder)
+	_sparks = EmberSparks.new()
+	_logo_holder.add_child(_sparks)  # first, so the letters stay crisp in front of the embers
 	_glow_a = _logo_label("GlowWide", Color(NeonPalette.MAGENTA, 0.22))
-	_glow_b = _logo_label("GlowTight", Color(NeonPalette.CYAN, 0.38))
+	_glow_b = _logo_label("GlowTight", Color(NeonPalette.CYAN, 0.6))
+	# A thin dark rim between the ember letters and the cyan neon edge keeps them readable over the bright sun.
+	_edge = _logo_label("DarkEdge", Color(NeonPalette.BG_DEEP, 0.92))
 	_logo = _logo_label("Logo", Color(0, 0, 0, 0))
 	var mat := ShaderMaterial.new()
 	mat.shader = LOGO_SHADER
@@ -235,17 +244,28 @@ func apply_scale() -> void:
 
 
 func _apply_stack(sep_dp: float, logo_dp: float) -> void:
-	var fs: int = UiScale.font(logo_dp)
 	var font: Font = _logo.get_theme_font("font")
+	var pad: Vector2 = Vector2(UiScale.dp(40.0), UiScale.dp(24.0))
+	var fs: int = UiScale.font(logo_dp)
 	var text_size: Vector2 = font.get_string_size(_logo.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs)
-	_logo_holder.custom_minimum_size = text_size + Vector2(UiScale.dp(40.0), UiScale.dp(24.0))
-	for l: Label in [_glow_a, _glow_b, _logo]:
+	# One line has to fit the screen's width too (a narrow phone, or big text scale): shrink the type to fit.
+	var avail: float = get_viewport_rect().size.x - UiScale.dp(2.0 * UiScale.EDGE_MARGIN_DP) - pad.x
+	if avail > 0.0 and text_size.x > avail:
+		fs = maxi(12, floori(float(fs) * avail / text_size.x))
+		text_size = font.get_string_size(_logo.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fs)
+	_logo_holder.custom_minimum_size = text_size + pad
+	for l: Label in [_glow_a, _glow_b, _edge, _logo]:
 		l.add_theme_font_size_override("font_size", fs)
 	_glow_a.add_theme_constant_override("outline_size", roundi(UiScale.dp(16.0)))
-	_glow_b.add_theme_constant_override("outline_size", roundi(UiScale.dp(6.0)))
-	(_logo.material as ShaderMaterial).set_shader_parameter("height", text_size.y)
-	(_logo.material as ShaderMaterial).set_shader_parameter("width", text_size.x)
+	_glow_b.add_theme_constant_override("outline_size", roundi(UiScale.dp(8.0)))
+	_edge.add_theme_constant_override("outline_size", roundi(UiScale.dp(4.0)))
+	var m: ShaderMaterial = _logo.material as ShaderMaterial
+	m.set_shader_parameter("height", text_size.y)
+	m.set_shader_parameter("width", text_size.x)
+	m.set_shader_parameter("top", pad.y * 0.5)
+	m.set_shader_parameter("left", pad.x * 0.5)
 	_box.add_theme_constant_override("separation", roundi(UiScale.dp(sep_dp)))
+	_sparks.refresh()
 
 
 func _apply_buttons() -> void:
@@ -480,7 +500,7 @@ func open_online() -> void:
 	OnlineHub.go_online(get_tree())
 
 
-## A craterline://join link or a notification tap that started the game, or arrives while the title shows, opens the
+## A join deep link (see DeepLinks) or a notification tap that started the game, or arrives while the title shows, opens the
 ## Online home, which then follows it (OnlineHub keeps what was asked).
 func _connect_online_routes() -> void:
 	OnlineHub.start_services()

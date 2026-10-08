@@ -56,6 +56,8 @@ extends RefCounted
 ##                       midnight_chrome, or random)
 ##   --left-handed       battle: the left-handed HUD layout (power + FIRE on the left)
 ##   --love              battle: a Love Edition match (2 tanks, hearts only)
+##   --reduce-motion     any: start with the reduce-motion setting on (the title shows its still frame)
+##   --reduce-flashing   any: start with the reduce-flashing setting on
 ##   --love-found        title: show the Love Edition button without the secret taps (nothing is saved)
 ##   --place=<i>:<x>     battle: move tank i to column x (0-based tank, simulation x) right after
 ##                       the round starts; the tank rests on the ground there (screenshots)
@@ -121,6 +123,10 @@ static func parse() -> void:
 			UiScale.dpi_override = a.substr(6).to_float()
 		elif a == "--left-handed":
 			ShowSettings.left_handed = true
+		elif a == "--reduce-motion":
+			ShowSettings.reduce_motion = true
+		elif a == "--reduce-flashing":
+			ShowSettings.reduce_flashing = true
 		elif a == "--no-layout-guard":
 			LayoutGuard.detect_only = true
 		elif a == "--open-diag":

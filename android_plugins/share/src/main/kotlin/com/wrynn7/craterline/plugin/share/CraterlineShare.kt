@@ -13,7 +13,7 @@ import org.godotengine.godot.plugin.SignalInfo
 import org.godotengine.godot.plugin.UsedByGodot
 
 /**
- * Godot singleton "CraterlineShare": the Android share sheet and craterline:// deep links.
+ * Godot singleton "CraterlineShare": the Android share sheet and charredhorizons:// deep links.
  * GDScript wrappers: ShareService and DeepLinks.
  *
  * Methods: share_text(title, text) -> bool, consume_pending_link() -> String
@@ -28,7 +28,7 @@ class CraterlineShare(godot: Godot) : GodotPlugin(godot) {
     companion object {
         const val TAG = "CraterlineShare"
         const val PLUGIN_NAME = "CraterlineShare"
-        private const val SCHEME = "craterline"
+        private const val SCHEME = "charredhorizons"
     }
 
     private val linkReceived = SignalInfo("deep_link_received", String::class.java)

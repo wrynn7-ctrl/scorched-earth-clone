@@ -1,7 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Placeholder launcher icon: neon crater on a dark sky. Replace with final art in M5. -->
-  <rect width="128" height="128" rx="24" fill="#0b0618"/>
-  <path d="M0 92 L38 92 Q64 124 90 92 L128 92 L128 128 L0 128 Z" fill="#ff2bd6"/>
-  <path d="M38 92 Q64 124 90 92" fill="none" stroke="#2bf0ff" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="92" cy="34" r="9" fill="#2bf0ff"/>
+  <!-- Charred Horizons launcher icon: a tank silhouette on a burning synthwave horizon. Key content stays inside the
+       central 66% (the Android adaptive-icon safe zone). Layers: icon_background.svg + icon_foreground.svg. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0618"/><stop offset="0.55" stop-color="#2b0b3d"/><stop offset="1" stop-color="#8a1530"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff07a"/><stop offset="0.38" stop-color="#ffb02a"/>
+      <stop offset="0.7" stop-color="#ff5a14"/><stop offset="1" stop-color="#d4102a"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff6a1a" stop-opacity="0.55"/><stop offset="1" stop-color="#ff2b6a" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="above"><rect x="0" y="0" width="128" height="84"/></clipPath>
+  </defs>
+  <rect width="128" height="128" fill="url(#sky)"/>
+  <circle cx="64" cy="66" r="46" fill="url(#halo)" clip-path="url(#above)"/>
+  <g clip-path="url(#above)">
+    <circle cx="64" cy="66" r="30" fill="url(#sun)"/>
+    <rect x="30" y="68" width="68" height="2.6" fill="#8a1530"/>
+    <rect x="30" y="74" width="68" height="3.6" fill="#8a1530"/>
+    <rect x="30" y="80" width="68" height="4.6" fill="#8a1530"/>
+  </g>
+  <rect y="84" width="128" height="44" fill="#1a0630"/>
+  <g stroke="#ff2bd6" stroke-width="1.6" opacity="0.85" fill="none">
+    <path d="M64 84 L64 128 M64 84 L30 128 M64 84 L98 128 M64 84 L-4 128 M64 84 L132 128"/>
+    <path d="M0 96 H128 M0 110 H128"/>
+  </g>
+  <rect y="82.6" width="128" height="3" fill="#2bf0ff"/>
+  <g stroke-linejoin="round" stroke-linecap="round" transform="translate(64 86) scale(1.2) translate(-64 -86)">
+    <path d="M66 66 L97 51" stroke="#2bf0ff" stroke-width="8"/>
+    <path d="M66 66 L97 51" stroke="#0b0618" stroke-width="4.6"/>
+    <path d="M42 87 H86 a4 4 0 0 0 4 -4 a4 4 0 0 0 -4 -4 H42 a4 4 0 0 0 -4 4 a4 4 0 0 0 4 4 Z" fill="#0b0618" stroke="#2bf0ff" stroke-width="2"/>
+    <path d="M46 79 L50 69 H78 L82 79 Z" fill="#0b0618" stroke="#2bf0ff" stroke-width="2"/>
+    <path d="M52 69 a12 8 0 0 1 24 0 Z" fill="#0b0618" stroke="#2bf0ff" stroke-width="2"/>
+  </g>
+  <circle cx="38" cy="50" r="2.6" fill="#ffe45a"/>
+  <circle cx="92" cy="40" r="2.2" fill="#ffb02a"/>
+  <circle cx="101" cy="66" r="2" fill="#ff5a14"/>
+  <circle cx="30" cy="68" r="1.6" fill="#ff7a1a"/>
 </svg>

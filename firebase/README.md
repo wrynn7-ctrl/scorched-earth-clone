@@ -1,4 +1,4 @@
-# Craterline online backend (Firebase)
+# Charred Horizons online backend (Firebase)
 
 Realtime Database rules, Cloud Functions and their tests for online play (ARCHITECTURE sections 43 to 50, PLAN section 7).
 Everything runs offline against the Firebase emulators with the demo project **`demo-craterline`** (the `demo-` prefix means
@@ -229,7 +229,7 @@ in production it is FCM (`sendEachForMulticast`, dead tokens removed). Messages 
 * **Purchase verification.** `verifyPurchase` asks the Google Play Developer API (androidpublisher v3,
   `purchases.products.get`, then `acknowledge`). It runs as the function's own service account (Application Default
   Credentials), which the owner invites in Play Console: no key file, no secret (docs/FIREBASE_SETUP.md section 8). The package
-  name and product id are deploy parameters `PLAY_PACKAGE_NAME` (default `com.wrynn7.craterline`) and `PLAY_PRODUCT_ID`
+  name and product id are deploy parameters `PLAY_PACKAGE_NAME` (default `com.wrynn7.charredhorizons`) and `PLAY_PRODUCT_ID`
   (default `full_unlock`). Setting the environment variable `PLAY_SERVICE_ACCOUNT_JSON` (for example from a Secret Manager
   secret mapped to it) makes it use that key instead. Under the emulator a stub is used and accepts exactly the token
   `test-full` (once per account; clear `purchaseTokens` to reuse it). One token unlocks one account.

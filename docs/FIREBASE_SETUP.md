@@ -13,20 +13,20 @@ Who does what:
 
 Do the steps in order. Total time: about 45 minutes, plus waiting for Google in one place (marked "wait").
 
-## 0. Before you start: the Android package id must be final
+## 0. Before you start: the Android package id is final
 
-**[Owner, decide first]** The app's package id is `com.wrynn7.craterline` (`package/unique_name` in
-`game/export_presets.cfg`). Google Play and Firebase both tie the app to this id and it **can never change** after the
-first Play upload. If you want a different one, tell the lead *now*; the file `google-services.json` you download in step 4
-only works for the package id you register.
+**[Owner, nothing to decide]** The app's package id is `com.wrynn7.charredhorizons` (`package/unique_name` in
+`game/export_presets.cfg`). The owner chose it and it is **final**: Google Play and Firebase both tie the app to this id and
+it **can never change** after the first Play upload. The file `google-services.json` you download in step 4 only works for
+this exact package id, and the build checks that.
 
 You need: a Google account, a credit or debit card (Firebase's pay-as-you-go plan, see step 1), and, for step 8, a Google
 Play Console developer account.
 
 ## 1. Create the Firebase project and set a budget alert
 
-1. **[Owner]** Open <https://console.firebase.google.com/>, **Create a project**, name it "Craterline". The project id
-   (for example `craterline-4f2a1`) is shown under the name; **write it down**, the lead needs it. Google Analytics: you can
+1. **[Owner]** Open <https://console.firebase.google.com/>, **Create a project**, name it "Charred Horizons". The project id
+   (for example `charredhorizons-4f2a1`) is shown under the name; **write it down**, the lead needs it. Google Analytics: you can
    switch it off, the game does not use it.
 2. **[Owner]** Bottom left, click **Spark plan** (the free plan), then **Upgrade** and choose **Blaze** (pay as you go).
    Cloud Functions, which the game needs, are only available on Blaze. Blaze has the same free allowances as Spark; you
@@ -34,7 +34,7 @@ Play Console developer account.
 3. **[Owner]** Set a **budget alert at $10** right away:
    1. Open <https://console.cloud.google.com/billing> and pick the billing account that Firebase just created.
    2. Left menu **Budgets & alerts**, **Create budget**.
-   3. Name "Craterline $10", scope "All projects" (or just this project), amount **$10**, keep the default alert
+   3. Name "Charred Horizons $10", scope "All projects" (or just this project), amount **$10**, keep the default alert
       thresholds (50%, 90%, 100%), and make sure **email alerts to billing admins** is ticked. **Create**.
    4. Good to know: a budget alert **warns, it does not stop spending**. If you ever get one, tell the lead; the first
       things to check are Realtime Database downloads and Function invocations (Firebase console, Usage tab).
@@ -44,8 +44,8 @@ Play Console developer account.
 **[Owner]** Firebase console, the gear icon next to "Project Overview", **Project settings**, tab **General**, section
 **Your apps**, **Add app**, the Android icon:
 
-- **Android package name:** `com.wrynn7.craterline` (exactly; copy it from the line above).
-- **App nickname:** Craterline (optional).
+- **Android package name:** `com.wrynn7.charredhorizons` (exactly; copy it from the line above).
+- **App nickname:** Charred Horizons (optional).
 - **Debug signing certificate SHA-1:** paste this one. It is the public debug key from `tools/android/debug.keystore`;
   every test build from CI is signed with it, and "Sign in with Google" only works for builds whose SHA-1 is registered:
 
@@ -67,7 +67,7 @@ integrity**, **Play app signing**:
 
 1. **[Owner]** Firebase console, left menu **Build**, **Authentication**, **Get started**, tab **Sign-in method**.
 2. Click **Anonymous**, switch **Enable** on, **Save**. (The game signs every player in anonymously; no form to fill in.)
-3. Click **Add new provider**, **Google**, switch **Enable** on, choose a **public-facing name** ("Craterline") and your
+3. Click **Add new provider**, **Google**, switch **Enable** on, choose a **public-facing name** ("Charred Horizons") and your
    **support email**, **Save**. Because the Android app and its SHA-1 already exist (step 2), Firebase now also creates the
    matching "Android client" for Google sign-in by itself.
 4. **[Owner]** Open the Google provider again: the box **Web SDK configuration** shows the **Web client ID**. It looks like
@@ -114,7 +114,7 @@ we keep it out of git anyway, so a stranger cannot point their own copy of the g
    Pull requests from forks never receive secrets, so they automatically get the stub build.
 4. **[CI]** `tools/build_android_debug.sh` sees `android_plugins/google-services.json` and builds the real push plugin
    (Firebase Cloud Messaging plus the generated Firebase settings). The build checks that the file contains an app for
-   `com.wrynn7.craterline` and fails with a clear message if not, and afterwards checks that the Firebase classes are
+   `com.wrynn7.charredhorizons` and fails with a clear message if not, and afterwards checks that the Firebase classes are
    inside the APK. Without the file the same script builds a stub: the game then shows no push features and the app
    contains no Firebase code at all. The file is git-ignored (`android_plugins/.gitignore`); never commit it.
 
@@ -130,7 +130,7 @@ To try it on your own computer instead: save the file as `android_plugins/google
    region, and the database URL differs by region).
 3. Security rules: choose **Locked mode**. The real rules are deployed in step 6.
 4. **[Owner]** Send the lead the **database URL** shown at the top of the Data tab, for example
-   `https://craterline-4f2a1-default-rtdb.europe-west1.firebasedatabase.app`.
+   `https://charredhorizons-4f2a1-default-rtdb.europe-west1.firebasedatabase.app`.
 
 ## 6. Deploy the rules and the functions
 
@@ -141,7 +141,7 @@ sends the lead the project id from step 1 and is available once to log in:
 cd firebase
 npm ci                                   # installs the pinned firebase-tools and the function dependencies
 npx firebase login                       # opens a browser; log in as the Google account that owns the project
-npx firebase use <project-id>            # for example: npx firebase use craterline-4f2a1
+npx firebase use <project-id>            # for example: npx firebase use charredhorizons-4f2a1
 npx firebase deploy --only database,functions
 ```
 
@@ -177,7 +177,7 @@ function to ask. This uses the function's own service account, so **no key file 
 3. **[Owner]** Play Console (<https://play.google.com/console>), left menu **Users and permissions** (on the developer
    account home, not inside one app), **Invite new users**:
    - Email: the service account email from step 1.
-   - Under **App permissions**, **Add app**, choose Craterline.
+   - Under **App permissions**, **Add app**, choose Charred Horizons.
    - Account permissions for the app: tick **View app information and download bulk reports (read-only)**, **View financial
      data, orders, and cancellation survey responses**, and **Manage orders and subscriptions**.
    - **Invite user**.

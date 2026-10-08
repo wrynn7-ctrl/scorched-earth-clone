@@ -1,6 +1,6 @@
 @tool
 extends EditorPlugin
-## Adds Craterline's Android plugins to a Gradle export (Godot 4.7 "v2" plugin format, same shape as the vendored
+## Adds Charred Horizons' Android plugins to a Gradle export (Godot 4.7 "v2" plugin format, same shape as the vendored
 ## billing plugin). Editor-only: it is excluded from exported packages (exclude_filter in export_presets.cfg).
 ##
 ## What it adds, and when:
@@ -8,7 +8,7 @@ extends EditorPlugin
 ##     so exporting from the editor without building them still works (the GDScript wrappers then report "unavailable");
 ##   - the pinned Maven dependencies listed in bin/plugins.cfg (Credential Manager, googleid, and firebase-messaging
 ##     only when the push AAR was built WITH google-services.json);
-##   - an <activity-alias> with the craterline://join/CODE intent filter (the game's own activity is not exported).
+##   - an <activity-alias> with the charredhorizons://join/CODE intent filter (the game's own activity is not exported).
 
 var _export_plugin: CraterlineExportPlugin
 
@@ -66,7 +66,7 @@ class CraterlineExportPlugin extends EditorExportPlugin:
 			"        <action android:name=\"android.intent.action.VIEW\" />",
 			"        <category android:name=\"android.intent.category.DEFAULT\" />",
 			"        <category android:name=\"android.intent.category.BROWSABLE\" />",
-			"        <data android:scheme=\"craterline\" android:host=\"join\" />",
+			"        <data android:scheme=\"charredhorizons\" android:host=\"join\" />",
 			"    </intent-filter>",
 			"</activity-alias>",
 		])
