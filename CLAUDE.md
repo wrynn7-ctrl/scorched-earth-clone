@@ -1,4 +1,4 @@
-# Craterline (working title) — project rules for every agent
+# Charred Horizons — project rules for every agent
 
 Turn-based neon artillery game for Android, built with **Godot 4.7.2** and **typed GDScript**.
 The plan lives in `PLAN.md`, status in `PROGRESS.md`, the technical contracts in `docs/ARCHITECTURE.md`.

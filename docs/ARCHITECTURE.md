@@ -849,8 +849,8 @@ Realtime Database paths (`uid` is a Firebase Auth uid):
   Without it the plugin degrades to "push unavailable".
 - **Google sign-in:** a Credential Manager plugin returns a Google ID token. GDScript calls Identity Toolkit
   `signInWithIdp` to link it.
-- **Share and invite links:** the Android share sheet for "Join my Craterline match: CODE". Deep links use the
-  `craterline://join/CODE` scheme now; https App Links on the Firebase Hosting domain come once the real project
+- **Share and invite links:** the Android share sheet for "Join my Charred Horizons match: CODE". Deep links use the
+  `charredhorizons://join/CODE` scheme now (renamed from `craterline://` on 2026-10-08); https App Links on the Firebase Hosting domain come once the real project
   exists.
 - All of it degrades gracefully on desktop and headless (tests).
 

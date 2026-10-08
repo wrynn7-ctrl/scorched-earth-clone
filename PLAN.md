@@ -1,6 +1,6 @@
 # PLAN — Neon Artillery Game for Android
 
-Status: **APPROVED (2026-10-02).** Working title "Craterline"; free/full split and $3.99 as in §4. Image import ships in M5. Reports: private review list + auto-hide a name after 3 reports from different players.
+Status: **APPROVED (2026-10-02).** Final title **"Charred Horizons"** (owner, 2026-10-08; working title was "Craterline"); free/full split and $3.99 as in §4. Image import ships in M5. Reports: private review list + auto-hide a name after 3 reports from different players.
 
 ---
 

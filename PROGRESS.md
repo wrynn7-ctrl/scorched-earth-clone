@@ -13,6 +13,9 @@
 
 ## Log
 
+### 2026-10-08
+- Owner renamed the game to **Charred Horizons** (package `com.wrynn7.charredhorizons`, neon logo with ember glow). Owner still to do: phone tests (M6/M7) and the Firebase project.
+
 ### 2026-10-06
 - M7 decisions (owner): emulator first, real Firebase project later; friends list + codes; quick messages only; online supports CPUs, teams, Love Edition, shared-phone seats.
 - M6 build published; owner moved on to M7 (M6 phone feedback still welcome).
@@ -119,10 +122,16 @@
 | M7-QF-B Backend/net fixes for M7-Q | backend-dev | ✅ reviewed (159 rules + 239 functions + 104 net tests; 0 pending; filter parity 0 diffs) |
 | M7-QF-U UI fixes for M7-Q (back button with confirm, stale lobby ids, UI-flow test race) | show-ui-dev | ✅ reviewed (show+ui 1,025 green 5/5; UI-flow test 5/5) |
 
+## Rename
+| Task | Agent | Status |
+|---|---|---|
+| RENAME-R Package id, build, deep links, CI artifacts, firebase params, docs | release-eng | 🟡 in progress |
+| RENAME-U Title logo (neon + ember), app icon, all user-visible strings | show-ui-dev | 🟡 in progress |
+
 ## Decisions / notes
 - **Angle readout (owner-confirmed 2026-10-03):** always 0–90° elevation from the ground on the facing side, with a facing chevron. Pressing past 90° keeps turning over to the other side (the readout counts down, facing flips). Facing changes by drag or arrows only; no flip button.
 - **S26 Ultra HUD edge bug — root cause confirmed** from the owner's in-battle diagnostics: the BattleHud root (a Control under a CanvasLayer) was left at a stale rect when the battle laid out before the Android window settled. LayoutGuard corrected it once ("layout corrections: HUD 1") and the HUD is 1950×900 afterwards. Keep LayoutGuard + diagnostics as a permanent safety net.
-- Android package id is `com.wrynn7.craterline` for test builds. **Must be finalized before the first Play upload (it can never change).**
+- **Final title: Charred Horizons** (owner, 2026-10-08). Android package id **`com.wrynn7.charredhorizons`** (final; it can never change after the first Play upload or Firebase setup). Logo: neon + ember glow.
 - Gradle builds since M5: minSdk 26 (Android 8), targetSdk 36. Test APK is arm64-only (79 MB); the Play AAB includes arm64 + armv7.
 - The debug keystore is committed on purpose (public, debug-only), so test builds install over each other.
 
@@ -146,6 +155,6 @@
 ## Open items for the owner
 - Test builds now start in the **free** version. Debug toggle: Settings → tap version 5× → "Debug: full version".
 - Play Billing: follow `docs/PLAY_BILLING_SETUP.md` once the Play developer account exists (product id `full_unlock`).
-- Pick a final title (PLAN.md §2); "Craterline" is the working title.
+- ✅ Final title chosen: Charred Horizons.
 - ✅ Network domains added (GitHub release downloads still blocked by per-repo policy; mirror workaround planned).
 - Create a new Google Play developer account during M2–M3; line up 12+ testers for the 14-day closed test (start ~M5–M6).
